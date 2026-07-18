@@ -22,10 +22,6 @@ jobs:
     container: swift:5.10-jammy
     steps:
       - uses: actions/checkout@v4
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - name: Generate DocC static site
         run: |
           swift package --allow-writing-to-directory ./docs \
