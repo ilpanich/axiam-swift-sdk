@@ -1,0 +1,50 @@
+name: docs
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  docc:
+    name: build & publish DocC HTML
+    runs-on: ubuntu-24.04
+    container: swift:5.10-jammy
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Generate DocC static site
+        run: |
+          swift package --allow-writing-to-directory ./docs \
+            generate-documentation \
+            --target AxiamSDK \
+            --disable-indexing \
+            --transform-for-static-hosting \
+            --hosting-base-path axiam-swift-sdk \
+            --output-path ./docs
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: docc
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

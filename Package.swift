@@ -20,6 +20,9 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.2.0"),
         // Core NIO — used directly by the SDK for ByteBuffer and by the test HTTP server.
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.62.0"),
+        // DocC static-site generation for the GitHub Pages docs workflow.
+        // Build-tool plugin only — not linked into the AxiamSDK product.
+        .package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.3.0"),
     ],
     targets: [
         .target(
