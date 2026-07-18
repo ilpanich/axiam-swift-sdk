@@ -39,6 +39,41 @@ final class RefreshSingleFlightTests: XCTestCase {
         try await client.shutdown()
     }
 
+    /// D-14: a client configured with an org *slug* still sends a valid org_id UUID on refresh,
+    /// recovered from the access-token cookie the login set (the login body carries org_slug but
+    /// never org_id).
+    func testRefreshSendsOrgIDDecodedFromAccessTokenCookie() async throws {
+        // JWT payload is {"tenant_id":"tenant-uuid-abc","org_id":"org-uuid-xyz","exp":...}.
+        let accessJWT = "eyJhbGciOiAiRWREU0EiLCAidHlwIjogIkpXVCJ9."
+            + "eyJ0ZW5hbnRfaWQiOiAidGVuYW50LXV1aWQtYWJjIiwgIm9yZ19pZCI6ICJvcmctdXVpZC14eXoiLCAiZXhwIjogOTk5OTk5OTk5OX0."
+            + "sig"
+        try await withClient(router: { request, state in
+            if request.uri.hasSuffix("/login") {
+                return .json(200, TestKit.loginSuccessBody(), headers: [
+                    ("Set-Cookie", "axiam_access=\(accessJWT); Path=/; HttpOnly"),
+                ])
+            }
+            if request.uri.hasSuffix("/auth/refresh") {
+                state.increment("refresh")
+                return .json(200, ["expires_in": 900])
+            }
+            // authz/check: 401 until the refresh has happened, then allow.
+            if state.count("refresh") == 0 { return .json(401, ["message": "expired"]) }
+            return .json(200, ["allowed": true])
+        }) { client, server in
+            _ = try await client.login(email: "a@b.c", password: "pw")
+            let allowed = try await client.can("read", resource: "r")
+            XCTAssertTrue(allowed)
+
+            let refreshRequests = server.state.requests(pathContaining: "/auth/refresh")
+            XCTAssertEqual(refreshRequests.count, 1)
+            let bodyString = String(data: refreshRequests[0].body, encoding: .utf8) ?? ""
+            XCTAssertTrue(bodyString.contains("\"org_id\":\"org-uuid-xyz\""),
+                          "refresh must send the org_id decoded from the token, got: \(bodyString)")
+            XCTAssertFalse(bodyString.contains("globex"), "refresh must not send the org slug")
+        }
+    }
+
     /// A 401 on the refresh call itself surfaces as AuthError with no retry loop (§9.3).
     func testRefreshFailureSurfacesAuthErrorNoRetry() async throws {
         try await withClient(router: { request, state in

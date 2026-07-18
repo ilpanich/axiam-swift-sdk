@@ -20,6 +20,10 @@ public actor AxiamClient {
     private var sessionUser: AxiamUser?
     private var hasSession = false
     private var refreshTask: Task<Void, Error>?
+    /// Organization UUID resolved from the access-token `org_id` claim after login (D-14).
+    /// The login response body carries `org_slug` but never `org_id`, and the config may hold
+    /// only a slug — so this is the source of the UUID that `RefreshRequest` requires.
+    private var resolvedOrgID: String?
 
     // MARK: - Construction
 
@@ -74,6 +78,7 @@ public actor AxiamClient {
             let user = success.toUser()
             hasSession = true
             sessionUser = user
+            resolveOrgIDFromToken()
             challengeToken = nil
             return .authenticated(user)
         case 202:
@@ -107,6 +112,7 @@ public actor AxiamClient {
         let success = try decode(LoginSuccessResponse.self, response.body)
         hasSession = true
         sessionUser = success.toUser()
+        resolveOrgIDFromToken()
         challengeToken = nil
     }
 
@@ -194,14 +200,30 @@ public actor AxiamClient {
     }
 
     private func doRefresh() async throws {
-        let tenantID = sessionUser?.tenantID ?? config.tenantID ?? config.tenantSlug ?? ""
-        let orgID = config.orgID ?? config.orgSlug ?? ""
+        // RefreshRequest requires UUIDs. Prefer values resolved from the session/token;
+        // fall back only to UUID-form config — never a slug, which the server would reject.
+        let tenantID = sessionUser?.tenantID ?? config.tenantID ?? ""
+        let orgID = resolvedOrgID ?? config.orgID ?? ""
         let body = try encode(RefreshRequest(tenant_id: tenantID, org_id: orgID))
         let response = try await rawSend(method: .post, path: "api/v1/auth/refresh", body: body)
         guard (200..<300).contains(response.status) else {
             if response.status == 401 { hasSession = false } // must re-authenticate (§9.3)
             throw mapError(response)
         }
+    }
+
+    /// Decode the `org_id` claim out of the `axiam_access` cookie the login response set and
+    /// cache it in `resolvedOrgID` (D-14). Best-effort and unverified: the value is used only to
+    /// populate the refresh body, which the server re-derives and re-validates authoritatively,
+    /// so this carries no trust weight (the real credential is the httpOnly cookie the server
+    /// verifies). A malformed token or missing claim leaves `resolvedOrgID` unchanged.
+    private func resolveOrgIDFromToken() {
+        guard let token = cookieJar.value(named: "axiam_access") else { return }
+        let segments = token.split(separator: ".", omittingEmptySubsequences: false)
+        guard segments.count == 3, let payload = Base64URL.decode(String(segments[1])) else { return }
+        guard let object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
+              let orgID = object["org_id"] as? String, !orgID.isEmpty else { return }
+        resolvedOrgID = orgID
     }
 
     // MARK: - Transport plumbing (§3 CSRF, §4 cookies, §5 tenant)
