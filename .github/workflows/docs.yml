@@ -30,6 +30,7 @@ jobs:
             --hosting-base-path axiam-swift-sdk \
             --output-path ./docs
       - name: Publish to gh-pages
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
