@@ -29,6 +29,47 @@ jobs:
             --transform-for-static-hosting \
             --hosting-base-path axiam-swift-sdk \
             --output-path ./docs
+
+      - name: Add theme settings and landing-page redirect
+        shell: bash
+        run: |
+          set -euo pipefail
+          # swift-docc-render fetches "<base>/theme-settings.json" on every page
+          # load. DocC does not emit one unless the catalog supplies it, so on
+          # GitHub Pages that request returns a 404 HTML page instead of JSON,
+          # which surfaces in the console as a broken theme. Publish a minimal
+          # valid file so the request resolves to 200 JSON and the default theme
+          # applies cleanly.
+          cat > ./docs/theme-settings.json <<'EOF'
+          {
+            "features": {
+              "docs": {
+                "quickNavigation": { "enable": true }
+              }
+            }
+          }
+          EOF
+
+          # DocC's root index.html is the render-app shell with no route, so the
+          # bare Pages URL (https://ilpanich.github.io/axiam-swift-sdk/) loads a
+          # blank page. Replace it with a redirect to the module's documentation
+          # root so the site actually opens. Deep links keep their own shells.
+          target="documentation/axiamsdk/"
+          cat > ./docs/index.html <<EOF
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <title>AxiamSDK Documentation</title>
+              <meta http-equiv="refresh" content="0; url=${target}">
+              <link rel="canonical" href="${target}">
+              <script>location.replace("${target}" + location.hash);</script>
+            </head>
+            <body>
+              <p>Redirecting to <a href="${target}">the AxiamSDK documentation</a>&hellip;</p>
+            </body>
+          </html>
+          EOF
       - name: Publish to gh-pages
         shell: bash
         env:
