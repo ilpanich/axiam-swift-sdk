@@ -1,0 +1,44 @@
+name: coverage
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  coverage:
+    name: code coverage → Coveralls
+    runs-on: ubuntu-latest
+    container: swift:5.10-jammy
+    steps:
+      - uses: actions/checkout@v4
+
+      # The swift:jammy image is minimal and ships without curl, which the
+      # Coveralls uploader action needs to fetch its reporter binary.
+      - name: Install curl for the Coveralls uploader
+        run: apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+
+      - name: Test with coverage
+        run: swift test --enable-code-coverage
+
+      - name: Export lcov
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN_PATH="$(swift build --show-bin-path)"
+          PROFDATA="$(find .build -name 'default.profdata' | head -n1)"
+          XCTEST="$(find "$BIN_PATH" -name '*.xctest' -type f | head -n1)"
+          echo "bin=$BIN_PATH profdata=$PROFDATA xctest=$XCTEST"
+          llvm-cov export \
+            -format=lcov \
+            -instr-profile "$PROFDATA" \
+            "$XCTEST" \
+            -ignore-filename-regex='(Tests|\.build)/' \
+            > coverage.lcov
+          echo "lcov lines: $(wc -l < coverage.lcov)"
+
+      - name: Upload to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          file: coverage.lcov
+          format: lcov

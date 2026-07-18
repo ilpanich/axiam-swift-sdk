@@ -60,3 +60,15 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# AXIAM Swift SDK additions
+.build/
+.swiftpm/
+Package.resolved
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+coverage.lcov
+*.profdata
+*.profraw
+.DS_Store
