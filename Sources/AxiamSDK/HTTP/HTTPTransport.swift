@@ -1,6 +1,7 @@
 import Foundation
 import NIOCore
 import NIOHTTP1
+import NIOSSL
 import AsyncHTTPClient
 
 enum HTTPRequestMethod: String, Sendable {
