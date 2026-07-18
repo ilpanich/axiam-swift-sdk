@@ -7,17 +7,15 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: docs-gh-pages
   cancel-in-progress: true
 
 jobs:
   docc:
-    name: build & publish DocC HTML
+    name: build & publish DocC HTML to gh-pages
     runs-on: ubuntu-24.04
     container: swift:5.10-jammy
     steps:
@@ -31,18 +29,17 @@ jobs:
             --transform-for-static-hosting \
             --hosting-base-path axiam-swift-sdk \
             --output-path ./docs
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs
-
-  deploy:
-    needs: docc
-    runs-on: ubuntu-24.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          DIR=docs
+          touch "$DIR/.nojekyll"
+          cd "$DIR"
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "docs: publish from ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
