@@ -5,6 +5,17 @@ All notable changes to the AXIAM Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha10] - 2026-07-18
+
+### Changed
+
+- Resolve org_id from access-token claim for the refresh body (D-14) (#2)
+- Force bash for gh-pages publish step
+- Publish API docs to gh-pages branch
+- Drop configure-pages step, mirror C SDK template
+- Auto-enable GitHub Pages (enablement: true)
+- Add docs publish workflow to GitHub Pages
+
 ## [Unreleased]
 
 ### Added
