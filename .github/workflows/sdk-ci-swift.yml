@@ -1,0 +1,98 @@
+name: sdk-ci-swift
+
+on:
+  pull_request:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-test:
+    name: build & test (Linux, Swift ${{ matrix.swift }})
+    runs-on: ubuntu-latest
+    container: swift:${{ matrix.swift }}-jammy
+    strategy:
+      fail-fast: false
+      matrix:
+        swift: ['5.9', '5.10']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build
+        run: swift build
+
+      - name: Test (with coverage)
+        run: swift test --enable-code-coverage
+
+  tls-bypass-gate:
+    name: TLS-bypass lint gate (§6)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan Sources for TLS-bypass patterns
+        run: |
+          set -euo pipefail
+          # §6: no API surface may weaken TLS verification. Mirror the other SDKs' gates.
+          PATTERN='InsecureSkipVerify|rejectUnauthorized|allowInsecure|allow_insecure|skip_?tls|disableTLS|disable_tls|verifyPeer\(false\)|certificateVerification[[:space:]]*=[[:space:]]*\.none|\.none[[:space:]]*//?[[:space:]]*trustRoots|trustRoots[[:space:]]*=[[:space:]]*\.none|noHostnameVerification|verify=False'
+          if grep -REn "$PATTERN" Sources/; then
+            echo "::error::Forbidden TLS-bypass pattern found in Sources/ (§6 prohibits any verification-weakening surface)."
+            exit 1
+          fi
+          echo "OK: no TLS-bypass patterns in Sources/."
+
+  secret-scan-gate:
+    name: no committed private keys
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure no private keys are committed
+        run: |
+          set -euo pipefail
+          if git grep -nE "BEGIN (RSA |EC |OPENSSL |ENCRYPTED )?PRIVATE KEY" -- . ; then
+            echo "::error::A private key appears to be committed. Test PKI must be generated at runtime."
+            exit 1
+          fi
+          echo "OK: no private keys committed."
+
+  verify-tag-on-main:
+    name: verify tag is on main
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert tagged commit is on main
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=0 || git fetch origin main
+          if git branch -r --contains "${GITHUB_SHA}" | grep -qE 'origin/main$'; then
+            echo "OK: tagged commit is reachable from origin/main."
+          else
+            echo "::error::Release tags must point at a commit on main."
+            exit 1
+          fi
+
+  release:
+    name: release (SwiftPM tag-is-release)
+    runs-on: ubuntu-latest
+    needs: [build-test, tls-bypass-gate, secret-scan-gate, verify-tag-on-main]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - name: SwiftPM release note
+        run: |
+          echo "SwiftPM has no registry publish step — the git tag ${GITHUB_REF_NAME} IS the release."
+          echo "Consumers resolve it via .package(url:from:) automatically."
+      - name: CocoaPods trunk push (optional)
+        env:
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+        run: |
+          if [ -z "${COCOAPODS_TRUNK_TOKEN:-}" ]; then
+            echo "COCOAPODS_TRUNK_TOKEN not set — skipping pod trunk push."
+            exit 0
+          fi
+          echo "Would run: pod trunk push AxiamSDK.podspec --allow-warnings"

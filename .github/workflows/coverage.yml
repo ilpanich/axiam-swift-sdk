@@ -1,0 +1,38 @@
+name: coverage
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  coverage:
+    name: code coverage → Coveralls
+    runs-on: ubuntu-latest
+    container: swift:5.10-jammy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test with coverage
+        run: swift test --enable-code-coverage
+
+      - name: Export lcov
+        run: |
+          set -euo pipefail
+          BIN_PATH="$(swift build --show-bin-path)"
+          PROFDATA="$(find .build -name 'default.profdata' | head -n1)"
+          XCTEST="$(find "$BIN_PATH" -name '*.xctest' -type f | head -n1)"
+          echo "bin=$BIN_PATH profdata=$PROFDATA xctest=$XCTEST"
+          llvm-cov export \
+            -format=lcov \
+            -instr-profile "$PROFDATA" \
+            "$XCTEST" \
+            -ignore-filename-regex='(Tests|\.build)/' \
+            > coverage.lcov
+          echo "lcov lines: $(wc -l < coverage.lcov)"
+
+      - name: Upload to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          file: coverage.lcov
+          format: lcov
