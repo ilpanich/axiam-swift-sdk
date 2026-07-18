@@ -13,6 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The swift:jammy image is minimal and ships without curl, which the
+      # Coveralls uploader action needs to fetch its reporter binary.
+      - name: Install curl for the Coveralls uploader
+        run: apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+
       - name: Test with coverage
         run: swift test --enable-code-coverage
 
