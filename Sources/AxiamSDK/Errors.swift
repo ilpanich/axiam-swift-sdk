@@ -44,7 +44,10 @@ public struct AuthzError: Error, Sendable, CustomStringConvertible {
 
 /// Transport-level failure (§2). Carries the underlying transport error as `cause`
 /// where one exists (connection refused, timeout, TLS handshake failure, DNS).
-public struct NetworkError: Error, Sendable, CustomStringConvertible {
+///
+/// `@unchecked Sendable`: the only non-`Sendable`-typed field is `cause` (`any Error`), which is
+/// set once at construction and never mutated; the struct is otherwise immutable.
+public struct NetworkError: Error, @unchecked Sendable, CustomStringConvertible {
     public let message: String
     /// The underlying OS/transport error, when the failure originated below the HTTP layer.
     public let cause: (any Error)?

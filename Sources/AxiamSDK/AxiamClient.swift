@@ -27,7 +27,7 @@ public actor AxiamClient {
     /// config's TLS settings (§6/§6.1).
     ///
     /// - Throws: from ``AxiamConfig/makeTLSConfiguration()`` when PEM material is invalid.
-    public init(config: AxiamConfig) throws {
+    public convenience init(config: AxiamConfig) throws {
         let tls = try config.makeTLSConfiguration()
         self.init(config: config, transport: AsyncHTTPClientTransport(tls: tls))
     }
