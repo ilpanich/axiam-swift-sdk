@@ -46,5 +46,18 @@ let package = Package(
                 .product(name: "Crypto", package: "swift-crypto"),
             ]
         ),
+        // Runnable, self-contained examples (see Examples/README.md). These are
+        // executable targets, not library products, so downstream consumers that
+        // depend on the `AxiamSDK` product never build them.
+        .executableTarget(
+            name: "LoginMFAExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/LoginMFA"
+        ),
+        .executableTarget(
+            name: "RestAuthzExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/RestAuthz"
+        ),
     ]
 )

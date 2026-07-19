@@ -1,9 +1,12 @@
 # AXIAM Swift SDK
 
+[![CI](https://github.com/ilpanich/axiam-swift-sdk/actions/workflows/sdk-ci-swift.yml/badge.svg?branch=main)](https://github.com/ilpanich/axiam-swift-sdk/actions/workflows/sdk-ci-swift.yml)
+[![Coverage Status](https://coveralls.io/repos/github/ilpanich/axiam-swift-sdk/badge.svg?branch=main)](https://coveralls.io/github/ilpanich/axiam-swift-sdk?branch=main)
 [![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20iOS%20%7C%20Linux-lightgrey.svg)](https://swift.org)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![SPM](https://img.shields.io/badge/SwiftPM-compatible-brightgreen.svg)](https://swift.org/package-manager)
+[![Docs](https://img.shields.io/badge/docs-DocC-blue.svg)](https://ilpanich.github.io/axiam-swift-sdk/)
 
 The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization Management).
 
@@ -56,7 +59,8 @@ import AxiamSDK
 
 let config = try AxiamConfig(
     baseURL: URL(string: "https://id.example.com")!,
-    tenantSlug: "acme"            // §5: a tenant identifier is mandatory (no default tenant)
+    tenantSlug: "acme",           // §5: a tenant identifier is mandatory (no default tenant)
+    orgSlug: "acme"               // §5.1: login/refresh also require organization context
 )
 let client = try AxiamClient(config: config)
 
@@ -95,6 +99,7 @@ design (§6).
 let config = try AxiamConfig(
     baseURL: URL(string: "https://localhost:8443")!,
     tenantSlug: "acme",
+    orgSlug: "acme",                                     // §5.1: org context for login/refresh
     customCA: try Data(contentsOf: caPemURL)
 )
 
@@ -102,6 +107,7 @@ let config = try AxiamConfig(
 let mtls = try AxiamConfig(
     baseURL: URL(string: "https://id.example.com")!,
     tenantSlug: "acme",
+    orgSlug: "acme",                                     // §5.1: org context for login/refresh
     clientCertificate: .pem(
         certificate: try Data(contentsOf: clientCertPemURL),  // PEM cert chain
         privateKey:  try Data(contentsOf: clientKeyPemURL)     // PEM PKCS#8 / PKCS#1 key
