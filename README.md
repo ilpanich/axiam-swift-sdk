@@ -28,7 +28,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §1 methods, §2 errors, §3 CSRF, §4 cookies, §5 tenant | ✅ implemented |
 | §6 TLS + §6.1 mTLS, §7 `Sensitive`, §9 single-flight refresh | ✅ implemented |
 | §10 route-guard, §11 declarative helpers, EdDSA JWKS | ✅ implemented |
-| gRPC transport | ⏭️ deferred follow-up (no §-requirement for Swift) |
+| gRPC transport (incl. `getUserInfo`, CONTRACT §1.1) | ⏭️ deferred follow-up (no §-requirement for Swift; no REST substitution per §1.1) |
 | §8 AMQP HMAC | ⏭️ deferred (contract lists AMQP for Rust/TS/Go/Python/Java/PHP, **not** Swift) |
 
 ## Installation
