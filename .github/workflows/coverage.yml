@@ -37,6 +37,31 @@ jobs:
             > coverage.lcov
           echo "lcov lines: $(wc -l < coverage.lcov)"
 
+      # Regression gate: fail if line coverage drops below the floor. Set below
+      # the current ~95% so it never false-fails; ratchet upward as coverage
+      # rises. Line coverage is computed from the DA records in the lcov report
+      # (a[2] is the hit count for each instrumented line).
+      - name: Enforce coverage floor
+        shell: bash
+        run: |
+          set -euo pipefail
+          total=$(awk -F: '
+            /^DA:/ { split($2, a, ","); t++; if (a[2]+0 > 0) c++ }
+            END { printf "%.2f", (t ? 100*c/t : 0) }
+          ' coverage.lcov)
+          echo "Line coverage: ${total}%"
+          awk -v t="$total" 'BEGIN { exit (t+0 >= 92) ? 0 : 1 }' || {
+            echo "::error::coverage ${total}% is below the 92% floor"; exit 1;
+          }
+
+      # Publish the lcov so per-file coverage is auditable from CI without the
+      # Coveralls UI (which posts no status/PR comment for this repo).
+      - name: Upload lcov artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage.lcov
+
       - name: Upload to Coveralls
         uses: coverallsapp/github-action@v2
         with:
