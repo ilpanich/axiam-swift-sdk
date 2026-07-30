@@ -5,6 +5,33 @@ All notable changes to the AXIAM Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **§9 rule 6c (contract 1.6): the single-flight refresh slot is now vacated identity-checked.**
+  `AxiamClient.refreshOnce()` cleared `refreshTask` unconditionally on both its success and its
+  failure path. The invariant held only by a whole-function argument (ownership is taken and
+  released with no intervening suspension point, so the slot could not change identity underneath
+  an owner) — nothing local prevented a lagging attempt from wiping a *newer* leader's live entry,
+  which is the shape of the bug fixed in the C++ SDK and would open the door to a second wire call
+  against an already-consumed, single-use refresh token. The clear now happens only while the slot
+  still holds the clearing attempt's own `Task`.
+
+### Added
+
+- **§9 rule 6 regression tests** (`Tests/AxiamSDKTests/RefreshRule6Tests.swift`), covering contract
+  1.6's three added test requirements plus Swift-specific cancellation semantics: a caller landing
+  in the publish-before-vacate bookkeeping window joins the settled outcome and adds **no** second
+  wire call (6a/6b, on both the success and the §9.3 failure path); a caller arriving after full
+  settlement performs its **own** wire call and receives *that* call's outcome, not the previous
+  burst's (6d); a lagging attempt does not clear a newer leader's slot (6c); and cancelling the
+  leading caller neither cancels the shared refresh (stranding the callers that joined it) nor
+  leaves the slot permanently occupied. The tests pin the windows open deterministically with a
+  new visible-for-testing `RefreshPhase` hook that is never installed in production.
+- The four rule-6 invariants, and why each holds for the `actor` + shared-`Task` mechanism §9
+  prescribes for Swift, are documented at the guard itself (`AxiamClient.refreshOnce()`).
+
 ## [1.0.0-alpha18] - 2026-07-24
 
 ### Changed

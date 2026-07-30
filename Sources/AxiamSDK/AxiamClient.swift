@@ -9,6 +9,18 @@ import Foundation
 /// Conforms to CONTRACT.md §1–§7, §9–§11 (including §6.1 mTLS). gRPC and §8 AMQP are out of
 /// scope for this Swift v1 (documented as follow-ups in the README).
 public actor AxiamClient {
+
+    /// Points inside the §9 single-flight refresh guard at which ``AxiamClient/_refreshTestHook``
+    /// fires. They exist purely so a test can pin open the narrow windows §9 rule 6 is about
+    /// rather than race for them; no hook is ever installed in production.
+    enum RefreshPhase {
+        /// Owner: the refresh outcome has settled and is observable to every waiter, and the
+        /// in-flight slot has *not* yet been vacated (rule 6a/6b's bookkeeping window).
+        case ownerPublished
+        /// Waiter: it has committed to the task currently in the slot and is about to await it.
+        case waiterJoining
+    }
+
     let config: AxiamConfig
     private let transport: HTTPTransport
     let jwks: JwksVerifier
@@ -19,7 +31,15 @@ public actor AxiamClient {
     private var challengeToken: Sensitive<String>?
     private var sessionUser: AxiamUser?
     private var hasSession = false
+    /// The one in-flight refresh's result-sharing channel (§9 rules 1–2). Populated for the
+    /// duration of the wire call **and** for the brief bookkeeping window after that call's
+    /// outcome has settled and before ``vacate(_:)`` clears it — so a non-`nil` value does *not*
+    /// by itself mean a refresh is on the wire (§9 rule 6b). See ``refreshOnce()``.
     private var refreshTask: Task<Void, Error>?
+    /// Visible-for-testing seam only; **never** assigned in production (nothing in `Sources/`
+    /// writes it). Lets a test deterministically pin open the §9 rule 6 windows described on
+    /// ``refreshOnce()`` instead of racing for them.
+    var _refreshTestHook: (@Sendable (RefreshPhase) async -> Void)?
     /// Organization UUID resolved from the access-token `org_id` claim after login (D-14).
     /// The login response body carries `org_slug` but never `org_id`, and the config may hold
     /// only a slug — so this is the source of the UUID that `RefreshRequest` requires.
@@ -179,10 +199,57 @@ public actor AxiamClient {
 
     // MARK: - §9 single-flight refresh
 
+    /// Single-flight token refresh (CONTRACT.md §9 rules 1–2): exactly one
+    /// `POST /api/v1/auth/refresh` wire call per burst of concurrent callers, with *that* call's
+    /// outcome delivered to every caller in the burst. A failure propagates as-is, once, to each
+    /// of them and is never retried here (§9.3).
+    ///
+    /// ### §9 rule 6 invariants (contract 1.6) and why each holds for this mechanism
+    ///
+    /// The mechanism is the one §9's per-language table prescribes for Swift: this `actor`
+    /// serializes access to `refreshTask`, which holds the one in-flight `Task` whose value every
+    /// contending caller awaits. `refreshTask` is therefore a **result-sharing channel, not a busy
+    /// flag** — the same invariant the Java/Go/C++/Rust guards document.
+    ///
+    /// - **(6a) Publish-before-vacate.** `Task` is value-retaining: the instant the refresh task
+    ///   settles, its outcome is stored irrevocably and *every* caller suspended in
+    ///   `existing.value` is guaranteed to be resumed with it. The slot is vacated only from the
+    ///   owner's continuation, which by construction runs strictly after that settlement. So there
+    ///   is no reachable instant at which a new caller sees an empty slot while a just-settled
+    ///   outcome has not reached the waiters — the state that would let it start a **second** wire
+    ///   call against an already-consumed, single-use refresh token.
+    /// - **(6b) Occupancy is not liveness.** (6a) means the slot legitimately holds an
+    ///   already-settled task for the bookkeeping window between settlement and the owner's
+    ///   resumption on the actor. Callers landing in that window join the settled outcome, keeping
+    ///   the wire count at one. Nothing else in this type reads `refreshTask`, so no unrelated
+    ///   logic can misread occupancy as "a refresh is on the wire" (the Java SDK's bug). Any
+    ///   future code that needs real liveness MUST test for it explicitly — never `refreshTask
+    ///   != nil`, and note that `Task` exposes no "is still running" predicate.
+    /// - **(6c) Only the current owner vacates, identity-checked.** ``vacate(_:)`` clears the slot
+    ///   only while it still holds *this* attempt's task, so an attempt unwinding late can never
+    ///   wipe a newer attempt's entry (the C++ SDK's bug) — which would again open the door to a
+    ///   second concurrent wire call. Waiters never touch the slot at all: they do not own it.
+    /// - **(6d) A caller arriving after full settlement refreshes itself.** Once vacated the slot
+    ///   is `nil`, so the next caller takes ownership and performs its own wire call; a previous
+    ///   burst's outcome is never handed out as if it were current.
+    ///
+    /// Cancellation (verified by `RefreshRule6Tests`): the shared refresh is an **unstructured**
+    /// `Task`, so cancelling a caller neither cancels the refresh (which would strand the other
+    /// waiters mid-burst and abandon a consumed refresh token) nor unblocks that caller early —
+    /// `await task.value` is not a cancellation point. A cancelled caller therefore still runs the
+    /// bookkeeping below, so cancellation can leave the slot neither permanently occupied nor
+    /// cleared-while-live.
+    ///
+    /// The actor's exclusive execution is **not** held across the wire call: owner and waiters all
+    /// suspend, releasing the actor, while the refresh is in flight (§9 rule 4).
     private func refreshOnce() async throws {
         // NOTE: the nil-check + task creation + assignment below run with no `await` between
-        // them, so within the actor they are atomic — exactly one refresh Task is ever created.
+        // them, so within the actor they are atomic — exactly one refresh Task is ever created,
+        // and the sharing channel is published before the wire call can even start (the task body
+        // first runs when this caller suspends below).
         if let existing = refreshTask {
+            // A live *or* just-settled attempt (6b): join its single outcome (§9 rule 2).
+            await fireRefreshTestHook(.waiterJoining)
             try await existing.value
             return
         }
@@ -192,11 +259,28 @@ public actor AxiamClient {
         refreshTask = task
         do {
             try await task.value
-            refreshTask = nil
+            await vacate(task)
         } catch {
-            refreshTask = nil
+            await vacate(task)
             throw error // §9: no retry loop on refresh failure — surface AuthError to the caller.
         }
+    }
+
+    /// Release the single-flight slot — reached on both the success and the failure path, with the
+    /// outcome already published to every waiter (6a), and clearing the slot only while it still
+    /// holds *this* attempt's task (6c).
+    private func vacate(_ task: Task<Void, Error>) async {
+        await fireRefreshTestHook(.ownerPublished)
+        if refreshTask == task {
+            refreshTask = nil
+        }
+    }
+
+    /// Fire the visible-for-testing phase hook. `_refreshTestHook` is always `nil` in production,
+    /// so this introduces no suspension point on any production path.
+    private func fireRefreshTestHook(_ phase: RefreshPhase) async {
+        guard let hook = _refreshTestHook else { return }
+        await hook(phase)
     }
 
     private func doRefresh() async throws {
@@ -311,6 +395,24 @@ extension AxiamClient {
     func _csrfToken() -> String? { csrfToken }
     func _hasSession() -> Bool { hasSession }
     func _hasChallenge() -> Bool { challengeToken != nil }
+
+    /// Install the §9 rule 6 phase hook (see ``AxiamClient/RefreshPhase``).
+    func _setRefreshTestHook(_ hook: (@Sendable (RefreshPhase) async -> Void)?) {
+        _refreshTestHook = hook
+    }
+
+    /// Whether the single-flight slot is populated at all — live **or** settled-but-not-yet-vacated
+    /// (§9 rule 6b: this is occupancy, not liveness). Tests only.
+    func _refreshSlotOccupied() -> Bool { refreshTask != nil }
+
+    /// Force a foreign task into the single-flight slot, standing in for a *newer* leader that was
+    /// elected while a lagging attempt was still unwinding. Used to construct §9 rule 6c's race
+    /// deterministically; the natural race is unreachable through the public API because ownership
+    /// is taken and released without an intervening suspension point. Tests only.
+    func _installForeignRefreshTask(_ task: Task<Void, Error>) { refreshTask = task }
+
+    /// Clear the slot unconditionally, so a rule 6c test can tidy up after itself. Tests only.
+    func _clearRefreshSlot() { refreshTask = nil }
 }
 
 private extension LoginSuccessResponse {
