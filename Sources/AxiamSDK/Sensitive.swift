@@ -25,8 +25,20 @@ public struct Sensitive<T>: CustomStringConvertible, CustomDebugStringConvertibl
 
 extension Sensitive: Sendable where T: Sendable {}
 
-extension Sensitive: Equatable where T: Equatable {
+/// Equality over secret material is **constant-time** (SEC-077).
+///
+/// A plain `==` on the wrapped value short-circuits at the first differing byte, so the time it
+/// takes to reject a candidate is proportional to how long a prefix it got right — the classic
+/// signature/token oracle. The conformance is therefore constrained to
+/// ``ConstantTimeComparable`` rather than `Equatable`: a wrapped type only becomes comparable by
+/// providing bytes that the constant-time accumulator loop can walk to completion.
+///
+/// Deliberately **not** `Hashable`. `Hashable` would invite putting secrets into `Set`/dictionary
+/// keys, where lookup is a hash-bucketed comparison that is not constant time, and would add a
+/// second value derived from the secret with none of the redaction guarantees `Sensitive` exists
+/// to provide. Compare secrets directly; do not index by them.
+extension Sensitive: Equatable where T: ConstantTimeComparable {
     public static func == (lhs: Sensitive<T>, rhs: Sensitive<T>) -> Bool {
-        lhs.value == rhs.value
+        ConstantTime.equals(lhs.value.constantTimeBytes, rhs.value.constantTimeBytes)
     }
 }

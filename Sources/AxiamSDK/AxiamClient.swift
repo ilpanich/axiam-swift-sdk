@@ -188,7 +188,11 @@ public actor AxiamClient {
     /// A framework-agnostic request authenticator (§10) verifying inbound sessions against the
     /// org JWKS and producing an ``AxiamUser``.
     public nonisolated func makeAuthenticator() -> AxiamRequestAuthenticator {
-        AxiamRequestAuthenticator(jwks: jwks, tenantID: config.tenantHeaderValue)
+        AxiamRequestAuthenticator(
+            jwks: jwks,
+            tenantID: config.tenantHeaderValue,
+            tenantSlug: config.tenantSlug
+        )
     }
 
     /// Declarative authorization guard factories (§11): `requireAuth` / `requireAccess` /

@@ -34,7 +34,7 @@ case .mfaSetupRequired:
 
 In scope for v1: §1 methods, §2 error taxonomy, §3 CSRF, §4 cookie jar, §5 tenant context,
 §6/§6.1 TLS + mTLS, §7 `Sensitive`, §9 single-flight refresh, §10 route-guard, §11 declarative
-helpers, and org-wide EdDSA JWKS verification.
+helpers, §13 webhook signature verification, and org-wide EdDSA JWKS verification.
 
 Out of scope for this Swift v1 (documented follow-ups): gRPC transport and §8 AMQP HMAC
 consumption — the contract does not list AMQP for Swift.
@@ -64,6 +64,7 @@ consumption — the contract does not list AMQP for Swift.
 ### Security
 
 - ``Sensitive``
+- ``ConstantTimeComparable``
 
 ### Resource-server integration
 
@@ -71,3 +72,9 @@ consumption — the contract does not list AMQP for Swift.
 - ``AxiamRequestContext``
 - ``AxiamGuards``
 - ``AxiamGuardHandler``
+
+### Webhooks
+
+- ``AxiamWebhooks``
+- ``AxiamWebhookEvent``
+- ``AxiamWebhookError``

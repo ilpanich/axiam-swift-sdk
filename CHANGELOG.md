@@ -5,6 +5,66 @@ All notable changes to the AXIAM Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- **SEC-072 — the §10 route guard now binds every verified session to the configured tenant.**
+  `AxiamRequestAuthenticator` only compared tenants when the request happened to carry an
+  `X-Tenant-ID` header *and* the token carried a `tenant_id` claim *and* the two differed; the
+  configured tenant was used merely as a fallback field value. Since the JWKS is
+  organization-wide, a validly-signed token issued for **another tenant** was accepted whenever
+  the request omitted the header (or presented a self-consistent foreign pair). The new
+  `assertTenant` runs on every verified token, matching `tenant_id` against the configured
+  tenant identifier(s) and failing closed when the claim is absent or empty — mirroring the
+  Kotlin SDK's `assertTenant` and the Python/Go guards. The `X-Tenant-ID` cross-check is kept as
+  defense in depth. **Note:** AXIAM access tokens carry the tenant *UUID*, so a client used as a
+  resource-server guard must be configured with `tenantID`; a slug-only configuration now
+  rejects every token rather than accepting any.
+- **SEC-073 — a plaintext `http://` base URL is rejected at construction (§6).** `AxiamConfig`
+  validated the tenant and org identifiers but never the URL scheme, so a misconfigured base
+  silently sent login credentials, session cookies, the CSRF token and the tenant header in
+  cleartext while TLS "strictness" looked intact. Construction now throws `NetworkError` for any
+  non-`https` base URL, with a loopback exception (`localhost`, `127.0.0.1`, `::1`) for local
+  development and integration tests. This is the `X-2` hardening the Rust SDK already had
+  (`ensure_secure_scheme`); there is no flag that disables it for a routable host.
+- **SEC-077 — `Sensitive` equality is constant-time.** `Equatable` was a plain `==` over the
+  wrapped secret, which short-circuits at the first differing byte. Equality now runs through a
+  new `ConstantTime.equals` accumulator loop over the raw bytes that never returns early and
+  folds the length check into the same accumulator. The conformance is constrained to the new
+  `ConstantTimeComparable` protocol (`String`, `Data`, `[UInt8]`) instead of `Equatable`, so a
+  wrapped type cannot silently fall back to a short-circuiting comparison. `Sensitive` remains
+  deliberately **not** `Hashable` — secrets should not become `Set`/dictionary keys, where
+  lookup is a hash-bucketed comparison that is not constant time.
+
+### Added
+
+- **T-145 / CONTRACT §13 — `AxiamWebhooks.verify(...)`**, the webhook-signature verifier every
+  SDK must ship. Recomputes `HMAC-SHA256(secret, "<t>.<raw_body>")`, parses the
+  `t=`/`v1=` fields of `X-Axiam-Signature` (unknown keys ignored for forward compatibility, a
+  header with **no** `v1` is a failure), compares **constant-time over the decoded bytes**
+  against every supplied candidate, and enforces a **two-sided** freshness window defaulting to
+  300 s so a future-dated timestamp is rejected as well as a stale one. Failures surface as a
+  typed `AxiamWebhookError` that never carries the expected signature or the secret. Overloads
+  take the secret as `Sensitive<String>` (§7) or plain `String`, and either the raw
+  `X-Axiam-Signature` value or a case-insensitive header dictionary; `now:` is the test
+  injection seam. The body is taken as raw `Data` — re-serializing parsed JSON changes key order
+  and whitespace and breaks the MAC, which the API docs and README state explicitly, along with
+  `X-Axiam-Delivery` being the at-least-once dedup key.
+- `ConstantTimeComparable` + the internal `ConstantTime.equals` primitive, shared by `Sensitive`
+  equality and the webhook verifier.
+- Tests: cross-tenant token rejected with and without an `X-Tenant-ID` header, token with no
+  `tenant_id` claim rejected, `assertTenant` unit semantics; `http://` rejected, loopback
+  `http://` accepted, loopback-host predicate; constant-time equality over `String`/`Data`/
+  `[UInt8]` including length mismatches; and the full §13.4 webhook suite (valid+fresh, tampered
+  body, re-serialized body, wrong secret, stale `t`, future `t`, malformed headers, duplicate
+  `t`, non-hex `v1`, multiple candidates, timestamp-header cross-check, no-leak assertion, and
+  the shared cross-SDK vector computed in test setup).
+
+### Changed
+
+- Vendored `CONTRACT.md` re-synced with the new **§13 Webhook Signature Verification**.
+
 ## [1.0.0-alpha23] - 2026-08-02
 
 ### Changed
