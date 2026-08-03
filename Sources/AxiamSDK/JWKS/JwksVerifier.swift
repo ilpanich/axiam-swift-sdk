@@ -159,7 +159,11 @@ actor JwksVerifier {
 
         let keys = try await keysForVerification()
         guard let jwk = selectKey(from: keys, kid: header.kid) else {
-            throw AuthError("No matching EdDSA key in JWKS for kid '\(header.kid ?? "<none>")'.")
+            throw AuthError(
+                header.kid == nil
+                    ? "JWT header carries no 'kid'; a key id is required to select a JWKS key."
+                    : "No matching EdDSA key in JWKS for kid '\(header.kid ?? "")'."
+            )
         }
         guard jwk.kty == "OKP", jwk.crv == "Ed25519", let x = jwk.x, let rawKey = Base64URL.decode(x) else {
             throw AuthError("JWKS key is not a usable Ed25519 (OKP) key.")
@@ -187,13 +191,24 @@ actor JwksVerifier {
         return VerifiedToken(claims: claims)
     }
 
+    /// Resolve the JWKS key a token's header names.
+    ///
+    /// §13.4 observation 7: this used to fall back to "the sole EdDSA key, when
+    /// unambiguous" whenever the header carried no `kid`. Kotlin, PHP and Java
+    /// all reject that outright, and the fallback is fragile in exactly the
+    /// situation key ids exist for — during a rotation the JWKS holds two keys,
+    /// so a token that verified yesterday starts failing for a reason that has
+    /// nothing to do with the token.
+    ///
+    /// The fallback was also reached when a `kid` **was** present but matched
+    /// nothing, which is worse than the case the observation names: a token
+    /// naming a key the server does not have would be verified against whatever
+    /// single key happened to be published. The `kid` is now required, and a
+    /// `kid` that names no published key is a hard failure rather than an
+    /// invitation to guess.
     private func selectKey(from keys: [Jwk], kid: String?) -> Jwk? {
-        if let kid, let match = keys.first(where: { $0.kid == kid }) {
-            return match
-        }
-        // No kid in the token: fall back to the sole EdDSA key when unambiguous.
-        let edKeys = keys.filter { $0.kty == "OKP" && $0.crv == "Ed25519" }
-        return edKeys.count == 1 ? edKeys.first : nil
+        guard let kid else { return nil }
+        return keys.first { $0.kid == kid && $0.kty == "OKP" && $0.crv == "Ed25519" }
     }
 
     private func keysForVerification() async throws -> [Jwk] {
