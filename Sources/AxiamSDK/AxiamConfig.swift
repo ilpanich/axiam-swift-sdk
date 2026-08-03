@@ -33,7 +33,8 @@ public struct AxiamConfig: Sendable {
     /// Designated initializer.
     ///
     /// - Throws: ``AuthError`` if neither `tenantID` nor `tenantSlug` is supplied (§5), or if
-    ///   both `orgID` and `orgSlug` are supplied (they are mutually exclusive).
+    ///   both `orgID` and `orgSlug` are supplied (they are mutually exclusive);
+    ///   ``NetworkError`` if `baseURL` is not `https` and its host is not loopback (§6).
     public init(
         baseURL: URL,
         tenantID: String? = nil,
@@ -53,6 +54,8 @@ public struct AxiamConfig: Sendable {
         if (orgID?.isEmpty == false) && (orgSlug?.isEmpty == false) {
             throw AuthError("AxiamConfig accepts at most one of orgID or orgSlug, not both.")
         }
+        // §6: a plaintext base URL is refused up front (SEC-073).
+        try Self.validateSecureBaseURL(baseURL)
 
         self.baseURL = baseURL
         self.tenantID = tenantID
@@ -62,6 +65,48 @@ public struct AxiamConfig: Sendable {
         self.customCA = customCA
         self.clientCertificate = clientCertificate
         self.requestTimeout = requestTimeout
+    }
+
+    // MARK: - §6 transport-scheme guard
+
+    /// `true` when `host` is a loopback literal — the sole exception to the `https`-only rule.
+    ///
+    /// `URL.host` reports an IPv6 literal without its brackets, but the bracketed form is
+    /// accepted too in case a raw authority string is passed in.
+    static func isLoopbackHost(_ host: String) -> Bool {
+        switch host.lowercased() {
+        case "localhost", "127.0.0.1", "::1", "[::1]":
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Reject a plaintext (non-TLS) base URL at construction time (§6, SEC-073).
+    ///
+    /// Every AXIAM transport must run over TLS: the client forwards the tenant identifier, the
+    /// CSRF token and the session cookies on every request, and `login` carries the user's
+    /// password — none of which may traverse a cleartext link. TLS is already strict *when*
+    /// `https` is used (see ``makeTLSConfiguration()``), so the remaining hole is a misconfigured
+    /// `http://` base that silently downgrades the whole session; it is refused rather than
+    /// accepted.
+    ///
+    /// The single, deliberate exception is a loopback host (`localhost`, `127.0.0.1`, `::1`) so
+    /// local development and integration tests against a non-TLS dev server still work. There is
+    /// no flag that disables the check for a routable host.
+    ///
+    /// - Throws: ``NetworkError`` naming both schemes; the message contains no secret.
+    static func validateSecureBaseURL(_ url: URL) throws {
+        let scheme = url.scheme?.lowercased() ?? ""
+        if scheme == "https" { return }
+        if let host = url.host, isLoopbackHost(host) { return }
+        throw NetworkError(
+            "AxiamConfig baseURL must use the encrypted `https://` scheme "
+                + "(got `\(scheme.isEmpty ? "<none>" : scheme)://`); plaintext transport is refused "
+                + "because it would expose credentials, session cookies, CSRF and tenant headers. "
+                + "The only exception is a loopback host (localhost/127.0.0.1/::1) for local "
+                + "development (§6)."
+        )
     }
 
     /// The value injected as the `X-Tenant-ID` header on every request (§5). Prefers the UUID

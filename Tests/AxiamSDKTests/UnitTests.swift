@@ -77,6 +77,54 @@ final class ConfigTests: XCTestCase {
         let config = try AxiamConfig(baseURL: url, tenantSlug: "acme", customCA: Data("not a pem".utf8))
         XCTAssertThrowsError(try config.makeTLSConfiguration())
     }
+
+    // MARK: - SEC-073 §6 plaintext base URL
+
+    func testPlaintextBaseURLRejected() {
+        let plaintext = URL(string: "http://id.example.com")!
+        XCTAssertThrowsError(try AxiamConfig(baseURL: plaintext, tenantSlug: "acme")) { error in
+            guard let error = error as? NetworkError else {
+                return XCTFail("expected NetworkError, got \(error)")
+            }
+            XCTAssertTrue(error.message.contains("https"), "the error must name the required scheme")
+        }
+    }
+
+    func testNonHTTPSchemesRejected() {
+        for raw in ["ftp://id.example.com", "ws://id.example.com", "http://id.example.com:8080/api"] {
+            let url = URL(string: raw)!
+            XCTAssertThrowsError(
+                try AxiamConfig(baseURL: url, tenantSlug: "acme"),
+                "\(raw) must be rejected"
+            )
+        }
+    }
+
+    func testHTTPSBaseURLAccepted() throws {
+        let config = try AxiamConfig(baseURL: URL(string: "HTTPS://id.example.com")!, tenantSlug: "acme")
+        XCTAssertEqual(config.tenantHeaderValue, "acme")
+    }
+
+    func testPlaintextLoopbackAllowedForDevelopment() throws {
+        for raw in ["http://localhost:8080", "http://LOCALHOST:8080", "http://127.0.0.1:8080", "http://[::1]:8080"] {
+            // A platform URL parser that rejects the literal outright is not what is under test
+            // here; the host predicate itself is covered by `testLoopbackHostPredicate`.
+            guard let url = URL(string: raw), url.host != nil else { continue }
+            XCTAssertNoThrow(
+                try AxiamConfig(baseURL: url, tenantSlug: "acme"),
+                "loopback \(raw) must be allowed over plaintext for local development"
+            )
+        }
+    }
+
+    func testLoopbackHostPredicate() {
+        for host in ["localhost", "LocalHost", "127.0.0.1", "::1", "[::1]"] {
+            XCTAssertTrue(AxiamConfig.isLoopbackHost(host), "\(host) is loopback")
+        }
+        for host in ["id.example.com", "127.0.0.2", "localhost.evil.com", "notlocalhost"] {
+            XCTAssertFalse(AxiamConfig.isLoopbackHost(host), "\(host) is not loopback")
+        }
+    }
 }
 
 // MARK: - §6.1 mTLS TLSConfiguration
@@ -128,6 +176,46 @@ final class SensitiveTests: XCTestCase {
     func testEquatable() {
         XCTAssertEqual(Sensitive("a"), Sensitive("a"))
         XCTAssertNotEqual(Sensitive("a"), Sensitive("b"))
+    }
+
+    // MARK: - SEC-077 constant-time equality
+
+    func testEquatableOverDataAndBytes() {
+        XCTAssertEqual(Sensitive(Data("secret".utf8)), Sensitive(Data("secret".utf8)))
+        XCTAssertNotEqual(Sensitive(Data("secret".utf8)), Sensitive(Data("secreu".utf8)))
+        XCTAssertEqual(Sensitive([UInt8]([1, 2, 3])), Sensitive([UInt8]([1, 2, 3])))
+        XCTAssertNotEqual(Sensitive([UInt8]([1, 2, 3])), Sensitive([UInt8]([1, 2, 4])))
+    }
+
+    /// Length differences must not be answered by a short-circuit: they are folded into the same
+    /// accumulator, so a prefix match of any length still walks the whole input.
+    func testEqualityIsLengthAwareWithoutShortCircuit() {
+        XCTAssertNotEqual(Sensitive("abc"), Sensitive("abcd"))
+        XCTAssertNotEqual(Sensitive("abcd"), Sensitive("abc"))
+        XCTAssertNotEqual(Sensitive(""), Sensitive("a"))
+        XCTAssertEqual(Sensitive(""), Sensitive(""))
+    }
+}
+
+// MARK: - constant-time primitive
+
+final class ConstantTimeTests: XCTestCase {
+    func testEqualsMatchesByteEquality() {
+        XCTAssertTrue(ConstantTime.equals([], []))
+        XCTAssertTrue(ConstantTime.equals([0], [0]))
+        XCTAssertTrue(ConstantTime.equals([1, 2, 3, 4], [1, 2, 3, 4]))
+        XCTAssertFalse(ConstantTime.equals([1, 2, 3, 4], [1, 2, 3, 5]))   // differs at the last byte
+        XCTAssertFalse(ConstantTime.equals([1, 2, 3, 4], [9, 2, 3, 4]))   // differs at the first byte
+        XCTAssertFalse(ConstantTime.equals([], [0]))                      // zero padding is not equality
+        XCTAssertFalse(ConstantTime.equals([0], []))
+        XCTAssertFalse(ConstantTime.equals([1, 2], [1, 2, 0]))            // trailing zeros still differ
+        XCTAssertFalse(ConstantTime.equals([1, 2, 0], [1, 2]))
+    }
+
+    func testConstantTimeBytesEncodings() {
+        XCTAssertEqual("ab".constantTimeBytes, [0x61, 0x62])
+        XCTAssertEqual(Data([0xFF, 0x00]).constantTimeBytes, [0xFF, 0x00])
+        XCTAssertEqual([UInt8]([7]).constantTimeBytes, [7])
     }
 }
 

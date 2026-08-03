@@ -92,7 +92,16 @@ in-memory cookie jar (§4); your code never handles raw token strings.
 ## TLS & mutual TLS
 
 Strict server verification is **always on**. There is no insecure/skip-verify option — by
-design (§6).
+design (§6). A plaintext `http://` base URL is **rejected at construction**, since the client
+puts credentials, session cookies, the CSRF token and the tenant header on every request; the
+only exception is a loopback host (`localhost`, `127.0.0.1`, `::1`) for local development.
+
+```swift
+_ = try AxiamConfig(baseURL: URL(string: "http://id.example.com")!, tenantSlug: "acme")
+// throws NetworkError: baseURL must use the encrypted `https://` scheme …
+
+_ = try AxiamConfig(baseURL: URL(string: "http://localhost:8080")!, tenantSlug: "acme")  // OK (dev)
+```
 
 ```swift
 // Development self-signed server: add a custom CA (PEM) as an extra trust root (§6).
@@ -129,7 +138,11 @@ print(s)                 // [SENSITIVE]
 print("\(s)")            // [SENSITIVE]
 ```
 
-There is no public getter for the wrapped value.
+There is no public getter for the wrapped value. Equality is **constant-time** over the wrapped
+bytes (`Sensitive` is `Equatable` for `String`, `Data`, `[UInt8]`, and anything else you conform
+to `ConstantTimeComparable`), so comparing a secret never leaks how long a prefix matched.
+`Sensitive` is deliberately **not** `Hashable`: secrets should not become dictionary/`Set` keys,
+where lookup is a hash-bucketed comparison that is not constant time.
 
 ## Resource-server integration (§10 / §11)
 
@@ -162,6 +175,54 @@ let user = try await requireEdit(ctx)                   // throws AuthError/Auth
 JWTs are verified against the org-wide JWKS (`GET /oauth2/jwks`, EdDSA/Ed25519 only; other
 algorithms are rejected before key lookup). The JWKS is cached for 300s and fetched
 single-flight. Expiry is enforced by the guard, not the verifier.
+
+Because that JWKS is **organization-wide**, a valid signature alone does not prove the token was
+issued for your tenant. The guard therefore asserts `tenant_id` against the configured tenant on
+every verified session, and fails closed when the claim is missing. Access tokens carry the
+tenant **UUID**, so configure `tenantID` (not only `tenantSlug`) on a client used as a
+resource-server guard:
+
+```swift
+let config = try AxiamConfig(
+    baseURL: URL(string: "https://id.example.com")!,
+    tenantID: "6f1c…-uuid",     // matched against the token's tenant_id claim
+    tenantSlug: "acme"
+)
+```
+
+## Webhook signature verification (§13)
+
+AXIAM signs every webhook delivery with a `t=<unix_seconds>,v1=<hex>` header, where
+`v1 = HMAC-SHA256(secret, "<timestamp>.<raw_body>")`. `AxiamWebhooks.verify(...)` recomputes it,
+compares in constant time over the decoded bytes, and enforces a two-sided freshness window
+(default 300s):
+
+```swift
+// In your webhook receiver — `rawBody` is the UNPARSED request body.
+do {
+    let event = try AxiamWebhooks.verify(
+        secret: Sensitive(webhookSecret),   // the webhook's plaintext secret
+        headers: requestHeaders,            // X-Axiam-Signature/-Timestamp/-Event/-Delivery
+        body: rawBody                       // Data, exactly as received
+    )
+    if await seen.insertIfAbsent(event.deliveryID) {   // dedup is the receiver's job
+        handle(event)
+    }
+} catch let error as AxiamWebhookError {
+    return .init(status: .badRequest)       // fail closed; never "assume valid"
+}
+```
+
+- **The body must be the raw bytes off the wire.** Decoding the JSON and re-serializing it
+  changes key order and whitespace, which changes the MAC input and makes every signature fail.
+  Read the body as `Data` *before* any JSON decoding (Vapor: `request.body.data`, not
+  `request.content.decode(...)`).
+- **`X-Axiam-Delivery` is the at-least-once dedup key.** A retry replays a *valid* signature
+  inside the freshness window, so keep a short-lived seen-set of delivery ids if handling must be
+  effectively-once.
+- Verification is fail-closed and quiet: `AxiamWebhookError` never carries the expected
+  signature or the secret. A header with no `v1` is a failure, never a pass.
+- For tests, inject the clock: `AxiamWebhooks.verify(..., now: Date(timeIntervalSince1970: …))`.
 
 ### Wiring into Vapor
 
