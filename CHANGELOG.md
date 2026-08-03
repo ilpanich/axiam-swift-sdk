@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **SEC-080 — a token with no `exp` claim was previously accepted (SEC-072 residual).**
+  `AxiamRequestAuthenticator.authenticate` enforced expiry as `if let exp = claims.exp, exp <
+  now { throw }`; a token carrying **no** `exp` claim decodes to `nil`, so the `if let` never
+  fired and the token was accepted with no expiry ever applied. A malformed non-numeric `exp`
+  already failed closed (JSON decode error) — only the absent case leaked. The check is now
+  `guard let exp = claims.exp else { throw }` followed by the expiry comparison, mirroring the
+  C/C++ SDKs' fail-closed handling of an absent `exp`. Bounded in practice by the AXIAM server
+  always minting `exp`, but the JWKS trust anchor is organization-wide, so the guard must not
+  rely on that invariant holding for every signer that shares it.
+
 - **SEC-072 — the §10 route guard now binds every verified session to the configured tenant.**
   `AxiamRequestAuthenticator` only compared tenants when the request happened to carry an
   `X-Tenant-ID` header *and* the token carried a `tenant_id` claim *and* the two differed; the
@@ -54,7 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ConstantTimeComparable` + the internal `ConstantTime.equals` primitive, shared by `Sensitive`
   equality and the webhook verifier.
 - Tests: cross-tenant token rejected with and without an `X-Tenant-ID` header, token with no
-  `tenant_id` claim rejected, `assertTenant` unit semantics; `http://` rejected, loopback
+  `tenant_id` claim rejected, `assertTenant` unit semantics; token with no `exp` claim rejected
+  and a malformed non-numeric `exp` pinned as rejected (SEC-080); `http://` rejected, loopback
   `http://` accepted, loopback-host predicate; constant-time equality over `String`/`Data`/
   `[UInt8]` including length mismatches; and the full §13.4 webhook suite (valid+fresh, tampered
   body, re-serialized body, wrong secret, stale `t`, future `t`, malformed headers, duplicate

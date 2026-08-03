@@ -98,6 +98,39 @@ final class GuardTests: XCTestCase {
         }
     }
 
+    /// SEC-080: a token with no `exp` claim at all must fail closed rather than being treated as
+    /// never-expiring. Previously `if let exp = claims.exp, exp < now` never fired for a `nil`
+    /// `exp`, so the token was accepted.
+    func testMissingExpClaimRejected() async throws {
+        var claims = futureClaims()
+        claims.removeValue(forKey: "exp")
+        let jwt = signer.makeJWT(claims: claims)
+        try await withGuardClient(router: makeRouter()) { client, _ in
+            let auth = client.makeAuthenticator()
+            do {
+                _ = try await auth.authenticate(AxiamRequestContext(cookies: ["axiam_access": jwt]))
+                XCTFail("expected rejection of a token with no exp claim")
+            } catch let error as AuthError {
+                XCTAssertTrue(error.message.contains("exp"))
+            }
+        }
+    }
+
+    /// A malformed (non-numeric) `exp` already fails closed via the JSON decode error; pin this
+    /// so a future refactor cannot loosen it back to "absent/invalid exp is accepted".
+    func testMalformedExpClaimRejected() async throws {
+        var claims = futureClaims()
+        claims["exp"] = "not-a-number"
+        let jwt = signer.makeJWT(claims: claims)
+        try await withGuardClient(router: makeRouter()) { client, _ in
+            let auth = client.makeAuthenticator()
+            do {
+                _ = try await auth.authenticate(AxiamRequestContext(cookies: ["axiam_access": jwt]))
+                XCTFail("expected rejection of a token with a malformed exp claim")
+            } catch is AuthError { /* ok */ }
+        }
+    }
+
     func testNonEdDSAAlgorithmRejected() async throws {
         // alg=HS256 must be rejected before key lookup (alg-confusion defence).
         let jwt = signer.makeJWT(claims: futureClaims(), alg: "HS256")
