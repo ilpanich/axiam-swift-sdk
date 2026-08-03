@@ -65,7 +65,13 @@ public struct AxiamRequestAuthenticator: Sendable {
         let claims = verified.claims
 
         // Expiry is enforced here (the JWKS verifier intentionally checks signature only).
-        if let exp = claims.exp, exp < Date().timeIntervalSince1970 {
+        // SEC-080: a token with no `exp` claim must fail closed rather than being treated as
+        // never-expiring. The JWKS trust anchor is organization-wide, so the guard must not rely
+        // on the AXIAM server's invariant that it always mints `exp`.
+        guard let exp = claims.exp else {
+            throw AuthError("AXIAM token has no exp claim; refusing to accept an unbounded session.")
+        }
+        if exp < Date().timeIntervalSince1970 {
             throw AuthError("AXIAM session token is expired.")
         }
 
