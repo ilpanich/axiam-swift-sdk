@@ -85,7 +85,8 @@ final class GuardTests: XCTestCase {
 
     func testExpiredTokenRejected() async throws {
         var claims = futureClaims()
-        claims["exp"] = Date().addingTimeInterval(-60).timeIntervalSince1970
+        // Well outside the §10.1 rule 7 leeway (`AxiamRequestAuthenticator.clockSkewTolerance`).
+        claims["exp"] = Date().addingTimeInterval(-3600).timeIntervalSince1970
         let jwt = signer.makeJWT(claims: claims)
         try await withGuardClient(router: makeRouter()) { client, _ in
             let auth = client.makeAuthenticator()

@@ -172,23 +172,40 @@ let user = try await requireEdit(ctx)                   // throws AuthError/Auth
 - `requireRole(_:)` — local check against the verified token's roles (no server round-trip);
   documented as coarser than, and not a substitute for, `requireAccess`.
 
-JWTs are verified against the org-wide JWKS (`GET /oauth2/jwks`, EdDSA/Ed25519 only; other
-algorithms are rejected before key lookup). The JWKS is cached for 300s and fetched
-single-flight. Expiry is enforced by the guard, not the verifier.
+### What the guard checks (§10.1 minimum local-verification set)
 
-Because that JWKS is **organization-wide**, a valid signature alone does not prove the token was
-issued for your tenant. The guard therefore asserts `tenant_id` against the configured tenant on
-every verified session, and fails closed when the claim is missing. Access tokens carry the
-tenant **UUID**, so configure `tenantID` (not only `tenantSlug`) on a client used as a
-resource-server guard:
+`authenticate(_:)` applies **all seven** rules; a signature check alone is not a guard.
+
+| # | Claim | Rule |
+|---|---|---|
+| 1 | signature | Against the org JWKS (`GET /oauth2/jwks`, cached 300s, fetched single-flight), with `alg` pinned to **EdDSA before key lookup** — `alg: none` and HS-family confusion never reach a key. |
+| 2 | `exp` | **Required.** Absent or non-numeric ⇒ reject. An absent `exp` is a permanent credential, not "no expiry constraint". |
+| 3 | `nbf` | Honoured when present; a future `nbf` rejects. Absent `nbf` is fine. |
+| 4 | `tenant_id` | **Required** and matched against the configured tenant. |
+| 5 | `iss` | Checked only when `AxiamConfig.expectedIssuer` is set. |
+| 6 | `aud` | Checked only when `AxiamConfig.expectedAudience` is set (string and array forms both honoured). |
+| 7 | clock skew | One named 60s constant, `AxiamRequestAuthenticator.clockSkewTolerance`, on rules 2 and 3. Not settable. |
+
+Every rule fails **closed** — a required claim that is absent, unparseable, or of the wrong JSON
+type rejects the token.
+
+Because the JWKS is **organization-wide**, a valid signature alone does not prove the token was
+issued for your tenant. Access tokens carry the tenant **UUID**, so configure `tenantID` (not
+only `tenantSlug`) on a client used as a resource-server guard:
 
 ```swift
 let config = try AxiamConfig(
     baseURL: URL(string: "https://id.example.com")!,
-    tenantID: "6f1c…-uuid",     // matched against the token's tenant_id claim
-    tenantSlug: "acme"
+    tenantID: "6f1c…-uuid",             // matched against the token's tenant_id claim
+    tenantSlug: "acme",
+    expectedIssuer: "https://id.example.com",   // optional; unset ⇒ `iss` not checked
+    expectedAudience: "axiam:user"              // optional; unset ⇒ `aud` not checked
 )
 ```
+
+`JwksVerifier.verifySignatureOnlyUnchecked(token:)` is the raw signature primitive §10.1 permits
+for integrators writing their own policy. As its name says, it checks **no** claims — it is not a
+guard, and the SDK's own guards never stop there.
 
 ## Webhook signature verification (§13)
 

@@ -30,6 +30,20 @@ public struct AxiamConfig: Sendable {
     public let clientCertificate: ClientCertificate?
     public let requestTimeout: TimeInterval
 
+    /// The `iss` the §10 guard requires an inbound access token to carry (CONTRACT.md §10.1
+    /// rule 5).
+    ///
+    /// Optional and `nil` by default: leaving it unset means the issuer is not checked. When set,
+    /// ``AxiamRequestAuthenticator`` rejects a token whose `iss` is absent or different.
+    public let expectedIssuer: String?
+
+    /// An audience the §10 guard requires an inbound access token's `aud` to contain
+    /// (CONTRACT.md §10.1 rule 6).
+    ///
+    /// Optional and `nil` by default: leaving it unset means the audience is not checked. A
+    /// resource server guarding a user-facing API SHOULD set `axiam:user`.
+    public let expectedAudience: String?
+
     /// Designated initializer.
     ///
     /// - Throws: ``AuthError`` if neither `tenantID` nor `tenantSlug` is supplied (§5), or if
@@ -43,7 +57,9 @@ public struct AxiamConfig: Sendable {
         orgSlug: String? = nil,
         customCA: Data? = nil,
         clientCertificate: ClientCertificate? = nil,
-        requestTimeout: TimeInterval = 30
+        requestTimeout: TimeInterval = 30,
+        expectedIssuer: String? = nil,
+        expectedAudience: String? = nil
     ) throws {
         // §5: a tenant identifier is non-optional and cannot be deferred.
         let hasTenant = (tenantID?.isEmpty == false) || (tenantSlug?.isEmpty == false)
@@ -65,6 +81,8 @@ public struct AxiamConfig: Sendable {
         self.customCA = customCA
         self.clientCertificate = clientCertificate
         self.requestTimeout = requestTimeout
+        self.expectedIssuer = expectedIssuer
+        self.expectedAudience = expectedAudience
     }
 
     // MARK: - §6 transport-scheme guard
