@@ -333,4 +333,43 @@ final class LocalVerificationSetTests: XCTestCase {
         XCTAssertNil(try decoder.decode(Wrapper.self, from: Data(#"{}"#.utf8)).aud)
         XCTAssertThrowsError(try decoder.decode(Wrapper.self, from: Data(#"{"aud":7}"#.utf8)))
     }
+
+    // MARK: - §13.4 observation 7: key selection must be by `kid`, never by guess
+
+    /// A token with no `kid` used to be verified against "the sole EdDSA key,
+    /// when unambiguous". Kotlin, PHP and Java all reject that, and the fallback
+    /// is fragile in exactly the situation key ids exist for: during a rotation
+    /// the JWKS holds two keys, so a token that verified yesterday starts
+    /// failing for a reason unrelated to the token.
+    func testTokenWithNoKidIsRejected() async throws {
+        try await expectRejection(
+            signer.makeJWT(claims: validClaims(), includeKid: false),
+            messageContains: "kid"
+        )
+    }
+
+    /// Stricter than the observation asked for, and the case that mattered more:
+    /// the old fallback was also reached when a `kid` WAS present but matched
+    /// nothing, so a token naming a key the server does not publish was verified
+    /// against whichever single key happened to be there.
+    ///
+    /// The token is signed with this signer's REAL key but names a `kid` the
+    /// JWKS does not carry. That separation is what makes the test meaningful:
+    /// a stranger-signed token would be refused by the signature check anyway,
+    /// so it could not distinguish "selected no key" from "selected a key and
+    /// the signature failed". Here the old fallback selects the sole published
+    /// key, the signature genuinely verifies, and the token is **accepted** —
+    /// confirmed by falsification.
+    func testTokenNamingAnUnknownKidIsRejectedRatherThanGuessed() async throws {
+        try await expectRejection(
+            signer.makeJWT(claims: validClaims(), kidOverride: "a-key-id-the-jwks-does-not-have"),
+            messageContains: "kid"
+        )
+    }
+
+    /// The rejections above must come from key *selection*, not from anything
+    /// incidental: a correctly-`kid`-ed token from the same signer still passes.
+    func testAMatchingKidStillVerifies() async throws {
+        try await expectAcceptance(signer.makeJWT(claims: validClaims()))
+    }
 }

@@ -38,10 +38,17 @@ struct TestSigner {
         ]
     }
 
-    /// Encode + sign a compact JWT. `alg` overridable to test algorithm rejection.
-    func makeJWT(claims: [String: Any], alg: String = "EdDSA", includeKid: Bool = true) -> String {
+    /// Encode + sign a compact JWT. `alg` overridable to test algorithm rejection;
+    /// `kidOverride` names a DIFFERENT key id while still signing with this signer's
+    /// real key, so a key-selection failure can be told apart from a signature failure.
+    func makeJWT(
+        claims: [String: Any],
+        alg: String = "EdDSA",
+        includeKid: Bool = true,
+        kidOverride: String? = nil
+    ) -> String {
         var header: [String: Any] = ["alg": alg, "typ": "JWT"]
-        if includeKid { header["kid"] = kid }
+        if includeKid { header["kid"] = kidOverride ?? kid }
         let headerData = try! JSONSerialization.data(withJSONObject: header)
         let claimsData = try! JSONSerialization.data(withJSONObject: claims)
         let signingInput = TestBase64URL.encode(headerData) + "." + TestBase64URL.encode(claimsData)

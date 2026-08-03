@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **JWKS key selection is now by `kid` only (§13.4 observation 7).** `selectKey`
+  fell back to "the sole EdDSA key, when unambiguous" whenever a token's header
+  carried no `kid`. Kotlin, PHP and Java all reject that outright, and the
+  fallback is fragile in exactly the situation key ids exist for: during a key
+  rotation the JWKS holds two keys, so a token that verified yesterday starts
+  failing for a reason that has nothing to do with the token.
+
+  The same fallback was also reached when a `kid` **was** present but matched
+  nothing — a stricter problem than the observation named. A token naming a key
+  the server does not publish was verified against whichever single key happened
+  to be there, and if it was signed by that key it was **accepted**. Confirmed by
+  falsification: against the previous code, both new tests report acceptance, not
+  a late signature failure.
+
+  A `kid` is now required, and one that names no published EdDSA key is a hard
+  failure. Tokens minted by the AXIAM server always carry a `kid`, so this is not
+  expected to affect any working deployment.
+
 ### Changed — BREAKING
 
 - **The §10 route guard now applies the full CONTRACT.md §10.1 "minimum local-verification set",
