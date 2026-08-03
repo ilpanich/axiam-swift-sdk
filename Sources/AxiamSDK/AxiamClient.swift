@@ -191,7 +191,9 @@ public actor AxiamClient {
         AxiamRequestAuthenticator(
             jwks: jwks,
             tenantID: config.tenantHeaderValue,
-            tenantSlug: config.tenantSlug
+            tenantSlug: config.tenantSlug,
+            expectedIssuer: config.expectedIssuer,
+            expectedAudience: config.expectedAudience
         )
     }
 

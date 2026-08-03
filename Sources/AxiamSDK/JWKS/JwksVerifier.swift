@@ -21,7 +21,39 @@ struct JwtHeader: Decodable, Sendable {
     let kid: String?
 }
 
-/// The subset of JWT claims the guard consumes. `exp` is read by the caller/guard, never here.
+/// A JWT `aud` claim, which RFC 7519 allows to be either a single string or an array of them.
+///
+/// Decoding is strict: anything that is neither shape fails the whole claim decode, so a
+/// wrong-typed `aud` fails closed rather than silently reading as "no audience" (§10.1).
+enum JwtAudience: Decodable, Sendable, Equatable {
+    case single(String)
+    case multiple([String])
+
+    /// The audience values, normalised to a list.
+    var values: [String] {
+        switch self {
+        case let .single(value): return [value]
+        case let .multiple(values): return values
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let one = try? container.decode(String.self) {
+            self = .single(one)
+            return
+        }
+        self = .multiple(try container.decode([String].self))
+    }
+}
+
+/// The subset of JWT claims the guard consumes.
+///
+/// Every claim the §10.1 minimum local-verification set names is modelled here — an SDK cannot
+/// check what it never decodes, which is how `nbf`/`iss`/`aud` went unenforced. The *checking*
+/// lives in ``AxiamRequestAuthenticator``; this type only decodes, and decodes strictly: a claim
+/// of the wrong JSON type (`"exp": "soon"`, `"aud": 7`) throws out of the decode rather than
+/// arriving as `nil`.
 struct JwtClaims: Decodable, Sendable {
     let sub: String?
     let tenant_id: String?
@@ -29,6 +61,9 @@ struct JwtClaims: Decodable, Sendable {
     let preferred_username: String?
     let email: String?
     let exp: Double?
+    let nbf: Double?
+    let iss: String?
+    let aud: JwtAudience?
 }
 
 /// The verified result of parsing a token: its claims (signature already checked).
@@ -40,8 +75,10 @@ struct VerifiedToken: Sendable {
 /// verifies EdDSA/Ed25519 JWT signatures with swift-crypto (§ JWKS in the SDK brief).
 ///
 /// - Only `alg == "EdDSA"` tokens are accepted; any other algorithm is rejected *before* key
-///   lookup (defends against alg-confusion).
-/// - The verifier checks the **signature only**; expiry (`exp`) is the caller/guard's job.
+///   lookup (defends against alg-confusion). `alg: none` and HS-family confusion therefore never
+///   reach the JWKS (CONTRACT.md §10.1 rule 1).
+/// - The verifier checks the **signature only**. Every claim check — `exp`, `nbf`, `tenant_id`,
+///   `iss`, `aud` — belongs to ``AxiamRequestAuthenticator``, which is the guard entry point.
 /// - The network fetch is single-flighted so a burst of first-time verifications triggers one
 ///   HTTP request.
 actor JwksVerifier {
@@ -74,19 +111,26 @@ actor JwksVerifier {
 
     func currentFetchCount() -> Int { fetchCount }
 
-    /// Verify a compact JWS/JWT signature against the (cached) JWKS. Returns the decoded claims.
+    /// **Signature-only primitive — not a guard** (CONTRACT.md §10.1).
     ///
-    /// - Throws: ``AuthError`` for any structural, algorithm, key-lookup, or signature failure.
-    func verify(token: String) async throws -> VerifiedToken {
+    /// Verifies a compact JWS/JWT signature against the (cached) JWKS with `alg` pinned to EdDSA
+    /// *before* key lookup, and returns the decoded claims **without checking any of them**: not
+    /// `exp`, not `nbf`, not `tenant_id`, not `iss`, not `aud`. The JWKS trust anchor is
+    /// organization-wide, so a valid signature is entirely compatible with a permanent,
+    /// cross-tenant, foreign-audience token.
+    ///
+    /// ``AxiamRequestAuthenticator/authenticate(_:)`` is the guard; it routes through this and
+    /// then applies the full §10.1 set. This entry point exists only for integrators deliberately
+    /// implementing their own policy — hence the name.
+    ///
+    /// - Throws: ``AuthError`` for any structural, algorithm, key-lookup, or signature failure,
+    ///   and for claims that are not decodable (e.g. a non-numeric `exp`).
+    func verifySignatureOnlyUnchecked(token: String) async throws -> VerifiedToken {
         let segments = token.split(separator: ".", omittingEmptySubsequences: false)
         guard segments.count == 3 else {
             throw AuthError("Malformed JWT: expected 3 segments.")
         }
-        guard
-            let headerData = Base64URL.decode(String(segments[0])),
-            let payloadData = Base64URL.decode(String(segments[1])),
-            let signature = Base64URL.decode(String(segments[2]))
-        else {
+        guard let headerData = Base64URL.decode(String(segments[0])) else {
             throw AuthError("Malformed JWT: invalid base64url encoding.")
         }
 
@@ -97,9 +141,20 @@ actor JwksVerifier {
             throw AuthError("Malformed JWT header.")
         }
 
-        // Reject any non-EdDSA algorithm BEFORE looking up a key (alg-confusion defence).
+        // §10.1 rule 1: reject any non-EdDSA algorithm BEFORE looking up a key (alg-confusion
+        // defence). This runs before the payload/signature are even decoded, so `alg: none` — a
+        // token whose signature segment is empty by construction — is refused on its algorithm,
+        // not incidentally on its encoding.
         guard header.alg == "EdDSA" else {
             throw AuthError("Unsupported JWT algorithm '\(header.alg)': only EdDSA is accepted.")
+        }
+
+        guard
+            let payloadData = Base64URL.decode(String(segments[1])),
+            let signature = Base64URL.decode(String(segments[2])),
+            !signature.isEmpty
+        else {
+            throw AuthError("Malformed JWT: invalid base64url encoding.")
         }
 
         let keys = try await keysForVerification()

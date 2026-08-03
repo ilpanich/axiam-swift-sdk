@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — BREAKING
+
+- **The §10 route guard now applies the full CONTRACT.md §10.1 "minimum local-verification set",
+  which tightens what it accepts.** Two rules change acceptance for tokens that used to pass:
+
+  1. **`nbf` is now honoured.** `JwtClaims` did not model `nbf` at all, so a token whose
+     not-before instant was in the future was accepted. It is now rejected.
+  2. **An absent `exp` is now rejected** (landed as SEC-080, restated here because §10.1 requires
+     the tightening be called out). A token with no `exp` is a permanent credential, not a token
+     without an expiry constraint.
+
+  **A token minted by the AXIAM server is unaffected** — it always carries `exp` and never a
+  future `nbf`. The break is real for a guard fed tokens from *another* signer that shares the
+  organization JWKS: such a guard may start rejecting tokens it used to accept. That is the
+  intent of the change.
+
+  Two further API changes accompany it:
+
+  - `JwksVerifier.verify(token:)` is renamed **`verifySignatureOnlyUnchecked(token:)`**. It is
+    the raw signature primitive §10.1 permits, and its name now says at the call site that it
+    checks no claims. `AxiamRequestAuthenticator.authenticate(_:)` remains the guard entry point
+    and routes through it. (Internal to the module; no public API is removed.)
+  - `AxiamConfig.init` gains two optional trailing parameters, `expectedIssuer` and
+    `expectedAudience`, both defaulting to `nil`. Callers using the memberwise initializer with
+    argument labels are unaffected.
+
+### Added
+
+- **`iss` and `aud` verification, conditional on configuration (§10.1 rules 5 and 6).**
+  `AxiamConfig.expectedIssuer` and `AxiamConfig.expectedAudience` are optional and unset by
+  default: unset means the claim is not checked, exactly as §10.1 specifies. When one is set,
+  `AxiamRequestAuthenticator` rejects a token whose claim is absent or does not match — an
+  absent claim is never treated as "nothing to check". `aud` is decoded in both the RFC 7519
+  single-string and array forms (`JwtAudience`); a wrong-typed `aud` fails the claim decode
+  rather than reading as "no audience". A resource server guarding a user-facing API SHOULD set
+  `expectedAudience = "axiam:user"`.
+- **`AxiamRequestAuthenticator.clockSkewTolerance` (§10.1 rule 7)** — the single named, bounded
+  60 s leeway applied to the `exp` and `nbf` comparisons. It is a constant, not an inline
+  literal, and deliberately has no setter: the contract forbids an operator raising it to an
+  unbounded value.
+- `JwtClaims` now models `nbf`, `iss` and `aud`. The SDK could not check what it never decoded —
+  that omission is what let rules 3, 5 and 6 go unenforced.
+- The full §10.1 negative-test set (`LocalVerificationSetTests`): expired; no `exp`; non-numeric
+  `exp`; future `nbf`; different tenant; no `tenant_id`; `alg: none`; an HS-signed token bearing
+  an EdDSA key id; and issuer/audience mismatch and absent-claim cases. The `alg: none` and
+  HS-confusion cases additionally assert that the JWKS endpoint was never contacted, pinning
+  "rejected without consulting a key".
+- Vendored `CONTRACT.md` re-synced to add §10.1.
+
 ### Security
 
 - **SEC-080 — a token with no `exp` claim was previously accepted (SEC-072 residual).**

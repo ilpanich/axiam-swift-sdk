@@ -48,6 +48,26 @@ struct TestSigner {
         let signature = try! privateKey.signature(for: Data(signingInput.utf8))
         return signingInput + "." + TestBase64URL.encode(signature)
     }
+
+    /// An `alg: none` token with an empty signature segment — the classic unsigned-JWT forgery.
+    func makeAlgNoneJWT(claims: [String: Any]) -> String {
+        let header: [String: Any] = ["alg": "none", "typ": "JWT", "kid": kid]
+        let headerData = try! JSONSerialization.data(withJSONObject: header)
+        let claimsData = try! JSONSerialization.data(withJSONObject: claims)
+        return TestBase64URL.encode(headerData) + "." + TestBase64URL.encode(claimsData) + "."
+    }
+
+    /// An HS256 token that *claims this signer's EdDSA `kid`* — the algorithm-confusion attack:
+    /// if a verifier resolved the key before pinning `alg`, it would hand an Ed25519 public key
+    /// to an HMAC verifier as the shared secret.
+    func makeHS256JWTWithEdDSAKid(claims: [String: Any], secret: Data = Data(repeating: 7, count: 32)) -> String {
+        let header: [String: Any] = ["alg": "HS256", "typ": "JWT", "kid": kid]
+        let headerData = try! JSONSerialization.data(withJSONObject: header)
+        let claimsData = try! JSONSerialization.data(withJSONObject: claims)
+        let signingInput = TestBase64URL.encode(headerData) + "." + TestBase64URL.encode(claimsData)
+        let mac = HMAC<SHA256>.authenticationCode(for: Data(signingInput.utf8), using: SymmetricKey(data: secret))
+        return signingInput + "." + TestBase64URL.encode(Data(mac))
+    }
 }
 
 /// Generates a throwaway self-signed certificate + private key (PEM) via the `openssl` CLI at

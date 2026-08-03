@@ -4,13 +4,22 @@ import Foundation
 
 /// Shared helpers for building a client wired to a `TestHTTPServer`.
 enum TestKit {
-    static func makeConfig(port: Int, tenantSlug: String? = "acme", tenantID: String? = nil, orgSlug: String? = "globex") throws -> AxiamConfig {
+    static func makeConfig(
+        port: Int,
+        tenantSlug: String? = "acme",
+        tenantID: String? = nil,
+        orgSlug: String? = "globex",
+        expectedIssuer: String? = nil,
+        expectedAudience: String? = nil
+    ) throws -> AxiamConfig {
         try AxiamConfig(
             baseURL: URL(string: "http://127.0.0.1:\(port)")!,
             tenantID: tenantID,
             tenantSlug: tenantSlug,
             orgSlug: orgSlug,
-            requestTimeout: 10
+            requestTimeout: 10,
+            expectedIssuer: expectedIssuer,
+            expectedAudience: expectedAudience
         )
     }
 
