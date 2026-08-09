@@ -10,7 +10,8 @@
 
 The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization Management).
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§11 (including §6.1 mTLS).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§11 and §13 (including §6.1 mTLS, and the
+> §11 rule 9 decision reason codes).**
 
 It is a REST client built on [`async-http-client`](https://github.com/swift-server/async-http-client)
 + [`swift-nio-ssl`](https://github.com/apple/swift-nio-ssl) (so custom-CA and client-certificate
@@ -30,6 +31,9 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §10 route-guard, §11 declarative helpers, EdDSA JWKS | ✅ implemented |
 | gRPC transport (incl. `getUserInfo`, CONTRACT §1.1) | ⏭️ deferred follow-up (no §-requirement for Swift; no REST substitution per §1.1) |
 | §8 AMQP HMAC | ⏭️ deferred (contract lists AMQP for Rust/TS/Go/Python/Java/PHP, **not** Swift) |
+| §11 rule 9 decision reason codes | ✅ implemented |
+| §12 OIDC/SSO relying-party helpers | ⏭️ not implemented |
+| §12.7 logout, §14 device grant, §15 token exchange | ⏭️ blocked on §12 — each builds on its discovery cache, token endpoint and ID-token validation, so implementing them here would mean shipping a second, parallel OIDC stack rather than re-syncing one |
 
 ## Installation
 
@@ -206,6 +210,26 @@ let config = try AxiamConfig(
 `JwksVerifier.verifySignatureOnlyUnchecked(token:)` is the raw signature primitive §10.1 permits
 for integrators writing their own policy. As its name says, it checks **no** claims — it is not a
 guard, and the SDK's own guards never stop there.
+
+## Decision reason codes (CONTRACT.md §11 rule 9)
+
+`AccessResult.reasonCode` distinguishes `no_grant` ("ask an admin for access") from
+`denied_by_rule` ("an admin has already decided") — opposite instructions to the person on
+the other end, which is why the contract forbids collapsing them into a bare `false`.
+
+```swift
+let decision = try await client.checkAccess("orders:read", resource: orderID)
+switch decision.reasonCode {
+case ReasonCode.noGrant:      showRequestAccessButton()
+case ReasonCode.deniedByRule: showBlockedByPolicyMessage()
+default:                      break
+}
+```
+
+`ReasonCode` is a caseless enum of constants rather than a `String`-backed enum with cases,
+so an unrecognised code is surfaced verbatim and never changes `allowed`; `nil` means the
+server did not send one. `can()` still answers `false` for either refusal — the clause is
+about *reporting*, not enforcement.
 
 ## Webhook signature verification (§13)
 

@@ -172,7 +172,7 @@ public actor AxiamClient {
         let body = try encode(BatchCheckAccessBody(checks: bodies))
         let response = try await authorizedPOST(path: "api/v1/authz/check/batch", body: body)
         let decoded = try decode(BatchCheckAccessResponse.self, response.body)
-        return decoded.results.map { AccessResult(allowed: $0.allowed, reason: $0.reason) }
+        return decoded.results.map { AccessResult(allowed: $0.allowed, reason: $0.reason, reasonCode: $0.reason_code) }
     }
 
     /// Subject-aware access check used by the §11 guards (`subject_id` = authenticated end user).
@@ -180,7 +180,10 @@ public actor AxiamClient {
         let body = try encode(CheckAccessBody(action: action, resource_id: resource, scope: scope, subject_id: subjectID))
         let response = try await authorizedPOST(path: "api/v1/authz/check", body: body)
         let decoded = try decode(CheckAccessResponse.self, response.body)
-        return AccessResult(allowed: decoded.allowed, reason: decoded.reason)
+        // §11 rule 9: the reason code is surfaced verbatim, including a value this SDK has
+        // never heard of — the outcome is carried by `allowed` alone, so an unknown code
+        // can never change it.
+        return AccessResult(allowed: decoded.allowed, reason: decoded.reason, reasonCode: decoded.reason_code)
     }
 
     // MARK: - §10/§11 integration factories
