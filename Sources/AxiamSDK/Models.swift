@@ -44,13 +44,51 @@ public enum LoginResult: Sendable, Equatable {
 
 /// Outcome of a single authorization check (§1: `checkAccess`, `batchCheck`).
 public struct AccessResult: Sendable, Equatable {
+    /// Whether the checked action is permitted.
+    ///
+    /// **This property alone carries the outcome.** ``reasonCode`` explains it and never
+    /// contradicts it.
     public let allowed: Bool
+
+    /// The server's human-readable explanation, when it sent one.
     public let reason: String?
 
-    public init(allowed: Bool, reason: String? = nil) {
+    /// Machine-readable decision reason (CONTRACT.md §11 rule 9, B1 deny-override):
+    /// ``ReasonCode/allowed``, ``ReasonCode/noGrant`` or ``ReasonCode/deniedByRule``.
+    ///
+    /// **The two refusals mean opposite things to the person on the other end.**
+    /// `no_grant` says *ask an admin for access*; `denied_by_rule` says *an admin has
+    /// already decided*. An application that cannot tell them apart sends users to raise
+    /// tickets that will be refused — which is why the contract forbids collapsing them
+    /// into a bare `false`.
+    ///
+    /// `nil` when the server omits the field: a newer SDK against an older server treats
+    /// it as absent, never as an error. An unrecognised value is surfaced verbatim and
+    /// never changes ``allowed`` — which is why this is a `String` rather than an enum, so
+    /// a code this SDK has never heard of still reaches the caller intact.
+    public let reasonCode: String?
+
+    public init(allowed: Bool, reason: String? = nil, reasonCode: String? = nil) {
         self.allowed = allowed
         self.reason = reason
+        self.reasonCode = reasonCode
     }
+}
+
+/// The three `reason_code` values CONTRACT.md §11 rule 9 defines.
+///
+/// A caseless enum of constants rather than a `String`-backed `enum` with cases, so an
+/// unrecognised server value is still a valid ``AccessResult/reasonCode`` and reaches the
+/// caller — a backed enum's failable init would force the SDK to drop what it cannot name.
+public enum ReasonCode {
+    /// An allow grant matched and no deny did.
+    public static let allowed = "allowed"
+
+    /// Nothing matched — default deny. *Ask an admin for access.*
+    public static let noGrant = "no_grant"
+
+    /// An explicit deny rule matched and overrode any allow. *An admin has already decided.*
+    public static let deniedByRule = "denied_by_rule"
 }
 
 /// A single entry in a `batchCheck` request (§1).
@@ -125,6 +163,9 @@ struct CheckAccessBody: Encodable {
 struct CheckAccessResponse: Decodable {
     let allowed: Bool
     let reason: String?
+    /// B1 deny-override decision reason (CONTRACT.md §11 rule 9). Optional so an older
+    /// server that omits it still decodes.
+    let reason_code: String?
 }
 
 struct BatchCheckAccessBody: Encodable {
