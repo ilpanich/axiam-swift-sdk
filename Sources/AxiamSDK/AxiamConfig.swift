@@ -44,6 +44,36 @@ public struct AxiamConfig: Sendable {
     /// resource server guarding a user-facing API SHOULD set `axiam:user`.
     public let expectedAudience: String?
 
+    /// Whether the §16 bounded read-only retry policy is active. **`true` by default.**
+    ///
+    /// There is deliberately no property for the attempt cap, the base delay or the delay cap:
+    /// §16.1 permits *lowering* the budget or disabling it, never raising it, and a caller who can
+    /// raise them turns one client into the herd a backoff exists to prevent. Set `false` for
+    /// exactly one attempt — the right choice for a caller who owns their own retry layer and
+    /// knows their own deadline.
+    public let retryEnabled: Bool
+
+    /// The §17 decision-memo TTL. **`nil` by default, which means disabled** — not "cache for zero
+    /// seconds".
+    ///
+    /// A value above 5 s is **clamped** to 5 s rather than rejected (§17.1 rule 2), and the clamp
+    /// is announced through the §19 ``TelemetryEvent/configClamped(setting:requested:effective:contractReference:)``
+    /// event rather than applied in silence.
+    ///
+    /// > Important: **Read-your-own-writes is not guaranteed.** The staleness bound is the TTL in
+    /// > both directions: a grant revoked on the server can still read as allowed for up to the
+    /// > TTL, and a grant just *added* can still read as denied for up to the TTL. An admin UI that
+    /// > grants a role and immediately re-checks is the case that breaks, and it breaks silently.
+    /// > Switch this on having read that, not because it looks like an easy win.
+    public let decisionMemoTtl: TimeInterval?
+
+    /// An optional §19 telemetry sink.
+    ///
+    /// Invoked on the calling task from inside the client actor, so it must not block: §19.2 rule
+    /// 4 makes buffering the caller's job so they can pick the policy. With none installed the
+    /// cost is one optional check per request.
+    public let telemetryHook: TelemetryHook?
+
     /// Designated initializer.
     ///
     /// - Throws: ``AuthError`` if neither `tenantID` nor `tenantSlug` is supplied (§5), or if
@@ -59,7 +89,10 @@ public struct AxiamConfig: Sendable {
         clientCertificate: ClientCertificate? = nil,
         requestTimeout: TimeInterval = 30,
         expectedIssuer: String? = nil,
-        expectedAudience: String? = nil
+        expectedAudience: String? = nil,
+        retryEnabled: Bool = true,
+        decisionMemoTtl: TimeInterval? = nil,
+        telemetryHook: TelemetryHook? = nil
     ) throws {
         // §5: a tenant identifier is non-optional and cannot be deferred.
         let hasTenant = (tenantID?.isEmpty == false) || (tenantSlug?.isEmpty == false)
@@ -83,6 +116,12 @@ public struct AxiamConfig: Sendable {
         self.requestTimeout = requestTimeout
         self.expectedIssuer = expectedIssuer
         self.expectedAudience = expectedAudience
+        self.retryEnabled = retryEnabled
+        // Stored UNCLAMPED. The clamp happens when the memo is built, so the §19 `configClamped`
+        // event can report what the caller actually asked for rather than the value it was
+        // quietly turned into.
+        self.decisionMemoTtl = decisionMemoTtl
+        self.telemetryHook = telemetryHook
     }
 
     // MARK: - §6 transport-scheme guard

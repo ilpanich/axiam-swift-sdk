@@ -10,8 +10,8 @@
 
 The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization Management).
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§11 and §13 (including §6.1 mTLS, and the
-> §11 rule 9 decision reason codes).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§11, §13 and §16–§19 (including §6.1 mTLS, and
+> the §11 rule 9 decision reason codes).**
 
 It is a REST client built on [`async-http-client`](https://github.com/swift-server/async-http-client)
 + [`swift-nio-ssl`](https://github.com/apple/swift-nio-ssl) (so custom-CA and client-certificate
@@ -32,6 +32,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | gRPC transport (incl. `getUserInfo`, CONTRACT §1.1) | ⏭️ deferred follow-up (no §-requirement for Swift; no REST substitution per §1.1) |
 | §8 AMQP HMAC | ⏭️ deferred (contract lists AMQP for Rust/TS/Go/Python/Java/PHP, **not** Swift) |
 | §11 rule 9 decision reason codes | ✅ implemented |
+| §16 bounded read-only retry, §17 decision memo, §18 `close()`, §19 telemetry hooks | ✅ implemented |
 | §12 OIDC/SSO relying-party helpers | ⏭️ not implemented |
 | §12.7 logout, §14 device grant, §15 token exchange | ⏭️ blocked on §12 — each builds on its discovery cache, token endpoint and ID-token validation, so implementing them here would mean shipping a second, parallel OIDC stack rather than re-syncing one |
 
@@ -230,6 +231,54 @@ default:                      break
 so an unrecognised code is surfaced verbatim and never changes `allowed`; `nil` means the
 server did not send one. `can()` still answers `false` for either refusal — the clause is
 about *reporting*, not enforcement.
+
+## Retry, memo, shutdown and telemetry (§16–§19)
+
+Retry is **on by default** and applies only to operations that change no server state —
+`checkAccess`, `can`, `batchCheck` and the JWKS fetch. That is not the same as "HTTP GET": the
+authorization check is a `POST` with a body and is the operation this policy exists for. `login`,
+`verifyMfa`, `logout` and `refresh` are never retried automatically, both because they change
+state and because their credentials are single-use.
+
+The policy is 3 attempts, 200 ms base, 5 s cap, **full jitter** over `[0, backoff]`, and
+`Retry-After` honored as a **floor** — it can lengthen a wait, never shorten one, so a
+`Retry-After: 0` cannot defeat the backoff. Only the switch is public; the attempt cap, base and
+cap are deliberately not settable, because §16.1 permits *lowering* the budget and never raising
+it.
+
+```swift
+let config = try AxiamConfig(
+    baseURL: url,
+    tenantSlug: "acme",
+    retryEnabled: false,        // exactly one attempt — you own your retry layer
+    decisionMemoTtl: 5,         // §17, opt-in; nil (the default) means disabled
+    telemetryHook: { event in metrics.record(event) }
+)
+```
+
+> **Read-your-own-writes is not guaranteed** with the memo enabled. The staleness bound is the TTL
+> in *both* directions: a grant revoked on the server can still read as allowed for up to the TTL,
+> and a grant just *added* can still read as denied for up to the TTL. An admin UI that grants a
+> role and immediately re-checks is the case that breaks, and it breaks silently. A TTL above 5 s
+> is **clamped** to 5 s, and the clamp is announced through the `configClamped` telemetry event
+> rather than applied in silence.
+
+`TelemetryEvent` is an `enum` with a closed case list and no dictionary payload, which is what
+makes "no event carries a token" checkable by reading one declaration. Events carry the *path
+template* (`/api/v1/authz/check`), never a URL with ids substituted in — a metric label with a
+UUID in it is a cardinality bomb — and a retried call emits one `requestStart`/`requestEnd` pair
+per **attempt**, so a caller can count real wire calls. The hook runs on the calling task and must
+not block; buffering is yours to choose.
+
+`close()` releases the HTTP client and clears the cookie jar, the CSRF token and any retained
+`Sensitive` challenge token. It issues **no request** — it does not log out, because the
+server-side session deliberately outlives the client object. It is idempotent, and any operation
+attempted afterwards throws `NetworkError` naming the cause rather than silently reopening.
+`shutdown()` remains as an alias, so existing call sites keep working.
+
+> Swift's `deinit` cannot `await` and releasing an `AsyncHTTPClient` is async, so this SDK cannot
+> make deallocation a complete shutdown. `close()` is the only complete form, and this README says
+> so rather than implying it.
 
 ## Webhook signature verification (§13)
 
