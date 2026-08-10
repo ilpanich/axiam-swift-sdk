@@ -25,6 +25,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Bounded read-only retry (CONTRACT §16).** `checkAccess`, `can`, `batchCheck` and
+  the JWKS fetch now retry a transient failure: 3 attempts total, 200 ms base, 5 s cap,
+  **full jitter** over `[0, backoff]`, and `Retry-After` honored as a **floor** — it can
+  lengthen a wait, never shorten one, so a `Retry-After: 0` cannot defeat the backoff. On
+  by default; `AxiamConfig(retryEnabled: false)` gives exactly one attempt for a caller
+  who owns their own retry layer. The attempt cap, base and delay cap are deliberately
+  **not** settable: §16.1 permits lowering or disabling, never raising, and a caller who
+  can raise them turns one client into the herd a backoff exists to prevent.
+
+  Eligibility is "changes no server state", **not** "is a `GET`". The authorization check
+  is a `POST` with a body and is the operation this policy exists for; `login`,
+  `verifyMfa`, `logout` and `refresh` are never retried, both because they change state
+  and because their credentials are single-use. A `CancellationError` is re-thrown rather
+  than retried — a cancelled task is the caller withdrawing their request, and retrying
+  would keep the work alive past the point its scope was cancelled.
+
+- **Client-side decision memo (CONTRACT §17).** `AxiamConfig.decisionMemoTtl` enables a
+  bounded, TTL-clamped cache of authorization decisions. **Disabled by default** (`nil`),
+  and a TTL above 5 s is clamped rather than rejected. Allows and denies are cached
+  identically, `reasonCode` comes back with the decision, failures are never cached, and
+  any credential change clears it. Unlike the Go, Java and C memos this one takes no lock:
+  it is only ever touched from inside the `AxiamClient` actor, whose isolation already
+  serialises every access.
+
+  **Read-your-own-writes is not guaranteed.** The staleness bound is the TTL in both
+  directions — a grant just *added* can still read as denied for up to the TTL — which is
+  the direction that surprises people, and it breaks silently.
+
+- **Deterministic shutdown (CONTRACT §18).** `AxiamClient.close()` releases the HTTP
+  client and clears the cookie jar, the CSRF token and any retained `Sensitive` challenge
+  token. It is idempotent and issues **no request**: the server-side session deliberately
+  outlives the client object, so a close that logged out would silently end every user's
+  session on each deploy. A call on a closed client throws `NetworkError` naming the cause
+  rather than silently reopening. `shutdown()` remains as an alias, so no existing call
+  site changes.
+
+- **Telemetry hooks (CONTRACT §19).** `AxiamConfig.telemetryHook` installs a sink for
+  `requestStart`, `requestEnd`, `retry`, `refresh` and `configClamped` events, so metrics
+  can be wired without this package taking a dependency on any metrics library. One
+  request pair per **attempt**, so a caller can count real wire calls from the events.
+  `TelemetryEvent` is an `enum` with a closed case list and no dictionary payload, which
+  is what makes "no event carries a token" checkable by reading one declaration, and it
+  carries the path *template* rather than a URL with ids substituted in.
+
 ### Security
 
 - **JWKS key selection is now by `kid` only (§13.4 observation 7).** `selectKey`

@@ -45,6 +45,23 @@ public actor AxiamClient {
     /// only a slug — so this is the source of the UUID that `RefreshRequest` requires.
     private var resolvedOrgID: String?
 
+    /// §19 dispatcher. Inert unless a hook was installed.
+    let telemetry: TelemetryDispatcher
+    /// §17 decision memo. Disabled unless the config carried a TTL. No lock: this actor's
+    /// isolation already serialises every access.
+    private var memo: DecisionMemo
+    /// §18 shutdown flag, checked by every operation.
+    private var closed = false
+
+    /// §16 jitter source, injectable so a test can pin the range's ends (§16.7 requires an
+    /// injected PRNG). Module-private on purpose: a public knob for the jitter would be an
+    /// attractive nuisance next to §16.1's ban on raising the budget.
+    var _jitter: @Sendable () -> Double = { Double.random(in: 0...1) }
+    /// §16 sleep seam, so a test can observe a delay without taking it.
+    var _sleep: @Sendable (TimeInterval) async throws -> Void = {
+        try await Task.sleep(nanoseconds: UInt64(max($0, 0) * 1_000_000_000))
+    }
+
     // MARK: - Construction
 
     /// Build a client from configuration, constructing the production HTTP transport with the
@@ -66,11 +83,65 @@ public actor AxiamClient {
             tenantHeaderValue: config.tenantHeaderValue,
             requestTimeout: config.requestTimeout
         )
+        self.telemetry = TelemetryDispatcher(config.telemetryHook)
+        self.memo = DecisionMemo(requestedTTL: config.decisionMemoTtl)
+
+        // §19.2 rule 6: a setting we lowered is reported, not swallowed. An operator who set a
+        // 60-second memo TTL believes their staleness bound is 60 seconds; it is five, and
+        // without this nothing anywhere says so. Nothing is emitted when the request was already
+        // inside the limit — an event that fires when nothing happened trains its reader to
+        // ignore it. The memo TTL is the only clamped setting in this SDK: §16.1's table is not
+        // configurable here, only switchable.
+        if let requested = config.decisionMemoTtl, requested > 0, requested != memo.ttl {
+            telemetry.emit(.configClamped(
+                setting: "decisionMemoTtl",
+                requested: "\(requested)s",
+                effective: "\(memo.ttl)s",
+                contractReference: "§17.1 rule 2"
+            ))
+        }
     }
 
-    /// Release the underlying HTTP client. Call when the client is no longer needed.
-    public func shutdown() async throws {
+    /// Deterministic shutdown (CONTRACT.md §18).
+    ///
+    /// Releases the HTTP client and its connection pool, and clears the cookie jar, the CSRF token
+    /// and any retained ``Sensitive`` challenge token (§18.1 rule 6).
+    ///
+    /// - **Idempotent** (rule 2): calling it twice is a no-op the second time. Cleanup code runs
+    ///   from error paths, and an error path that itself throws hides the original failure.
+    /// - **Does not log out** (rule 5): it issues no request. The server-side session deliberately
+    ///   outlives the client object — that is what lets a process restart and resume — so a
+    ///   `close()` that logged out would silently end every user's session on each deploy.
+    /// - **Use after close is an error, not undefined** (rule 4): every operation afterwards
+    ///   throws ``NetworkError`` naming the cause rather than silently reopening.
+    ///
+    /// > Note: Swift's `deinit` cannot `await`, and releasing an `AsyncHTTPClient` is async, so
+    /// > this SDK cannot make deallocation a complete shutdown the way §18.1 rule 1's "a `deinit`
+    /// > plus explicit `close()`" suggests. `close()` is therefore the only complete form, and is
+    /// > stated as required rather than implied.
+    public func close() async throws {
+        guard !closed else { return }
+        closed = true
+        cookieJar = CookieJar()
+        csrfToken = nil
+        challengeToken = nil
+        sessionUser = nil
+        hasSession = false
+        memo.clear()
         try await transport.shutdown()
+    }
+
+    /// The pre-§18 spelling of ``close()``, kept so existing call sites keep working.
+    public func shutdown() async throws {
+        try await close()
+    }
+
+    /// §18.1 rule 4. Every operation runs this first, so a call on a closed client names its cause
+    /// rather than silently reopening a connection the caller believes they released.
+    private func ensureOpen() throws {
+        guard !closed else {
+            throw AxiamError.network(NetworkError("client is closed (CONTRACT.md §18.1 rule 4)"))
+        }
     }
 
     // MARK: - §1 Authentication
@@ -81,6 +152,11 @@ public actor AxiamClient {
     /// needs MFA, the returned result is `.mfaRequired` and the challenge token is retained
     /// internally (as ``Sensitive``) for the subsequent ``verifyMfa(_:)`` call.
     public func login(email: String, password: String) async throws -> LoginResult {
+        try ensureOpen()
+        // §17.1 rule 9: cleared on the CALLER'S INTENT to change credentials, not on the server's
+        // answer. Entries are keyed by subject rather than session, so a login that failed still
+        // means this caller is done with the principal whose decisions are cached.
+        memo.clear()
         let request = LoginRequest(
             username_or_email: email,
             password: password,
@@ -122,6 +198,8 @@ public actor AxiamClient {
     ///
     /// Requires a prior ``login(email:password:)`` that returned `.mfaRequired`.
     public func verifyMfa(_ code: String) async throws {
+        try ensureOpen()
+        memo.clear() // §17.1 rule 9
         guard let challenge = challengeToken else {
             throw AxiamError.auth(AuthError("No MFA challenge in progress; call login first."))
         }
@@ -139,11 +217,14 @@ public actor AxiamClient {
     /// Force a token refresh (§1 `refresh`). Routed through the single-flight guard (§9) so a
     /// manual refresh coalesces with any auto-refresh already in flight.
     public func refresh() async throws {
+        try ensureOpen()
         try await refreshOnce()
     }
 
     /// End the session (§1 `logout`). Local session state is always cleared.
     public func logout() async throws {
+        try ensureOpen()
+        memo.clear() // §17.1 rule 9, before the wire
         let response = try await rawSend(method: .post, path: "api/v1/auth/logout", body: nil)
         hasSession = false
         sessionUser = nil
@@ -166,24 +247,47 @@ public actor AxiamClient {
 
     /// Batch access check (§1 `batchCheck`). Results are returned in input order.
     public func batchCheck(_ checks: [AccessCheck]) async throws -> [AccessResult] {
+        try ensureOpen()
         let bodies = checks.map {
             CheckAccessBody(action: $0.action, resource_id: $0.resource, scope: $0.scope, subject_id: $0.subjectID)
         }
         let body = try encode(BatchCheckAccessBody(checks: bodies))
-        let response = try await authorizedPOST(path: "api/v1/authz/check/batch", body: body)
+        // Deliberately not memoized: the §17 key is per-check, so a batch would have to be split
+        // into n entries with n keys — the right design, but it changes what a partial hit means
+        // (some rows from the wire, some from the memo, one composite result). §17 says nothing
+        // about batch, so this SDK does the conservative thing rather than inventing semantics.
+        let response = try await retryingPOST(
+            operation: "batchCheck", path: "api/v1/authz/check/batch", body: body)
         let decoded = try decode(BatchCheckAccessResponse.self, response.body)
         return decoded.results.map { AccessResult(allowed: $0.allowed, reason: $0.reason, reasonCode: $0.reason_code) }
     }
 
     /// Subject-aware access check used by the §11 guards (`subject_id` = authenticated end user).
     func checkAccessInternal(action: String, resource: String, scope: String?, subjectID: String?) async throws -> AccessResult {
+        try ensureOpen()
+
+        // §17: consulted before the wire, written only after a decision the server actually
+        // returned.
+        let key = memo.enabled
+            ? DecisionMemo.key(subjectID: subjectID, resource: resource, action: action, scope: scope)
+            : nil
+        if let key, let cached = memo.get(key) { return cached }
+
         let body = try encode(CheckAccessBody(action: action, resource_id: resource, scope: scope, subject_id: subjectID))
-        let response = try await authorizedPOST(path: "api/v1/authz/check", body: body)
+        let response = try await retryingPOST(
+            operation: "checkAccess", path: "api/v1/authz/check", body: body)
         let decoded = try decode(CheckAccessResponse.self, response.body)
         // §11 rule 9: the reason code is surfaced verbatim, including a value this SDK has
         // never heard of — the outcome is carried by `allowed` alone, so an unknown code
         // can never change it.
-        return AccessResult(allowed: decoded.allowed, reason: decoded.reason, reasonCode: decoded.reason_code)
+        let result = AccessResult(allowed: decoded.allowed, reason: decoded.reason, reasonCode: decoded.reason_code)
+
+        // §17.1 rule 7: only a decision the server actually returned — a thrown NetworkError never
+        // reaches here. Rule 4: allows and denies are stored identically, because asymmetric
+        // caching changes the timing of the two outcomes and so leaks which one occurred to
+        // anyone who can observe latency.
+        if let key { memo.put(key, result) }
+        return result
     }
 
     // MARK: - §10/§11 integration factories
@@ -334,6 +438,99 @@ public actor AxiamClient {
         return response
     }
 
+    /// One §16-eligible operation: the bounded retry budget plus the §19 pairs around it.
+    ///
+    /// §16.2: eligibility is "changes no server state", **not** "is a `GET`". The authorization
+    /// check is a `POST` with a body and is the single most important operation in that section —
+    /// an SDK that gated retry on the HTTP verb would retry nothing that matters. This method is
+    /// therefore reached only from the authz paths; `login`, `verifyMfa`, `logout` and `refresh`
+    /// call ``authorizedPOST(path:body:)`` (or `rawSend`) directly and make exactly one attempt.
+    ///
+    /// One `requestStart`/`requestEnd` pair **per attempt** (§19.2 rule 5), with a `retry` between
+    /// consecutive pairs: a caller must be able to count real wire calls from the events, which
+    /// one pair per logical operation would hide.
+    private func retryingPOST(
+        operation: String,
+        path: String,
+        body: Data
+    ) async throws -> HTTPResponseData {
+        let budget = config.retryEnabled ? Retry.maxAttempts : 1
+        let template = "/" + path
+
+        for attempt in 1...budget {
+            telemetry.emit(.requestStart(
+                operation: operation, method: "POST", pathTemplate: template, attempt: attempt))
+            let started = Date()
+
+            var status: Int?
+            var thrown: Error?
+            var response: HTTPResponseData?
+            do {
+                response = try await rawSend(method: .post, path: path, body: body)
+                status = response?.status
+            } catch is CancellationError {
+                // Re-thrown, never retried. A cancelled task is the caller withdrawing their
+                // request; retrying it would keep the work alive past the point its scope was
+                // cancelled, which is a correctness bug rather than a transient failure.
+                telemetry.emit(.requestEnd(
+                    operation: operation, method: "POST", pathTemplate: template, attempt: attempt,
+                    status: nil, duration: Date().timeIntervalSince(started), outcome: .failure))
+                throw CancellationError()
+            } catch {
+                thrown = error
+            }
+
+            let succeeded = status.map { (200..<300).contains($0) } ?? false
+            telemetry.emit(.requestEnd(
+                operation: operation, method: "POST", pathTemplate: template, attempt: attempt,
+                status: status, duration: Date().timeIntervalSince(started),
+                outcome: succeeded ? .success : .failure))
+
+            let isLast = attempt == budget
+            if !isLast, Retry.shouldRetry(status: status) {
+                let hint = Retry.retryAfter(response?.firstHeader("retry-after"))
+                let wait = Retry.delay(attempt: attempt, retryAfter: hint, fraction: _jitter())
+                // §16.5: a retried-then-succeeded operation is otherwise invisible. The reason
+                // carries a status or a transport description, never a token — `NetworkError` is
+                // redacted at construction.
+                telemetry.emit(.retry(
+                    operation: operation, attempt: attempt, delay: wait,
+                    reason: status.map { "HTTP \($0)" } ?? "transport failure"))
+                try await _sleep(wait)
+                continue
+            }
+
+            if let thrown { throw thrown }
+            guard let response else {
+                throw AxiamError.network(NetworkError("no response from transport"))
+            }
+            // The §9 refresh-then-retry-once path. §16.2: the two mechanisms compose in one
+            // direction only — the §16 budget is NOT reset by a §9 refresh occurring
+            // mid-operation, so the post-refresh call below is exactly one attempt.
+            if response.status == 401, hasSession {
+                try await refreshOnce()
+                telemetry.emit(.requestStart(
+                    operation: operation, method: "POST", pathTemplate: template,
+                    attempt: attempt + 1))
+                let refreshStarted = Date()
+                let retried = try await rawSend(method: .post, path: path, body: body)
+                telemetry.emit(.requestEnd(
+                    operation: operation, method: "POST", pathTemplate: template,
+                    attempt: attempt + 1, status: retried.status,
+                    duration: Date().timeIntervalSince(refreshStarted),
+                    outcome: (200..<300).contains(retried.status) ? .success : .failure))
+                guard (200..<300).contains(retried.status) else { throw mapError(retried) }
+                return retried
+            }
+            guard (200..<300).contains(response.status) else { throw mapError(response) }
+            return response
+        }
+
+        // Unreachable: the loop returns or throws on its final iteration. Present because Swift
+        // cannot see that, and a fatalError here would turn an exhausted budget into a crash.
+        throw AxiamError.network(NetworkError("retry budget exhausted without a result"))
+    }
+
     /// Assemble headers (tenant §5, cookies §4, CSRF §3), execute, and capture response cookies
     /// and CSRF token. Does not map errors — callers decide (login has bespoke status handling).
     private func rawSend(method: HTTPRequestMethod, path: String, body: Data?) async throws -> HTTPResponseData {
@@ -422,6 +619,20 @@ extension AxiamClient {
 
     /// Clear the slot unconditionally, so a rule 6c test can tidy up after itself. Tests only.
     func _clearRefreshSlot() { refreshTask = nil }
+
+    /// Install the §16 test seams. §16.7 requires backoff and jitter to be tested with an injected
+    /// clock and an injected PRNG rather than by sleeping — a test that really waits 200 ms is a
+    /// test nobody runs. **Never called from `Sources/`.**
+    func _setRetryTestSeams(
+        jitter: @escaping @Sendable () -> Double,
+        sleep: @escaping @Sendable (TimeInterval) async throws -> Void
+    ) {
+        _jitter = jitter
+        _sleep = sleep
+    }
+
+    /// The §17 memo's entry count, for tests.
+    func _memoCount() -> Int { memo.count }
 }
 
 private extension LoginSuccessResponse {
