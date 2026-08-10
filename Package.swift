@@ -59,5 +59,10 @@ let package = Package(
             dependencies: ["AxiamSDK"],
             path: "Examples/RestAuthz"
         ),
+        .executableTarget(
+            name: "TelemetryHookExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/TelemetryHook"
+        ),
     ]
 )

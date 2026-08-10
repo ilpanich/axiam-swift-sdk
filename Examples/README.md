@@ -8,6 +8,7 @@ package and runs via `swift run`.
 |---------|--------|--------|
 | [`LoginMFA/main.swift`](LoginMFA/main.swift) | `LoginMFAExample` | Two-phase `login` / `verifyMfa` flow (CONTRACT.md §1, §5, §5.1) |
 | [`RestAuthz/main.swift`](RestAuthz/main.swift) | `RestAuthzExample` | REST authorization: `checkAccess`, `can`, `batchCheck` (§1) |
+| [`TelemetryHook/main.swift`](TelemetryHook/main.swift) | `TelemetryHookExample` | The D5 surface: §16 retry, §17 memo + clamp, §18 `close()`, §19 hooks |
 
 ## Running
 
@@ -15,10 +16,28 @@ package and runs via `swift run`.
 swift build --target LoginMFAExample     # build one example
 swift run   LoginMFAExample              # build + run
 swift run   RestAuthzExample
+swift run   TelemetryHookExample
 ```
 
 The examples compile without a live server. Running them end-to-end requires a
-reachable AXIAM server matching the configured base URL.
+reachable AXIAM server matching the configured base URL — with one deliberate
+exception: `TelemetryHookExample` is *meant* to be run without one. Its whole point is
+that the failure path emits exactly the events the success path does, so pointing it at
+a dead port produces a complete, real demonstration:
+
+```
+WARN: decisionMemoTtl=60.0s was clamped to 5.0s (§17.1 rule 2)
+check failed: network(NetworkError: Transport failure calling /api/v1/authz/check)
+--- telemetry ---
+  checkAccess/failure: count=3 mean=10001ms
+  retries checkAccess: 2
+  refreshes: 0
+```
+
+Three attempts with two retries between them is the §16 budget; being able to count them
+at all is what §19.2 rule 5's one-pair-per-**attempt** rule buys. Its default base URL is
+`https://127.0.0.1:59999` rather than `https://localhost:8443` for that reason — the
+other examples want a server, this one wants no server.
 
 ## Configuration (environment variables)
 
