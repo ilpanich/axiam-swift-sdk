@@ -62,6 +62,11 @@ public actor AxiamClient {
         try await Task.sleep(nanoseconds: UInt64(max($0, 0) * 1_000_000_000))
     }
 
+    /// The §20 UMA discovery document and its expiry. An endpoint map is not a credential, and
+    /// re-fetching it on every guarded request is a self-inflicted round trip — cached for the
+    /// same five minutes §12.3 rule 6 sets as the floor for the OIDC document.
+    var umaConfigurationCache: (document: Uma2Configuration, expiresAt: Date)?
+
     // MARK: - Construction
 
     /// Build a client from configuration, constructing the production HTTP transport with the
@@ -138,7 +143,7 @@ public actor AxiamClient {
 
     /// §18.1 rule 4. Every operation runs this first, so a call on a closed client names its cause
     /// rather than silently reopening a connection the caller believes they released.
-    private func ensureOpen() throws {
+    func ensureOpen() throws {
         guard !closed else {
             throw AxiamError.network(NetworkError("client is closed (CONTRACT.md §18.1 rule 4)"))
         }
@@ -563,6 +568,31 @@ public actor AxiamClient {
             csrfToken = csrf
         }
         return response
+    }
+
+    /// Execute one request against an **absolute** URL — an endpoint read from a discovery
+    /// document rather than joined onto `config.baseURL` — carrying exactly the headers given.
+    ///
+    /// Used only by §20. It deliberately attaches **no session cookie and no CSRF token**: every
+    /// call that reaches it either authenticates with a caller-supplied PAT or authenticates the
+    /// client through a form body, and sending this client's session alongside would put a second,
+    /// unasked-for identity on the request. The §5 tenant header is still applied on a same-origin
+    /// request, and only there — a discovery document naming a foreign host must not receive it.
+    ///
+    /// No retry wrapper, deliberately: §20.2 rule 6 makes the ticket grant the one operation in
+    /// this SDK that must issue exactly one request.
+    func umaSendAbsolute(
+        method: HTTPRequestMethod,
+        url: URL,
+        headers: [(String, String)],
+        body: Data?
+    ) async throws -> HTTPResponseData {
+        var allHeaders = headers
+        if url.host == config.baseURL.host {
+            allHeaders.append(("X-Tenant-ID", config.tenantHeaderValue))
+        }
+        let spec = HTTPRequestSpec(method: method, url: url, headers: allHeaders, body: body)
+        return try await transport.execute(spec, timeout: config.requestTimeout)
     }
 
     private func mapError(_ response: HTTPResponseData) -> AxiamError {

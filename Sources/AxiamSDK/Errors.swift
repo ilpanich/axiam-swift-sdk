@@ -16,11 +16,29 @@ public enum AxiamError: Error, Sendable {
 }
 
 /// Authentication failure (§2). Carries a human-readable `message`.
+///
+/// When the failure came from an OAuth2 endpoint that answered an `OAuth2ErrorResponse` body —
+/// currently only the §20 UMA ticket grant — ``oauthError`` carries the machine-readable code and
+/// ``oauthErrorDescription`` the server's text. The contract models that as an `OAuthProtocolError`
+/// *sub-type of* `AuthError`; Swift structs cannot be subclassed, so an `AuthError` that carries
+/// the code is this SDK's rendering of it, and the §2 taxonomy stays at exactly three cases.
+///
+/// Both are `nil` for every other authentication failure, so a caller that ignores them sees the
+/// same `AuthError` it always did.
 public struct AuthError: Error, Sendable, CustomStringConvertible {
     public let message: String
+    /// The `error` field of an `OAuth2ErrorResponse` — e.g. `invalid_grant`, `access_denied`.
+    ///
+    /// Dispatch on this rather than on the HTTP status: §20.4 puts `access_denied` on a `403`
+    /// where RFC 8628's is a `400`, and the code is what stays correct if either moves.
+    public let oauthError: String?
+    /// The `error_description` field, when the server sent one.
+    public let oauthErrorDescription: String?
 
-    public init(_ message: String) {
+    public init(_ message: String, oauthError: String? = nil, oauthErrorDescription: String? = nil) {
         self.message = message
+        self.oauthError = oauthError
+        self.oauthErrorDescription = oauthErrorDescription
     }
 
     public var description: String { "AuthError: \(message)" }

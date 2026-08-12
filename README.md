@@ -10,8 +10,8 @@
 
 The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization Management).
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§11, §13 and §16–§19 (including §6.1 mTLS, and
-> the §11 rule 9 decision reason codes).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§11, §13, §16–§19 and §20 (including §6.1 mTLS,
+> and the §11 rule 9 decision reason codes).**
 
 It is a REST client built on [`async-http-client`](https://github.com/swift-server/async-http-client)
 + [`swift-nio-ssl`](https://github.com/apple/swift-nio-ssl) (so custom-CA and client-certificate
@@ -35,6 +35,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §16 bounded read-only retry, §17 decision memo, §18 `close()`, §19 telemetry hooks | ✅ implemented |
 | §12 OIDC/SSO relying-party helpers | ⏭️ not implemented |
 | §12.7 logout, §14 device grant, §15 token exchange | ⏭️ blocked on §12 — each builds on its discovery cache, token endpoint and ID-token validation, so implementing them here would mean shipping a second, parallel OIDC stack rather than re-syncing one |
+| §20 UMA 2.0 Protection API + ticket grant | ✅ implemented — **not** blocked on §12: UMA carries its own discovery document (`/.well-known/uma2-configuration`), the Protection API is ordinary bearer-authenticated REST, and the ticket grant returns an opaque RPT with no `id_token` to validate. One GET and one POST, with no PKCE, no state store, no JWKS interaction and no §9 coupling — so none of the parallel-stack objection above applies |
 
 ## Installation
 
@@ -279,6 +280,69 @@ attempted afterwards throws `NetworkError` naming the cause rather than silently
 > Swift's `deinit` cannot `await` and releasing an `AsyncHTTPClient` is async, so this SDK cannot
 > make deallocation a complete shutdown. `close()` is the only complete form, and this README says
 > so rather than implying it.
+
+## UMA 2.0 — Protection API and ticket grant (§20)
+
+The resource-server side of User-Managed Access: register what you guard, ask the authorization
+server what a caller would need, and redeem the resulting ticket.
+
+```swift
+// A PAT is a client-credentials token carrying `uma_protection` — never a user token, and never
+// this client's own session (§20.2 rule 1). This SDK does not mint one; obtain it however your
+// deployment does and pass it in.
+let pat = Sensitive(protectionApiToken)
+
+let resource = try await client.umaRegisterResource(
+    pat: pat, name: "invoice-7", type: "document", resourceScopes: ["view"])
+
+// The returned id IS the AXIAM resource id — no translation step.
+let ticket = try await client.umaRequestTicket(
+    pat: pat,
+    permissions: [UmaRequestedPermission(resourceID: resource.id!, resourceScopes: ["view"])])
+
+response.headers.add(
+    name: "WWW-Authenticate",
+    value: AxiamClient.umaChallengeHeader(realm: "invoices", asURI: issuer, ticket: ticket))
+```
+
+…and on the client side, having caught that `401`:
+
+```swift
+if let challenge = AxiamClient.umaParseChallenge(response.headers["WWW-Authenticate"].first ?? ""),
+   let ticket = challenge.ticket {
+    let rpt = try await client.umaExchangeTicket(
+        ticket: ticket,
+        claimToken: Sensitive(usersAccessToken),
+        credentials: UmaClientCredentials(clientID: id, clientSecret: Sensitive(secret)))
+}
+```
+
+The rules this surface exists to enforce:
+
+- **A ticket is never retried** — not on `5xx`, not on a timeout, not on `invalid_grant`. It is the
+  one documented exception to §16's retry policy, and a security rule rather than a performance
+  one: the ticket is consumed *before* the exchange is evaluated, so a failed exchange has already
+  spent it and a retry is a *second redemption*. Under concurrency that is exactly the case whose
+  measured residual [`ilpanich/axiam#302`](https://github.com/ilpanich/axiam/issues/302) records.
+  On failure, request a **new** ticket.
+- **`umaParseChallenge` does not exchange what it parsed.** The `as_uri` names an authorization
+  server you have not necessarily chosen to trust; auto-exchanging would send the requesting
+  party's `claim_token` to whatever host answered the `401`.
+- **`claimToken` is required, never defaulted** — it is the only channel that names the requesting
+  party. An empty one, an empty PAT, or a client configured with only a tenant *slug* is refused
+  client-side with no wire call, so a request that could not have succeeded never spends a ticket.
+- **No auto-narrowing on `access_denied`.** A partial grant is refused whole; whether two-of-three
+  permissions is useful is your application's judgement, not the SDK's.
+- **The RPT is never adopted** as this client's credential, and `RequestingPartyToken` has no
+  refresh-token property.
+- **`umaUpdateResource` replaces the scope list rather than merging it**, so omitting a scope
+  removes it. There is no read-modify-write.
+
+`access_denied` answers HTTP `403` on this grant where RFC 8628's answers `400`, so the mapping
+dispatches on the body's `error` field rather than the status. The code arrives on
+`AuthError.oauthError`: Swift structs cannot be subclassed, so an `AuthError` carrying the protocol
+code is this SDK's rendering of the contract's `OAuthProtocolError`-as-an-`AuthError`-subtype, and
+the §2 taxonomy stays at exactly three cases.
 
 ## Webhook signature verification (§13)
 
