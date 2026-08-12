@@ -5,6 +5,42 @@ All notable changes to the AXIAM Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **§20.3 challenge emission from the §11 guard.** `requireAccess(_:resource:scope:umaChallenge:)`
+  takes a `UmaChallenger` (realm, `as_uri`, PAT); with one, a denial mints a permission ticket for
+  the action that was refused and carries the formatted `WWW-Authenticate: UMA` value on the thrown
+  `AuthzError`, so a framework adapter can copy it onto the 403 it already returns.
+
+  It is **opt-in** because emitting a challenge means minting a credential: a guard that did it by
+  default would turn every unauthorized request into a Protection API call, which is a
+  denial-of-service amplifier pointed at your own authorization server. An allow mints nothing.
+  And a **minting failure is not an escalation** — an expired PAT or an unreachable Protection API
+  still yields the plain `AuthzError`, never a 503 and never an allow. Both are asserted by
+  counting Protection API calls. The requested scope is the AXIAM *action*, so the ticket asks for
+  exactly the authority just refused and the engine's deny rules keep applying to whatever RPT
+  comes back.
+
+  Paired with the new `Examples/UmaResourceServer` and `Examples/UmaClient` targets, which run both
+  halves — including the trust decision §20.3 keeps in the caller's hands rather than
+  auto-exchanging against whatever host a 403 named.
+
+### Changed
+
+- **`AuthzError` gains a `challenge` property** (optional, defaulting to `nil`), holding the
+  formatted challenge described above. Additive: every existing initialiser call keeps compiling,
+  and an adapter that ignores it emits exactly the 403 it always did. It is deliberately **not**
+  part of `description` — the value carries a live ticket (§20.6), and `description` is what ends
+  up in a log line.
+- **`Sensitive.expose()` is now public.** §20 hands the *requesting party's* token to the calling
+  application: an RPT exists to be sent onward on the retried request, so a
+  `RequestingPartyToken.accessToken` that could never be read made the ticket grant unusable
+  outside this module. Widening from module-internal is additive; every textual representation
+  still redacts, and the doc comment says plainly that the result must never reach a log or
+  serialisation sink.
+
 ## [1.0.0-alpha24] - 2026-08-04
 
 ### Added

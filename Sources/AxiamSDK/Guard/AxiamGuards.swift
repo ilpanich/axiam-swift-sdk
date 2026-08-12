@@ -34,7 +34,16 @@ public struct AxiamGuards: Sendable {
     /// `require_access(action, resource[, scope])` (§11): the **authenticated caller** must pass
     /// an AXIAM authorization check. `subject_id` is the end user's id (§11.2 rule 2), not the
     /// application's service-account session.
-    public func requireAccess(_ action: String, resource: String, scope: String? = nil) -> AxiamGuardHandler {
+    ///
+    /// With `umaChallenge` (§20.3), the ``AuthzError`` a denial throws additionally carries a
+    /// formatted `WWW-Authenticate: UMA` value naming a freshly minted ticket — see
+    /// ``UmaChallenger`` for why that is opt-in and why a minting failure still denies plainly.
+    public func requireAccess(
+        _ action: String,
+        resource: String,
+        scope: String? = nil,
+        umaChallenge: UmaChallenger? = nil
+    ) -> AxiamGuardHandler {
         let authenticator = self.authenticator
         let client = self.client
         return { context in
@@ -49,10 +58,42 @@ public struct AxiamGuards: Sendable {
                 throw AuthzError(
                     "Access denied for '\(action)'.",
                     action: action,
-                    resourceID: resource
+                    resourceID: resource,
+                    challenge: await Self.umaChallenge(
+                        umaChallenge, client: client, action: action, resource: resource)
                 )
             }
             return user
+        }
+    }
+
+    /// Mints one ticket for the pair that was just refused and formats the challenge, or returns
+    /// `nil` when there is no challenger or minting fails.
+    ///
+    /// The requested scope is the AXIAM *action* (§20.2): asking for anything else would offer the
+    /// caller authority other than the one they were denied, and would step outside the grants the
+    /// engine just evaluated — deny rules included.
+    ///
+    /// Every failure is swallowed deliberately. A PAT that expired, a Protection API that is down,
+    /// a resource that declares none of the requested scopes — none of these change the answer to
+    /// the request, which was already "no". Letting them turn a deny into a 503 would give the
+    /// outage a second consequence; letting them turn it into an allow would be a security bug.
+    private static func umaChallenge(
+        _ challenger: UmaChallenger?,
+        client: AxiamClient,
+        action: String,
+        resource: String
+    ) async -> String? {
+        guard let challenger else { return nil }
+        do {
+            let ticket = try await client.umaRequestTicket(
+                pat: challenger.pat,
+                permissions: [UmaRequestedPermission(resourceID: resource, resourceScopes: [action])]
+            )
+            return AxiamClient.umaChallengeHeader(
+                realm: challenger.realm, asURI: challenger.asURI, ticket: ticket)
+        } catch {
+            return nil
         }
     }
 

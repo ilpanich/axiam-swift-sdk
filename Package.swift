@@ -60,6 +60,16 @@ let package = Package(
             path: "Examples/RestAuthz"
         ),
         .executableTarget(
+            name: "UmaResourceServerExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/UmaResourceServer"
+        ),
+        .executableTarget(
+            name: "UmaClientExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/UmaClient"
+        ),
+        .executableTarget(
             name: "TelemetryHookExample",
             dependencies: ["AxiamSDK"],
             path: "Examples/TelemetryHook"
