@@ -27,6 +27,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **UMA 2.0 — Protection API and ticket grant (CONTRACT §20).** `umaDiscover`,
+  `umaRegisterResource`, `umaReadResource`, `umaUpdateResource`, `umaDeleteResource`,
+  `umaListResources`, `umaRequestTicket` and `umaExchangeTicket` on `AxiamClient`, plus the two
+  synchronous challenge helpers `AxiamClient.umaParseChallenge` / `.umaChallengeHeader`. New types
+  `UmaResourceSet`, `UmaRequestedPermission`, `UmaRptPermission`, `RequestingPartyToken`,
+  `UmaChallenge`, `UmaClientCredentials` and `Uma2Configuration`.
+
+  **This ships while §12 does not, and that is not an inconsistency.** §12.7, §14 and §15 stay
+  blocked because each reaches for §12's discovery cache and ID-token validation. §20 does not:
+  UMA carries its own discovery document, the Protection API is ordinary bearer-authenticated REST,
+  and the ticket grant returns an opaque RPT with nothing to validate. No PKCE, no state store, no
+  JWKS interaction, no §9 coupling.
+
+  The load-bearing rules, all asserted in `Tests/AxiamSDKTests/UmaTests.swift`:
+
+  - **`umaExchangeTicket` is never retried** — not on `5xx`, not on a transport failure, not on
+    `invalid_grant`. This is the one documented exception to §16, and a security rule rather than a
+    performance one: the ticket is consumed *before* the exchange is evaluated, so a retry is a
+    second redemption — the concurrency case whose measured residual `ilpanich/axiam#302` records.
+  - **`umaParseChallenge` performs no exchange.** The `as_uri` names an authorization server the
+    caller has not chosen to trust.
+  - **The RPT is never adopted**, and `RequestingPartyToken` has no refresh-token property.
+  - **`umaUpdateResource` replaces the scope list rather than merging it** — no read-modify-write,
+    so omitting a scope removes it.
+  - **An empty PAT or `claimToken`, or a slug-only tenant, is refused client-side** with no wire
+    call, so a request that could not have succeeded never spends a ticket.
+
 - **Bounded read-only retry (CONTRACT §16).** `checkAccess`, `can`, `batchCheck` and
   the JWKS fetch now retry a transient failure: 3 attempts total, 200 ms base, 5 s cap,
   **full jitter** over `[0, backoff]`, and `Retry-After` honored as a **floor** — it can
@@ -90,6 +117,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A `kid` is now required, and one that names no published EdDSA key is a hard
   failure. Tokens minted by the AXIAM server always carry a `kid`, so this is not
   expected to affect any working deployment.
+
+### Changed
+
+- Re-vendored `CONTRACT.md` at **1.10** and `openapi.json` (the server's `/uma2/*` surface).
+- `AuthError` gained `oauthError` and `oauthErrorDescription`, both optional and both `nil` for
+  every failure that is not an OAuth2 protocol error, so existing callers are unaffected. §20.4
+  requires dispatching on the body's `error` field rather than the HTTP status — `access_denied`
+  answers `403` on the ticket grant where RFC 8628's answers `400` — and the code has to reach the
+  caller somewhere. The contract models it as an `OAuthProtocolError` *sub-type of* `AuthError`;
+  Swift structs cannot be subclassed, so an `AuthError` that carries the code is the equivalent,
+  and the §2 taxonomy stays at exactly three cases rather than gaining a fourth (which would have
+  broken every exhaustive `switch` over `AxiamError`).
 
 ### Changed — BREAKING
 
