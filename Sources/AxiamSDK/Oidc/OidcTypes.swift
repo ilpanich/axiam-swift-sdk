@@ -1,0 +1,237 @@
+import Foundation
+
+// The §12 relying-party value types, plus the §12.7, §14 and §15 results that share them.
+//
+// §12.3 rule 2 decides which fields are wrapped: `access_token`, `refresh_token`, `id_token`,
+// `client_secret` and `code_verifier` are `Sensitive`; `state` and `nonce` are not — they are
+// correlation values a caller must be able to compare and store in its own session.
+
+/// The OIDC discovery document (§12.1), read from `/.well-known/openid-configuration`.
+///
+/// `issuer` is the **authoritative** issuer for the §12.4 rule 3 check. The server derives it
+/// from its own configuration, so behind a proxy it may legitimately differ from the base URL
+/// the document was fetched from, and §12.3 rule 6 forbids rejecting a document over that
+/// mismatch. Endpoints are likewise read from here rather than concatenated onto the issuer.
+public struct OidcConfiguration: Sendable, Decodable, Equatable {
+    public let issuer: String
+    public let authorizationEndpoint: String
+    public let tokenEndpoint: String
+    public let jwksURI: String
+    public let introspectionEndpoint: String?
+    public let revocationEndpoint: String?
+    public let endSessionEndpoint: String?
+    public let deviceAuthorizationEndpoint: String?
+    public let scopesSupported: [String]?
+    public let responseTypesSupported: [String]?
+    public let idTokenSigningAlgValuesSupported: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case issuer
+        case authorizationEndpoint = "authorization_endpoint"
+        case tokenEndpoint = "token_endpoint"
+        case jwksURI = "jwks_uri"
+        case introspectionEndpoint = "introspection_endpoint"
+        case revocationEndpoint = "revocation_endpoint"
+        case endSessionEndpoint = "end_session_endpoint"
+        case deviceAuthorizationEndpoint = "device_authorization_endpoint"
+        case scopesSupported = "scopes_supported"
+        case responseTypesSupported = "response_types_supported"
+        case idTokenSigningAlgValuesSupported = "id_token_signing_alg_values_supported"
+    }
+}
+
+/// What `oidcBegin` returns (§12.1): everything the caller needs to start the redirect and,
+/// later, to finish it.
+///
+/// **The caller owns all three correlation values** (§12.3 rule 1). This SDK stores none of
+/// them — not in the client, not in a global, not in an implicit cache — so `state`, `nonce`
+/// and `codeVerifier` must be persisted by the application (typically in its own HTTP session)
+/// and handed back to `oidcExchange`.
+public struct AuthorizationRequest: Sendable {
+    /// The URL to redirect the user agent to.
+    public let url: String
+    /// CSRF correlation value. Not a secret (§12.3 rule 2) — the caller compares it on return.
+    public let state: String
+    /// Replay-protection value, checked into the ID token by the server and asserted by
+    /// §12.4 rule 6. Not a secret, for the same reason.
+    public let nonce: String
+    /// The PKCE verifier whose challenge went out in the URL (§12.5 secret).
+    public let codeVerifier: Sensitive<String>
+}
+
+/// The validated claims of an ID token (§12.4).
+///
+/// Present only when the response carried an `id_token`, and only after every rule in §12.4
+/// passed — §12.4 rule 7 makes validation all-or-nothing, so a token set is either returned
+/// whole and verified or not at all.
+public struct IdTokenClaims: Sendable, Equatable {
+    public let subject: String
+    public let issuer: String
+    public let audience: [String]
+    public let expiresAt: Date
+    public let issuedAt: Date
+    public let nonce: String?
+    public let authorizedParty: String?
+    public let email: String?
+    public let preferredUsername: String?
+    public let tenantID: String?
+    public let roles: [String]
+}
+
+/// The result of every §12 token-endpoint grant (§12.1).
+public struct OidcTokenSet: Sendable {
+    public let accessToken: Sensitive<String>
+    public let tokenType: String
+    public let expiresIn: Int
+    public let scope: String?
+    public let refreshToken: Sensitive<String>?
+    public let idToken: Sensitive<String>?
+    /// The validated claims of ``idToken``, when one was issued (§12.3 rule 5: a relying
+    /// party's claims come from here, never from `/oauth2/userinfo`).
+    public let idClaims: IdTokenClaims?
+}
+
+/// RFC 7662 introspection result (§12.1).
+///
+/// `active` is the only field guaranteed present: an inactive token answers `{"active":false}`
+/// and nothing else, which is the point of the endpoint.
+public struct IntrospectionResult: Sendable, Equatable {
+    public let active: Bool
+    public let scope: String?
+    public let clientID: String?
+    public let username: String?
+    public let tokenType: String?
+    public let expiresAt: Int?
+    public let issuedAt: Int?
+    public let subject: String?
+    public let audience: String?
+    public let issuer: String?
+    public let jwtID: String?
+}
+
+/// `POST /api/v1/auth/federation/oidc/start` (§12.1) — where to send the user agent for
+/// upstream-IdP federation, and the single-use `state` that ties the callback to it.
+///
+/// There is no `nonce` here, and that is the server's design: it keeps the federation nonce
+/// server-side (§12.1 note 7), so an SDK has nothing to store and nothing to check.
+public struct SsoStartResult: Sendable, Equatable {
+    public let authorizeURL: String
+    public let state: String
+    public let expiresInSecs: Int
+}
+
+/// `POST /api/v1/auth/federation/oidc/callback` (§12.1) — the completed federation login.
+///
+/// Carries **no token material**: the session arrives as `Set-Cookie` and lands in the §4
+/// cookie jar (§12.1 note 6). A client without a persistent cookie store silently loses it.
+public struct SsoCompleteResult: Sendable, Equatable {
+    public let userID: String
+    public let sessionID: String
+    public let expiresIn: Int
+    public let redirectURI: String?
+}
+
+/// A verified back-channel logout token (§12.7.3).
+///
+/// **Never collapsed to a bare boolean**, per §12.7.3: the relying party has to know *which*
+/// session to end. When ``sid`` is present the RP MUST end that session only — falling back to
+/// "every session for `sub`" is an over-reach the server itself refuses to make.
+///
+/// ``jti`` is surfaced so the RP can deduplicate. This SDK deliberately does not dedup
+/// internally: delivery is at-least-once, so a valid token legitimately arrives twice, and a
+/// library with no durable store would silently drop a real second logout after a restart.
+public struct VerifiedLogoutToken: Sendable, Equatable {
+    public let sid: String?
+    public let subject: String?
+    public let jwtID: String?
+    public let issuer: String
+    public let issuedAt: Date
+}
+
+/// `POST /oauth2/device_authorization` (§14.1) — the codes a device shows its user.
+///
+/// ``verificationURIComplete`` embeds the user code so a device that can render a QR code does
+/// not make the user type anything. It is surfaced when the server sends it and **never
+/// synthesised by concatenation** when it does not (§14.3): its format is the server's to
+/// choose.
+public struct DeviceAuthorization: Sendable, Equatable {
+    /// The device code — a bearer-shaped credential the device redeems (§14.5).
+    public let deviceCode: Sensitive<String>
+    /// The code the *user* types. Not a secret: it is meant to be displayed.
+    public let userCode: String
+    public let verificationURI: String
+    public let verificationURIComplete: String?
+    /// Seconds until the whole grant expires. Polling stops here (§14.2 rule 4).
+    public let expiresIn: Int
+    /// Seconds between polls, from the server (§14.2 rule 2). Absent means 5 s.
+    public let interval: Int
+}
+
+/// `POST /oauth2/token` with the RFC 8693 grant (§15.1) — a *narrower* token.
+///
+/// There is no refresh token here, and §15.2 makes that structural rather than incidental: an
+/// exchange only ever narrows, and a refresh token would let the holder re-widen later.
+public struct ExchangedToken: Sendable {
+    public let accessToken: Sensitive<String>
+    public let issuedTokenType: String
+    public let tokenType: String
+    public let expiresIn: Int
+    /// The scopes actually granted. Read it: §15.2 requires the server to answer with what the
+    /// caller got, which may be narrower than what it asked for.
+    public let scope: String?
+}
+
+// MARK: - Wire shapes (internal)
+
+struct TokenResponseWire: Decodable {
+    let access_token: String
+    let token_type: String
+    let expires_in: Int
+    let scope: String?
+    let refresh_token: String?
+    let id_token: String?
+}
+
+struct IntrospectionWire: Decodable {
+    let active: Bool
+    let scope: String?
+    let client_id: String?
+    let username: String?
+    let token_type: String?
+    let exp: Int?
+    let iat: Int?
+    let sub: String?
+    let aud: String?
+    let iss: String?
+    let jti: String?
+}
+
+struct SsoStartWire: Decodable {
+    let authorize_url: String
+    let state: String
+    let expires_in_secs: Int
+}
+
+struct SsoCompleteWire: Decodable {
+    let user_id: String
+    let session_id: String
+    let expires_in: Int
+    let redirect_uri: String?
+}
+
+struct DeviceAuthorizationWire: Decodable {
+    let device_code: String
+    let user_code: String
+    let verification_uri: String
+    let verification_uri_complete: String?
+    let expires_in: Int
+    let interval: Int?
+}
+
+struct TokenExchangeWire: Decodable {
+    let access_token: String
+    let issued_token_type: String
+    let token_type: String
+    let expires_in: Int
+    let scope: String?
+}

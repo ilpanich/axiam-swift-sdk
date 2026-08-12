@@ -9,6 +9,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **§12 OIDC/SSO relying-party helpers, §12.7 logout, §14 device grant and §15 token exchange.**
+  All four land together, because all four were blocked by the same thing: contract §12.6
+  required this SDK to defer §12 in its entirety, and §12.7 was scoped to SDKs that ship §12.
+  Contract 1.11 (ilpanich/axiam#306) lifts that deferral, and this is the port.
+
+  The nine §12 operations are on `AxiamClient` under the names §12.2 had already reserved for
+  Swift: `oidcDiscover`, `oidcBegin`, `oidcExchange`, `oidcRefresh`, `loginClientCredentials`,
+  `introspect`, `revoke`, `ssoStart`, `ssoComplete`. They are built on the existing transport,
+  `Sensitive` wrapper and JWKS verifier — §12 forks none of them, and adds no second
+  key-fetching path.
+
+  What is load-bearing rather than incidental, and tested as such:
+
+  - **Statelessness** (§12.3 rule 1). `oidcBegin` returns `state`, `nonce` and `codeVerifier`
+    and keeps none of them; two calls share nothing.
+  - **The §12.4 checklist, with one failing test per rule** — the contract asks for exactly
+    that. `alg` pinned to EdDSA before key lookup, signature by `kid`, exact-string issuer,
+    audience with a mandatory `azp` when plural, time with at most 60 s skew, nonce by
+    constant-time comparison. Rule 7 makes it all-or-nothing: a validation failure discards the
+    access and refresh tokens from the same response, and there is no "skip validation" option
+    anywhere on the public surface.
+  - **A slug-only client is refused client-side**, with no wire call, on the five operations
+    that need a tenant UUID (§12.3 rule 4).
+  - **§14.2's polling rules**, including the one this port got wrong first and a test caught:
+    the deadline check must reject a poll *scheduled* past `expires_in`, not merely one issued
+    after it. Checking `now < deadline` before sleeping looks equivalent and is not — after a
+    `slow_down` pushes the interval past the time remaining, that check passes, the loop sleeps
+    through the deadline and polls anyway. `slow_down` raises the interval permanently by 5 s;
+    `access_denied` and `expired_token` stay distinct.
+  - **§15's refusals surface verbatim**: no retry on `unauthorized_client`, no auto-narrowing on
+    `invalid_scope`, no attempt to refine `invalid_grant` into "wrong tenant". No refresh token
+    exists on `ExchangedToken`, and the result is never adopted as this client's credential.
+  - **§12.7's back-channel verifier rejects a replayed ID token twice over**: it requires the
+    back-channel `events` key and rejects any token carrying a `nonce`. The result carries
+    `sid`/`sub`/`jti` and is never collapsed to a boolean.
+
+  `AxiamConfig` gains `oidcClientID`, `oidcClientSecret`, `oidcDiscoveryTTL` (clamped up to the
+  five-minute floor) and `oidcClockSkew` (clamped down to 60 s). Three runnable examples:
+  `Examples/OidcLogin`, `Examples/DeviceLogin`, `Examples/TokenExchange`.
+
 - **§20.3 challenge emission from the §11 guard.** `requireAccess(_:resource:scope:umaChallenge:)`
   takes a `UmaChallenger` (realm, `as_uri`, PAT); with one, a denial mints a permission ticket for
   the action that was refused and carries the formatted `WWW-Authenticate: UMA` value on the thrown

@@ -9,6 +9,9 @@ package and runs via `swift run`.
 | [`LoginMFA/main.swift`](LoginMFA/main.swift) | `LoginMFAExample` | Two-phase `login` / `verifyMfa` flow (CONTRACT.md §1, §5, §5.1) |
 | [`RestAuthz/main.swift`](RestAuthz/main.swift) | `RestAuthzExample` | REST authorization: `checkAccess`, `can`, `batchCheck` (§1) |
 | [`TelemetryHook/main.swift`](TelemetryHook/main.swift) | `TelemetryHookExample` | The D5 surface: §16 retry, §17 memo + clamp, §18 `close()`, §19 hooks |
+| [`OidcLogin/main.swift`](OidcLogin/main.swift) | `OidcLoginExample` | §12 relying-party flow: discover → begin → **the caller stores state/nonce/verifier** → exchange, plus the §12.7 logout URL |
+| [`DeviceLogin/main.swift`](DeviceLogin/main.swift) | `DeviceLoginExample` | §14 RFC 8628 device grant: the callback that displays the codes, and why `access_denied` and `expired_token` stay distinct |
+| [`TokenExchange/main.swift`](TokenExchange/main.swift) | `TokenExchangeExample` | §15 RFC 8693: delegation vs impersonation, and the three refusals this SDK surfaces rather than papering over |
 | [`UmaResourceServer/main.swift`](UmaResourceServer/main.swift) | `UmaResourceServerExample` | UMA 2.0 (§20), emit half: register a resource, guard it, answer a denial with `WWW-Authenticate: UMA` |
 | [`UmaClient/main.swift`](UmaClient/main.swift) | `UmaClientExample` | The other half: refusal → parse → **trust decision** → exchange → retry with the RPT |
 

@@ -67,6 +67,11 @@ public actor AxiamClient {
     /// same five minutes §12.3 rule 6 sets as the floor for the OIDC document.
     var umaConfigurationCache: (document: Uma2Configuration, expiresAt: Date)?
 
+    /// The §12.3 rule 6 discovery cache. Per **client instance**, which satisfies the
+    /// origin-keying rule by construction: this client is bound to one base URL for its
+    /// lifetime, so a document fetched from one origin can never be served for another.
+    var oidcConfigurationCache: (document: OidcConfiguration, expiresAt: Date)?
+
     // MARK: - Construction
 
     /// Build a client from configuration, constructing the production HTTP transport with the
