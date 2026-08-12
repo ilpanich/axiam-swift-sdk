@@ -50,11 +50,24 @@ public struct AuthzError: Error, Sendable, CustomStringConvertible {
     public let message: String
     public let action: String?
     public let resourceID: String?
+    /// A formatted `WWW-Authenticate: UMA` value (§20.3), present only when the guard was
+    /// configured with a ``UmaChallenger`` and minting succeeded. A framework adapter should copy
+    /// it onto the 403 it already returns; one that ignores it emits exactly the 403 it always did.
+    ///
+    /// Deliberately NOT part of ``description``: the value carries a live permission ticket, and a
+    /// credential in a log line is a credential in a log line, 60-second life or not (§20.6).
+    public let challenge: String?
 
-    public init(_ message: String, action: String? = nil, resourceID: String? = nil) {
+    public init(
+        _ message: String,
+        action: String? = nil,
+        resourceID: String? = nil,
+        challenge: String? = nil
+    ) {
         self.message = message
         self.action = action
         self.resourceID = resourceID
+        self.challenge = challenge
     }
 
     public var description: String { "AuthzError: \(message)" }

@@ -338,6 +338,39 @@ The rules this surface exists to enforce:
 - **`umaUpdateResource` replaces the scope list rather than merging it**, so omitting a scope
   removes it. There is no read-modify-write.
 
+### Emitting the challenge from the §11 guard
+
+`requireAccess(_:resource:scope:umaChallenge:)` mints and formats the challenge for you, so you do
+not hand-roll it on every denial:
+
+```swift
+let challenger = UmaChallenger(realm: "invoices", asURI: configuration.issuer, pat: pat)
+let guardFn = client.makeGuards().requireAccess(
+    "invoices:read", resource: invoiceID, umaChallenge: challenger)
+
+// A denial now throws an AuthzError whose `challenge` carries
+//   UMA realm="invoices", as_uri="…", ticket="…"
+// A framework adapter copies it onto the 403 it already returns.
+```
+
+Two properties are deliberate, and both are asserted by counting Protection API calls:
+
+- **Opt-in.** Emitting a challenge means minting a credential. A guard that did that on every
+  denial by default would put a Protection API call — and a live ticket — behind every
+  unauthorized request, which is a denial-of-service amplifier pointed at your own authorization
+  server. An allow mints nothing.
+- **A minting failure is not an escalation.** An expired PAT or an unreachable Protection API
+  still yields the plain `AuthzError` with no challenge — never a 503, and never an allow.
+
+`AuthzError.challenge` is deliberately absent from its `description`: the value carries a live
+ticket, and `description` is what ends up in a log line.
+
+The requested scope is the AXIAM **action**, so the ticket asks for exactly the authority that was
+refused and the engine's deny rules keep applying to whatever RPT comes back.
+
+Both halves run in [`Examples/UmaResourceServer`](Examples/UmaResourceServer/main.swift) and
+[`Examples/UmaClient`](Examples/UmaClient/main.swift).
+
 `access_denied` answers HTTP `403` on this grant where RFC 8628's answers `400`, so the mapping
 dispatches on the body's `error` field rather than the status. The code arrives on
 `AuthError.oauthError`: Swift structs cannot be subclassed, so an `AuthError` carrying the protocol

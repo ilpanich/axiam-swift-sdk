@@ -16,8 +16,23 @@ public struct Sensitive<T>: CustomStringConvertible, CustomDebugStringConvertibl
         self.value = value
     }
 
-    /// Module-internal access to the protected value. Not a public getter (§7).
+    /// Module-internal access to the protected value.
     var wrapped: T { value }
+
+    /// Returns the protected value — this SDK's single explicit accessor (§7 rule 3).
+    ///
+    /// Public because §20 hands the **requesting party's** token to the calling application: an
+    /// RPT exists to be sent onward on the retried request, and a `UmaRequestingPartyToken` whose
+    /// `accessToken` could never be read would make the whole ticket grant unusable. The same
+    /// applies to a PAT an application obtained elsewhere and now has to hand to the Protection
+    /// API. Widening from module-internal is additive and breaks no existing caller.
+    ///
+    /// **Call this only at the point of actually using the value** — attaching it to an
+    /// `Authorization` header, writing it to your own encrypted store — and never pass the result
+    /// to a log, trace, or serialisation sink. ``description``/``debugDescription`` on `Sensitive`
+    /// itself still always redact, but that protection does not follow the raw value once this
+    /// method returns it.
+    public func expose() -> T { value }
 
     public var description: String { "[SENSITIVE]" }
     public var debugDescription: String { "[SENSITIVE]" }

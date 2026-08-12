@@ -9,6 +9,8 @@ package and runs via `swift run`.
 | [`LoginMFA/main.swift`](LoginMFA/main.swift) | `LoginMFAExample` | Two-phase `login` / `verifyMfa` flow (CONTRACT.md §1, §5, §5.1) |
 | [`RestAuthz/main.swift`](RestAuthz/main.swift) | `RestAuthzExample` | REST authorization: `checkAccess`, `can`, `batchCheck` (§1) |
 | [`TelemetryHook/main.swift`](TelemetryHook/main.swift) | `TelemetryHookExample` | The D5 surface: §16 retry, §17 memo + clamp, §18 `close()`, §19 hooks |
+| [`UmaResourceServer/main.swift`](UmaResourceServer/main.swift) | `UmaResourceServerExample` | UMA 2.0 (§20), emit half: register a resource, guard it, answer a denial with `WWW-Authenticate: UMA` |
+| [`UmaClient/main.swift`](UmaClient/main.swift) | `UmaClientExample` | The other half: refusal → parse → **trust decision** → exchange → retry with the RPT |
 
 ## Running
 
