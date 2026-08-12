@@ -10,8 +10,8 @@
 
 The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization Management).
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§11, §13, §16–§19 and §20 (including §6.1 mTLS,
-> and the §11 rule 9 decision reason codes).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19 and §20 (including §6.1
+> mTLS, §12.7 logout, and the §11 rule 9 decision reason codes).**
 
 It is a REST client built on [`async-http-client`](https://github.com/swift-server/async-http-client)
 + [`swift-nio-ssl`](https://github.com/apple/swift-nio-ssl) (so custom-CA and client-certificate
@@ -33,9 +33,9 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §8 AMQP HMAC | ⏭️ deferred (contract lists AMQP for Rust/TS/Go/Python/Java/PHP, **not** Swift) |
 | §11 rule 9 decision reason codes | ✅ implemented |
 | §16 bounded read-only retry, §17 decision memo, §18 `close()`, §19 telemetry hooks | ✅ implemented |
-| §12 OIDC/SSO relying-party helpers | ⏭️ not implemented |
-| §12.7 logout, §14 device grant, §15 token exchange | ⏭️ blocked on §12 — each builds on its discovery cache, token endpoint and ID-token validation, so implementing them here would mean shipping a second, parallel OIDC stack rather than re-syncing one |
-| §20 UMA 2.0 Protection API + ticket grant | ✅ implemented — **not** blocked on §12: UMA carries its own discovery document (`/.well-known/uma2-configuration`), the Protection API is ordinary bearer-authenticated REST, and the ticket grant returns an opaque RPT with no `id_token` to validate. One GET and one POST, with no PKCE, no state store, no JWKS interaction and no §9 coupling — so none of the parallel-stack objection above applies |
+| §12 OIDC/SSO relying-party helpers | ✅ implemented (contract 1.11) — the nine operations on `AxiamClient`, under the names §12.2 had reserved for Swift while the section was deferred |
+| §12.7 logout, §14 device grant, §15 token exchange | ✅ implemented (contract 1.11) — all three build on §12's discovery cache, token endpoint and ID-token validation, which is exactly why they land together with it |
+| §20 UMA 2.0 Protection API + ticket grant | ✅ implemented, and it landed *before* §12 rather than waiting for it: UMA carries its own discovery document (`/.well-known/uma2-configuration`), the Protection API is ordinary bearer-authenticated REST, and the ticket grant returns an opaque RPT with no `id_token` to validate. That §20 could ship alone is part of what showed the §12 deferral was cutting across the wrong seam — see contract §12.6 |
 
 ## Installation
 
@@ -280,6 +280,132 @@ attempted afterwards throws `NetworkError` naming the cause rather than silently
 > Swift's `deinit` cannot `await` and releasing an `AsyncHTTPClient` is async, so this SDK cannot
 > make deallocation a complete shutdown. `close()` is the only complete form, and this README says
 > so rather than implying it.
+
+## OIDC / SSO relying-party helpers (§12)
+
+"Login with AXIAM", plus the service-to-service and token-lifecycle operations that come with
+it. Nine operations, all on `AxiamClient`, all built on this SDK's existing transport, `Sensitive`
+wrapper and JWKS verifier — §12 adds no second HTTP path and no second key-fetching path.
+
+```swift
+let config = try AxiamConfig(
+    baseURL: baseURL,
+    tenantID: tenantUUID,              // §12.3 rule 4: the token endpoint needs a UUID
+    oidcClientID: "my-app",
+    oidcClientSecret: Sensitive(secret))  // omit for a public client
+let client = try AxiamClient(config: config)
+
+let configuration = try await client.oidcDiscover()
+let request = try await client.oidcBegin(
+    redirectURI: "https://app.example/callback", configuration: configuration)
+
+// YOUR application stores these three — this SDK stores none of them (§12.3 rule 1).
+session.save(state: request.state, nonce: request.nonce, verifier: request.codeVerifier)
+
+// …after the callback:
+let tokens = try await client.oidcExchange(
+    code: callbackCode,
+    redirectURI: "https://app.example/callback",  // byte-identical to the one above
+    codeVerifier: session.verifier,
+    nonce: session.nonce)
+print(tokens.idClaims?.subject ?? "")
+```
+
+The rules this surface exists to enforce:
+
+- **Stateless by default.** `oidcBegin` and `oidcExchange` keep no `state`, `nonce` or
+  `codeVerifier` anywhere — not on the client, not in a global, not in an implicit cache. The
+  caller owns that storage and passes the last two back explicitly.
+- **`oidcBegin` performs no network I/O.** It is `await` only because `AxiamClient` is an actor.
+  (Its convenience overload fetches the discovery document, which this client caches anyway.)
+- **The ID token is validated in full, or the whole token set is discarded.** All seven §12.4
+  rules run before `oidcExchange` returns — `alg` pinned to EdDSA before key lookup, signature by
+  `kid`, exact-string issuer, audience with `azp` when plural, time with at most 60 s skew, and
+  the nonce by constant-time comparison. On any failure the access and refresh tokens from the
+  same response are discarded with it: there is no partial success and no "skip validation"
+  option anywhere on the public API.
+- **A slug-only client is refused client-side.** Five of the nine operations need a tenant
+  **UUID** for the `?tenant_id=` query parameter, and a slug is never a substitute — so the SDK
+  raises before the request rather than sending one that could not have succeeded.
+- **`revoke` is idempotent.** A `200` for a token this client never issued is success (RFC 7009);
+  a `5xx` is still a `NetworkError`, because returning void does not make a server failure a
+  success.
+- **No `/oauth2/userinfo`.** A relying party's claims come from the validated ID token
+  (`OidcTokenSet.idClaims`); §12.3 rule 5 keeps that endpoint out of the vocabulary.
+
+Runnable: [`Examples/OidcLogin`](Examples/OidcLogin/main.swift).
+
+### Logout (§12.7)
+
+`logoutURL` builds the `end_session_endpoint` redirect — from the **discovery document**, never
+concatenated onto the issuer — and `verifyLogoutToken` validates a back-channel logout token the
+OP pushed to your endpoint.
+
+```swift
+let url = try await client.logoutURL(idToken: tokens.idToken!, state: myState)
+
+// On your back-channel endpoint:
+let verified = try await client.verifyLogoutToken(postedToken)
+// End `verified.sid` ONLY — falling back to every session for `sub` is an over-reach the
+// server itself refuses to make. `verified.jwtID` is there so you can dedup; this SDK does not,
+// because a library with no durable store would drop a real second logout after a restart.
+```
+
+`verifyLogoutToken` rejects a replayed ID token twice over: it requires the back-channel logout
+`events` key, and it rejects any token carrying a `nonce` (Back-Channel Logout 1.0 §2.4 forbids
+one, and its presence is the documented signature of exactly that replay).
+
+## Device authorization grant (§14)
+
+RFC 8628 — signing in something that cannot show a browser.
+
+```swift
+let tokens = try await client.deviceLogin(scope: "openid profile") { authorization in
+    // Called BEFORE polling starts. Display it however the device can — screen, QR code,
+    // e-ink panel. The SDK never prints it for you (§14.3 rule 2).
+    print("visit \(authorization.verificationURI) and enter \(authorization.userCode)")
+}
+```
+
+Polling follows §14.2 exactly, and three of its rules are the ones implementations get wrong:
+
+- **`slow_down` raises the interval permanently**, by 5 s, and never resets it. Backing off for
+  one round and returning to the original interval earns another `slow_down`, forever.
+- **The interval comes from the response**, defaulting to 5 s when the server omits it. No faster
+  floor is hard-coded.
+- **Polling stops at `expires_in`** — and stops *before* a poll that would land past it, not
+  merely when the clock has already run out. `access_denied` and `expired_token` stay distinct:
+  one means a human said no, the other that nobody answered, and only the second is worth
+  retrying.
+
+Runnable: [`Examples/DeviceLogin`](Examples/DeviceLogin/main.swift).
+
+## Token exchange (§15)
+
+RFC 8693 — a backend holding a user's token trades it for a **narrower** one before calling the
+next service.
+
+```swift
+let narrowed = try await client.tokenExchange(
+    subjectToken: usersToken,
+    actorToken: myServiceToken,       // present → delegation; absent → impersonation
+    scopes: ["orders:read"],
+    audience: "inventory-service")
+print(narrowed.scope ?? "")           // what you were GRANTED, which may be narrower
+```
+
+An exchange only ever narrows, and this SDK does not hide the refusals:
+`unauthorized_client` surfaces verbatim (no retry, no rewriting the request into a delegation),
+`invalid_scope` is never auto-narrowed and re-sent, and a cross-tenant subject token surfaces
+`invalid_grant` without any attempt to refine it — the server collapses that case deliberately,
+because telling it apart is a tenant-enumeration signal.
+
+There is no refresh token, ever: `ExchangedToken` has nowhere to put one, the result never enters
+the §9 refresh guard, and re-running the exchange is how you get a fresh token. The result is
+also never adopted as this client's own credential — a MUST NOT where adoption elsewhere is a
+MAY, because adopting it would silently re-privilege every subsequent call.
+
+Runnable: [`Examples/TokenExchange`](Examples/TokenExchange/main.swift).
 
 ## UMA 2.0 — Protection API and ticket grant (§20)
 

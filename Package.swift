@@ -60,6 +60,21 @@ let package = Package(
             path: "Examples/RestAuthz"
         ),
         .executableTarget(
+            name: "OidcLoginExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/OidcLogin"
+        ),
+        .executableTarget(
+            name: "DeviceLoginExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/DeviceLogin"
+        ),
+        .executableTarget(
+            name: "TokenExchangeExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/TokenExchange"
+        ),
+        .executableTarget(
             name: "UmaResourceServerExample",
             dependencies: ["AxiamSDK"],
             path: "Examples/UmaResourceServer"

@@ -74,6 +74,32 @@ public struct AxiamConfig: Sendable {
     /// cost is one optional check per request.
     public let telemetryHook: TelemetryHook?
 
+    /// The relying party's OAuth2 `client_id` (§12.1).
+    ///
+    /// Client **configuration**, not a per-call argument: §12.3 keeps it here so the nine
+    /// operations cannot disagree about which client they are. Required before `oidcBegin`,
+    /// `oidcExchange`, `oidcRefresh`, `loginClientCredentials`, `introspect`, `revoke`,
+    /// `deviceAuthorize`/`devicePoll`, `tokenExchange` and `logoutURL` can be used.
+    public let oidcClientID: String?
+
+    /// The confidential client's secret (§12.1 note 3: `client_secret_post`).
+    ///
+    /// Omit for a public client — the authorization-code + PKCE flow does not need one.
+    /// `introspect` and `revoke` do (§12.1 note 4), and say so when it is absent.
+    public let oidcClientSecret: Sensitive<String>?
+
+    /// Discovery-document cache TTL (§12.3 rule 6). Values below the five-minute floor are
+    /// raised to it; a shorter one would be a self-inflicted round trip on a per-origin
+    /// protocol artifact that is not a credential.
+    public let oidcDiscoveryTTL: TimeInterval
+
+    /// Clock skew allowed on the §12.4 rule 5 time checks, in seconds.
+    ///
+    /// Clamped **down** to 60 s — the rule permits at most that in either direction and requires
+    /// a larger configured value to be clamped rather than rejected. A negative value clamps to
+    /// zero.
+    public let oidcClockSkew: TimeInterval
+
     /// Designated initializer.
     ///
     /// - Throws: ``AuthError`` if neither `tenantID` nor `tenantSlug` is supplied (§5), or if
@@ -92,7 +118,11 @@ public struct AxiamConfig: Sendable {
         expectedAudience: String? = nil,
         retryEnabled: Bool = true,
         decisionMemoTtl: TimeInterval? = nil,
-        telemetryHook: TelemetryHook? = nil
+        telemetryHook: TelemetryHook? = nil,
+        oidcClientID: String? = nil,
+        oidcClientSecret: Sensitive<String>? = nil,
+        oidcDiscoveryTTL: TimeInterval = 300,
+        oidcClockSkew: TimeInterval = 60
     ) throws {
         // §5: a tenant identifier is non-optional and cannot be deferred.
         let hasTenant = (tenantID?.isEmpty == false) || (tenantSlug?.isEmpty == false)
@@ -122,6 +152,12 @@ public struct AxiamConfig: Sendable {
         // quietly turned into.
         self.decisionMemoTtl = decisionMemoTtl
         self.telemetryHook = telemetryHook
+        self.oidcClientID = oidcClientID
+        self.oidcClientSecret = oidcClientSecret
+        // Both clamps are applied here rather than at use: unlike the §17 memo TTL, neither is
+        // reported through a §19 event, so there is nothing to preserve the original value for.
+        self.oidcDiscoveryTTL = max(oidcDiscoveryTTL, 300)
+        self.oidcClockSkew = min(max(oidcClockSkew, 0), 60)
     }
 
     // MARK: - §6 transport-scheme guard
