@@ -187,6 +187,172 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
         }
     }
 
+    // MARK: - §15.7 external-IdP subject tokens (X4)
+    //
+    // No new operation: the same tokenExchange carries a partner IdP's token. What changes is
+    // which subject tokens the server accepts and what its refusals mean, so these tests are
+    // about not getting in the way of either.
+
+    /// A token minted by a partner's IdP. Opaque to the SDK — deliberately not a well-formed
+    /// JWT, because nothing here may decode it.
+    private static let externalSubjectToken = "partner-idp-subject-token"
+
+    /// The one normative `error_description` (§15.7). It means "fix the AXIAM trust
+    /// configuration", not "fix your token".
+    private static let issuerNotConfigured =
+        "the subject token's issuer is not configured for token exchange"
+
+    func testAnExternalSubjectTokenTypeIsSentVerbatimAndTheResultSurfacesUnchanged() async throws {
+        var body = narrowedToken
+        body["scope"] = "read:orders"
+        try await withServiceClient(router: makeRouter(tokenBody: body)) { client, server in
+            let exchanged = try await client.tokenExchange(
+                subjectToken: Sensitive(Self.externalSubjectToken),
+                subjectTokenType: AxiamClient.jwtTokenType,
+                scopes: ["read:orders"],
+                audience: "https://orders.internal")
+
+            let requestBody = String(decoding:
+                try XCTUnwrap(server.state.requests(pathContaining: "/oauth2/token").last).body,
+                as: UTF8.self)
+            // The caller named …:jwt, so …:jwt goes on the wire. §15.7: the SDK must not
+            // inspect the subject token to pick this, and must not override it.
+            XCTAssertTrue(
+                requestBody.contains("subject_token_type=urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Ajwt"),
+                "the caller's …:jwt must reach the wire, got: \(requestBody)")
+            // Delegation across a trust boundary is unsupported; nothing may add one.
+            XCTAssertFalse(requestBody.contains("actor_token"))
+
+            // The cross-domain path is not a different result shape, and §15.2 rules 6-7 hold.
+            XCTAssertEqual(exchanged.accessToken.expose(), "the-narrower-token")
+            XCTAssertEqual(exchanged.issuedTokenType, "urn:ietf:params:oauth:token-type:access_token")
+            XCTAssertEqual(exchanged.scope, "read:orders")
+        }
+    }
+
+    func testSubjectTokenTypeIsNeverInferredFromTheTokenItself() async throws {
+        try await withServiceClient(router: makeRouter(tokenBody: narrowedToken)) { client, server in
+            // A subject token that *looks* exactly like a JWT. An SDK that sniffed the token
+            // would send …:jwt here; §15.7 says it must not look, so the caller's silence still
+            // means the §15.1 same-domain default.
+            let jwtShaped = "eyJhbGciOiJFZERTQSJ9.eyJpc3MiOiJodHRwczovL3BhcnRuZXIuZXhhbXBsZS8ifQ.sig"
+            _ = try await client.tokenExchange(subjectToken: Sensitive(jwtShaped))
+
+            let requestBody = String(decoding:
+                try XCTUnwrap(server.state.requests(pathContaining: "/oauth2/token").last).body,
+                as: UTF8.self)
+            XCTAssertTrue(
+                requestBody.contains("subject_token_type=urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Aaccess_token"),
+                "§15.7: the token's shape must not pick the type, got: \(requestBody)")
+        }
+    }
+
+    func testAnActorTokenWithAnExternalSubjectTokenIsRefusedWithoutRetry() async throws {
+        let router = makeRouter(tokenStatus: 400, tokenBody: [
+            "error": "invalid_request",
+            "error_description": "actor_token is not supported for an external subject token",
+        ])
+        try await withServiceClient(router: router) { client, server in
+            do {
+                _ = try await client.tokenExchange(
+                    subjectToken: Sensitive(Self.externalSubjectToken),
+                    subjectTokenType: AxiamClient.jwtTokenType,
+                    actorToken: Sensitive("the-services-token"))
+                XCTFail("expected invalid_request to surface")
+            } catch let error as AxiamError {
+                guard case let .auth(authError) = error else { return XCTFail("expected an AuthError") }
+                XCTAssertEqual(authError.oauthError, "invalid_request")
+            }
+
+            // §15.7: no retry, and no rewriting. Dropping the actor token and re-sending would
+            // turn a delegation the caller asked for into an impersonation they did not.
+            XCTAssertEqual(server.state.count("token"), 1, "exactly one request")
+            let requestBody = String(decoding:
+                try XCTUnwrap(server.state.requests(pathContaining: "/oauth2/token").last).body,
+                as: UTF8.self)
+            XCTAssertTrue(requestBody.contains("actor_token=the-services-token"),
+                          "the request must be sent as written, actor token included")
+            XCTAssertTrue(
+                requestBody.contains("subject_token_type=urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Ajwt"),
+                "subject_token_type must not be rewritten")
+        }
+    }
+
+    func testARefusedSubjectTokenTypeIsNeverRetriedAsAnother() async throws {
+        // A refresh token is a re-authentication credential and an ID token is an assertion to
+        // a client about a login; neither is a bearer credential for an API, so both are
+        // refused BY NAME. Retrying as …:jwt would present one as if it were.
+        for refused in [
+            "urn:ietf:params:oauth:token-type:refresh_token",
+            "urn:ietf:params:oauth:token-type:id_token",
+        ] {
+            let router = makeRouter(tokenStatus: 400, tokenBody: [
+                "error": "invalid_request",
+                "error_description": "unsupported subject_token_type",
+            ])
+            try await withServiceClient(router: router) { client, server in
+                do {
+                    _ = try await client.tokenExchange(
+                        subjectToken: Sensitive(Self.externalSubjectToken),
+                        subjectTokenType: refused)
+                    XCTFail("expected the refused type to surface")
+                } catch let error as AxiamError {
+                    guard case let .auth(authError) = error else { return XCTFail("expected an AuthError") }
+                    XCTAssertEqual(authError.oauthError, "invalid_request")
+                }
+
+                XCTAssertEqual(server.state.count("token"), 1, "no retry after a refused type")
+                let requestBody = String(decoding:
+                    try XCTUnwrap(server.state.requests(pathContaining: "/oauth2/token").last).body,
+                    as: UTF8.self)
+                let encoded = refused.replacingOccurrences(of: ":", with: "%3A")
+                XCTAssertTrue(requestBody.contains("subject_token_type=\(encoded)"),
+                              "§15.7: the refused type must be sent as named, not swapped")
+            }
+        }
+    }
+
+    func testTheIssuerNotConfiguredDescriptionReachesTheCallerIntact() async throws {
+        let router = makeRouter(tokenStatus: 400, tokenBody: [
+            "error": "invalid_grant",
+            "error_description": Self.issuerNotConfigured,
+        ])
+        try await withServiceClient(router: router) { client, _ in
+            do {
+                _ = try await client.tokenExchange(
+                    subjectToken: Sensitive(Self.externalSubjectToken),
+                    subjectTokenType: AxiamClient.jwtTokenType)
+                XCTFail("expected invalid_grant to surface")
+            } catch let error as AxiamError {
+                guard case let .auth(authError) = error else { return XCTFail("expected an AuthError") }
+                XCTAssertEqual(authError.oauthError, "invalid_grant")
+                // This is the ONLY distinguishable external failure, and the whole point of it
+                // is that an integrator can tell "fix the AXIAM trust config" from "fix your
+                // token". Truncating or rewording it destroys that.
+                XCTAssertEqual(authError.oauthErrorDescription, Self.issuerNotConfigured)
+            }
+        }
+    }
+
+    func testNoHelperReExchangesAnExternallyExchangedToken() async throws {
+        // Tokens minted from an external subject token carry `ext_exchange`, and BOTH exchange
+        // paths refuse a subject token bearing it: exchanges do not compose. The SDK's part is
+        // to never feed a result back in by itself.
+        try await withServiceClient(router: makeRouter(tokenBody: narrowedToken)) { client, server in
+            let exchanged = try await client.tokenExchange(
+                subjectToken: Sensitive(Self.externalSubjectToken),
+                subjectTokenType: AxiamClient.jwtTokenType)
+
+            XCTAssertEqual(exchanged.accessToken.expose(), "the-narrower-token")
+            // Exactly one exchange happened: nothing looped the result back in. §15.2 rule 5 is
+            // what stops it — had the result been adopted, the next exchange would carry it as
+            // a *subject* token, which is exactly the re-exchange §15.7 forbids, arrived at by
+            // accident rather than by decision.
+            XCTAssertEqual(server.state.count("token"), 1,
+                           "exactly one exchange — nothing re-exchanged the result")
+        }
+    }
+
     // MARK: - §12.7 logout
 
     private func logoutClaims(
