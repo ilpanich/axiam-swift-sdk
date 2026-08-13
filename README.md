@@ -388,6 +388,7 @@ next service.
 ```swift
 let narrowed = try await client.tokenExchange(
     subjectToken: usersToken,
+    subjectTokenType: AxiamClient.accessTokenType,  // required (§15.1), no default
     actorToken: myServiceToken,       // present → delegation; absent → impersonation
     scopes: ["orders:read"],
     audience: "inventory-service")
@@ -416,14 +417,14 @@ no separate operation:
 ```swift
 let narrowed = try await client.tokenExchange(
     subjectToken: partnersToken,
-    subjectTokenType: AxiamClient.jwtTokenType,   // named, never guessed
+    subjectTokenType: AxiamClient.jwtTokenType,   // required; named, never guessed
     scopes: ["read:orders"],
     audience: "https://orders.internal")
 ```
 
-- **`subjectTokenType` is yours to state.** The SDK never decodes the subject token to pick it,
-  and never overrides what you named. `nil` still means `AxiamClient.accessTokenType`, the
-  same-domain exchange above.
+- **`subjectTokenType` is yours to state, and is required** (§15.1). The SDK never decodes the
+  subject token to pick it, and never overrides what you named. There is no default — omitting
+  it does not compile, and a blank string is refused client-side with no wire call.
 - **No actor token.** Delegation across a trust boundary is unsupported in v1; sending one is
   `invalid_request`, which the SDK will not work around by dropping it and re-sending.
 - **One refusal is distinguishable.** `invalid_grant` whose `oauthErrorDescription` is `the

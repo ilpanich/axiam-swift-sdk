@@ -38,6 +38,7 @@ do {
     // supplies no default actor token and never substitutes its own session for one.
     let exchanged = try await client.tokenExchange(
         subjectToken: subjectToken,
+        subjectTokenType: AxiamClient.accessTokenType,
         actorToken: Sensitive(env("AXIAM_ACTOR_TOKEN", default: "the-services-own-token")),
         scopes: ["orders:read"],
         audience: env("AXIAM_AUDIENCE", default: "inventory-service"))
