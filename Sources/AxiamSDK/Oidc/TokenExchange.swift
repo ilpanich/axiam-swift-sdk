@@ -11,15 +11,28 @@ extension AxiamClient {
 
     static let tokenExchangeGrantType = "urn:ietf:params:oauth:grant-type:token-exchange"
 
-    /// The RFC 8693 token type this SDK sends and expects. Both `subject_token_type` and
-    /// `actor_token_type` are access tokens against AXIAM.
-    static let accessTokenType = "urn:ietf:params:oauth:token-type:access_token"
+    /// The `actor_token_type` this SDK sends, and the `subject_token_type` it sends when the
+    /// caller names none — an AXIAM-issued access token (§15.1).
+    public static let accessTokenType = "urn:ietf:params:oauth:token-type:access_token"
+
+    /// A JWT from a trusted external issuer — the cross-domain exchange of §15.7.
+    ///
+    /// Pass it as `subjectTokenType` to exchange a partner IdP's token. AXIAM also accepts
+    /// ``accessTokenType`` for an external issuer, and refuses refresh and ID token types
+    /// **by name**.
+    public static let jwtTokenType = "urn:ietf:params:oauth:token-type:jwt"
 
     /// `POST /oauth2/token` with the RFC 8693 grant (§15.1).
     ///
     /// - Parameters:
     ///   - subjectToken: the token being exchanged — positional and first, because four
     ///     optional strings in positional order is a bug waiting to be written.
+    ///   - subjectTokenType: what kind of token `subjectToken` is. `nil` sends
+    ///     ``accessTokenType``, the same-domain exchange of §15.1; to exchange a token from a
+    ///     **trusted external issuer** (§15.7), name it explicitly — normally
+    ///     ``jwtTokenType``. This SDK never reads `subjectToken` to decide the value: which
+    ///     kind of token the caller holds is only the caller's to know, AXIAM refuses refresh
+    ///     and ID token types by name, and a refusal is never retried as a different type.
     ///   - actorToken: **its presence selects delegation; its absence selects impersonation.**
     ///     Two different operations with different risk, and §15.2 rule 1 forbids papering over
     ///     the difference: this SDK supplies no default actor token and never substitutes its
@@ -50,6 +63,7 @@ extension AxiamClient {
     /// telling them apart is a tenant-enumeration signal.
     public func tokenExchange(
         subjectToken: Sensitive<String>,
+        subjectTokenType: String? = nil,
         actorToken: Sensitive<String>? = nil,
         scopes: [String]? = nil,
         audience: String? = nil,
@@ -64,7 +78,11 @@ extension AxiamClient {
         var form = [
             "grant_type": Self.tokenExchangeGrantType,
             "subject_token": subjectToken.wrapped,
-            "subject_token_type": Self.accessTokenType,
+            // Whatever the caller named, verbatim. The subject token is NEVER decoded to pick
+            // this (§15.7): which kind of token the caller holds is the caller's to know, and
+            // a guess here is the difference between a request that is refused and one that
+            // is silently reinterpreted.
+            "subject_token_type": subjectTokenType ?? Self.accessTokenType,
             "client_id": try requireOidcClientID(),
             "client_secret": try requireOidcClientSecret("tokenExchange").wrapped,
         ]

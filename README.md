@@ -407,6 +407,34 @@ MAY, because adopting it would silently re-privilege every subsequent call.
 
 Runnable: [`Examples/TokenExchange`](Examples/TokenExchange/main.swift).
 
+### External-IdP subject tokens (§15.7)
+
+The same method exchanges a token minted by a **trusted external IdP** — a partner's Entra, Okta
+or Keycloak — for an AXIAM token scoped to what the resolved AXIAM user may actually do. There is
+no separate operation:
+
+```swift
+let narrowed = try await client.tokenExchange(
+    subjectToken: partnersToken,
+    subjectTokenType: AxiamClient.jwtTokenType,   // named, never guessed
+    scopes: ["read:orders"],
+    audience: "https://orders.internal")
+```
+
+- **`subjectTokenType` is yours to state.** The SDK never decodes the subject token to pick it,
+  and never overrides what you named. `nil` still means `AxiamClient.accessTokenType`, the
+  same-domain exchange above.
+- **No actor token.** Delegation across a trust boundary is unsupported in v1; sending one is
+  `invalid_request`, which the SDK will not work around by dropping it and re-sending.
+- **One refusal is distinguishable.** `invalid_grant` whose `oauthErrorDescription` is `the
+  subject token's issuer is not configured for token exchange` means *fix the AXIAM trust
+  configuration*. Every other `invalid_grant` means *fix your token*, and is deliberately generic.
+- **Forward the result as-is.** It carries an `ext_exchange` claim naming the partner issuer;
+  never strip it, and never read it as an authorization input. It also cannot be exchanged again
+  — exchanges do not compose.
+
+The operator guide is `docs/api/federated-token-exchange.md`.
+
 ## UMA 2.0 — Protection API and ticket grant (§20)
 
 The resource-server side of User-Managed Access: register what you guard, ask the authorization
