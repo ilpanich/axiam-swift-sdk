@@ -72,6 +72,7 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
         try await withServiceClient(router: makeRouter(tokenBody: narrowedToken)) { client, server in
             let exchanged = try await client.tokenExchange(
                 subjectToken: Sensitive("the-users-token"),
+                subjectTokenType: AxiamClient.accessTokenType,
                 actorToken: Sensitive("the-services-token"),
                 scopes: ["orders:read", "orders:write"])
 
@@ -94,7 +95,7 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
         // §15.2 rule 1: the absence of an actor token IS the request for impersonation. No
         // default, and no "helpfully" reusing the client's own session as the actor.
         try await withServiceClient(router: makeRouter(tokenBody: narrowedToken)) { client, server in
-            _ = try await client.tokenExchange(subjectToken: Sensitive("the-users-token"))
+            _ = try await client.tokenExchange(subjectToken: Sensitive("the-users-token"), subjectTokenType: AxiamClient.accessTokenType)
 
             let body = String(decoding:
                 try XCTUnwrap(server.state.requests(pathContaining: "/oauth2/token").last).body,
@@ -105,7 +106,7 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
 
     func testOmittingScopeSendsNoScopeParameter() async throws {
         try await withServiceClient(router: makeRouter(tokenBody: narrowedToken)) { client, server in
-            _ = try await client.tokenExchange(subjectToken: Sensitive("t"))
+            _ = try await client.tokenExchange(subjectToken: Sensitive("t"), subjectTokenType: AxiamClient.accessTokenType)
             let body = String(decoding:
                 try XCTUnwrap(server.state.requests(pathContaining: "/oauth2/token").last).body,
                 as: UTF8.self)
@@ -123,7 +124,7 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
         ])
         try await withServiceClient(router: router) { client, server in
             do {
-                _ = try await client.tokenExchange(subjectToken: Sensitive("t"))
+                _ = try await client.tokenExchange(subjectToken: Sensitive("t"), subjectTokenType: AxiamClient.accessTokenType)
                 XCTFail("expected unauthorized_client to surface")
             } catch let error as AxiamError {
                 guard case let .auth(authError) = error else { return XCTFail("expected an AuthError") }
@@ -140,7 +141,9 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
         try await withServiceClient(router: router) { client, server in
             do {
                 _ = try await client.tokenExchange(
-                    subjectToken: Sensitive("t"), scopes: ["orders:read", "orders:write"])
+                    subjectToken: Sensitive("t"),
+                    subjectTokenType: AxiamClient.accessTokenType,
+                    scopes: ["orders:read", "orders:write"])
                 XCTFail("expected invalid_scope to surface")
             } catch let error as AxiamError {
                 guard case let .auth(authError) = error else { return XCTFail("expected an AuthError") }
@@ -157,7 +160,7 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
         let router = makeRouter(tokenStatus: 400, tokenBody: ["error": "invalid_grant"])
         try await withServiceClient(router: router) { client, _ in
             do {
-                _ = try await client.tokenExchange(subjectToken: Sensitive("a-token-from-another-tenant"))
+                _ = try await client.tokenExchange(subjectToken: Sensitive("a-token-from-another-tenant"), subjectTokenType: AxiamClient.accessTokenType)
                 XCTFail("expected invalid_grant")
             } catch let error as AxiamError {
                 guard case let .auth(authError) = error else { return XCTFail("expected an AuthError") }
@@ -173,13 +176,13 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
         var body = narrowedToken
         body["refresh_token"] = "a-refresh-token-the-server-should-not-send"
         try await withServiceClient(router: makeRouter(tokenBody: body)) { client, server in
-            let exchanged = try await client.tokenExchange(subjectToken: Sensitive("t"))
+            let exchanged = try await client.tokenExchange(subjectToken: Sensitive("t"), subjectTokenType: AxiamClient.accessTokenType)
             XCTAssertEqual(exchanged.accessToken.expose(), "the-narrower-token")
 
             // The type has nowhere to put a refresh token, so a server that sends one cannot
             // make this SDK carry it forward. And the client's own session is untouched: the
             // next call still authenticates as before.
-            _ = try await client.tokenExchange(subjectToken: Sensitive("t"))
+            _ = try await client.tokenExchange(subjectToken: Sensitive("t"), subjectTokenType: AxiamClient.accessTokenType)
             let second = try XCTUnwrap(server.state.requests(pathContaining: "/oauth2/token").last)
             let secondBody = String(decoding: second.body, as: UTF8.self)
             XCTAssertTrue(secondBody.contains("client_secret=service-secret"))
@@ -232,11 +235,14 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
 
     func testSubjectTokenTypeIsNeverInferredFromTheTokenItself() async throws {
         try await withServiceClient(router: makeRouter(tokenBody: narrowedToken)) { client, server in
-            // A subject token that *looks* exactly like a JWT. An SDK that sniffed the token
-            // would send …:jwt here; §15.7 says it must not look, so the caller's silence still
-            // means the §15.1 same-domain default.
+            // A subject token that *looks* exactly like a JWT, presented as an access token.
+            // An SDK that sniffed the token would "correct" this to …:jwt; §15.7 says it must
+            // not look, so what the caller named is what goes out. Being able to hold this
+            // wrong is the point: only the caller knows.
             let jwtShaped = "eyJhbGciOiJFZERTQSJ9.eyJpc3MiOiJodHRwczovL3BhcnRuZXIuZXhhbXBsZS8ifQ.sig"
-            _ = try await client.tokenExchange(subjectToken: Sensitive(jwtShaped))
+            _ = try await client.tokenExchange(
+                subjectToken: Sensitive(jwtShaped),
+                subjectTokenType: AxiamClient.accessTokenType)
 
             let requestBody = String(decoding:
                 try XCTUnwrap(server.state.requests(pathContaining: "/oauth2/token").last).body,
@@ -350,6 +356,31 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
             // accident rather than by decision.
             XCTAssertEqual(server.state.count("token"), 1,
                            "exactly one exchange — nothing re-exchanged the result")
+        }
+    }
+
+    func testABlankSubjectTokenTypeNeverReachesTheWire() async throws {
+        // §15.1: the type is required, and Swift already refuses a call that names none — the
+        // parameter has no default, so omitting it does not compile. What the signature cannot
+        // catch is a BLANK string, which is the shape a config-driven caller produces and which
+        // would otherwise become an empty field on the wire. Sending …:access_token instead
+        // would be the SDK choosing on the caller's behalf, which §15.7 forbids.
+        for blank in ["", "   ", "\t"] {
+            try await withServiceClient(router: makeRouter(tokenBody: narrowedToken)) { client, server in
+                do {
+                    _ = try await client.tokenExchange(
+                        subjectToken: Sensitive("t"),
+                        subjectTokenType: blank)
+                    XCTFail("expected a blank subjectTokenType to be refused")
+                } catch let error as AxiamError {
+                    guard case let .auth(authError) = error else { return XCTFail("expected an AuthError") }
+                    // The message has to name the way out, or the caller has to go read §15.1.
+                    XCTAssertTrue(authError.message.contains("subjectTokenType"),
+                                  "the error should name the parameter, got: \(authError.message)")
+                }
+                XCTAssertEqual(server.state.count("token"), 0,
+                               "no request may be sent for a type nobody chose")
+            }
         }
     }
 

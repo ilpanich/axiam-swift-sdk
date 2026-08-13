@@ -11,8 +11,9 @@ extension AxiamClient {
 
     static let tokenExchangeGrantType = "urn:ietf:params:oauth:grant-type:token-exchange"
 
-    /// The `actor_token_type` this SDK sends, and the `subject_token_type` it sends when the
-    /// caller names none — an AXIAM-issued access token (§15.1).
+    /// The `actor_token_type` this SDK sends, and the `subject_token_type` a caller names for
+    /// the same-domain exchange of §15.1. There is no default: the type is a required
+    /// parameter of ``tokenExchange(subjectToken:subjectTokenType:actorToken:scopes:audience:resource:tenantID:configuration:)``.
     public static let accessTokenType = "urn:ietf:params:oauth:token-type:access_token"
 
     /// A JWT from a trusted external issuer — the cross-domain exchange of §15.7.
@@ -27,12 +28,13 @@ extension AxiamClient {
     /// - Parameters:
     ///   - subjectToken: the token being exchanged — positional and first, because four
     ///     optional strings in positional order is a bug waiting to be written.
-    ///   - subjectTokenType: what kind of token `subjectToken` is. `nil` sends
-    ///     ``accessTokenType``, the same-domain exchange of §15.1; to exchange a token from a
-    ///     **trusted external issuer** (§15.7), name it explicitly — normally
-    ///     ``jwtTokenType``. This SDK never reads `subjectToken` to decide the value: which
-    ///     kind of token the caller holds is only the caller's to know, AXIAM refuses refresh
-    ///     and ID token types by name, and a refusal is never retried as a different type.
+    ///   - subjectTokenType: what kind of token `subjectToken` is. **Required** (§15.1), with
+    ///     no default: a default would be this SDK choosing which kind of credential the
+    ///     caller holds, which is what §15.7 forbids. Pass ``accessTokenType`` for the
+    ///     same-domain exchange, or ``jwtTokenType`` for a trusted external issuer's JWT
+    ///     (§15.7). This SDK never reads `subjectToken` to decide the value: which kind of
+    ///     token the caller holds is only the caller's to know, AXIAM refuses refresh and ID
+    ///     token types by name, and a refusal is never retried as a different type.
     ///   - actorToken: **its presence selects delegation; its absence selects impersonation.**
     ///     Two different operations with different risk, and §15.2 rule 1 forbids papering over
     ///     the difference: this SDK supplies no default actor token and never substitutes its
@@ -63,7 +65,7 @@ extension AxiamClient {
     /// telling them apart is a tenant-enumeration signal.
     public func tokenExchange(
         subjectToken: Sensitive<String>,
-        subjectTokenType: String? = nil,
+        subjectTokenType: String,
         actorToken: Sensitive<String>? = nil,
         scopes: [String]? = nil,
         audience: String? = nil,
@@ -71,6 +73,15 @@ extension AxiamClient {
         tenantID: String? = nil,
         configuration: OidcConfiguration? = nil
     ) async throws -> ExchangedToken {
+        // §15.1: the type is required, and Swift already refused a call that named none. A
+        // BLANK string is what the signature cannot catch — the shape a config-driven caller
+        // produces — and it must not become an empty field on the wire.
+        guard !subjectTokenType.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw AxiamError.auth(AuthError(
+                "tokenExchange requires a non-empty subjectTokenType (§15.1): pass "
+                    + "AxiamClient.accessTokenType for an AXIAM access token, or "
+                    + "AxiamClient.jwtTokenType for a trusted external issuer's JWT"))
+        }
         let document = try await oidcConfiguration(configuration)
 
         // §15.1: the exchanging client authenticates — unlike §14's device, this is a
@@ -82,7 +93,7 @@ extension AxiamClient {
             // this (§15.7): which kind of token the caller holds is the caller's to know, and
             // a guess here is the difference between a request that is refused and one that
             // is silently reinterpreted.
-            "subject_token_type": subjectTokenType ?? Self.accessTokenType,
+            "subject_token_type": subjectTokenType,
             "client_id": try requireOidcClientID(),
             "client_secret": try requireOidcClientSecret("tokenExchange").wrapped,
         ]

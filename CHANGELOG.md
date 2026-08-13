@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING (contract 1.13): `tokenExchange`'s `subjectTokenType` is now required**, losing its
+  `= nil` default and narrowing from `String?` to `String`.
+
+  It shipped optional, defaulting to `accessTokenType` — which satisfied §15.7's "never inspect
+  the subject token" while leaving the rule it serves unenforced: a defaulted parameter *is* a
+  default the SDK applies whenever the caller says nothing. §15.1 now makes it required, so
+  Swift refuses the call outright: omitting the argument no longer compiles.
+
+  The case the compiler cannot catch is a **blank** string — the shape a config-driven caller
+  produces — so that is refused client-side with no wire call, naming both constants. Asserted
+  over `""`, `"   "` and a tab.
+
+  **Migration** — one argument, naming what you were previously getting by silence:
+
+  ```swift
+  let narrowed = try await client.tokenExchange(
+      subjectToken: usersToken,
+      subjectTokenType: AxiamClient.accessTokenType,  // <- add this
+      scopes: ["orders:read"])
+  ```
+
+  This closes a gap rather than opening one: `subject_token_type` has always been required *on
+  the wire*, and the SDK was covering for that with a constant which stopped being the only legal
+  value when X4 landed.
+
 ### Added
 
 - **§15.7 external-IdP subject tokens (X4).** `tokenExchange` can now exchange a token minted by a
@@ -18,9 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **The type is the caller's to name, never the SDK's to guess.** §15.7 forbids inspecting the
   subject token to pick it, because which kind of token you hold is something only you know and a
   wrong guess is the difference between a request that is refused and one that is silently
-  reinterpreted. `nil` still sends `…:access_token`, so every existing caller is unaffected — the
-  parameter is defaulted and labelled, so existing call sites keep compiling — and a JWT-shaped
-  subject token does **not** change what is sent, which is asserted by a test.
+  reinterpreted. A JWT-shaped subject token does **not** change what is sent, which is asserted by
+  a test. (This shipped as `String? = nil` with an `…:access_token` default; contract 1.13 made it
+  required — see *Changed* above.)
 
   Also asserted: an `actorToken` alongside an external subject token surfaces `invalid_request`
   with no retry and no request rewriting; a refused refresh or ID token type is never retried as a
