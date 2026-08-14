@@ -1,4 +1,5 @@
 import Foundation
+import Crypto
 
 /// A minimal, framework-agnostic view of an inbound request: its headers and cookies.
 ///
@@ -94,6 +95,120 @@ public struct AxiamRequestAuthenticator: Sendable {
     ///   `nbf` is in the future, the token does not belong to the configured tenant, the tenant
     ///   does not match the request's `X-Tenant-ID`, or a configured issuer/audience does not
     ///   match.
+    /// ``authenticate(_:)`` plus CONTRACT.md §10.1 **rule 9** — the sender constraint
+    /// (RFC 8705 §3 / RFC 7800, contract 1.15).
+    ///
+    /// This is the guard entry point for a resource server that accepts
+    /// **certificate-bound** access tokens. `presentedThumbprint` is the RFC 8705 §3.1
+    /// `x5t#S256` of the client certificate on the current connection, or `nil` when
+    /// there is none; ``AxiamRequestAuthenticator/certificateThumbprintS256(der:)``
+    /// computes it from DER bytes.
+    ///
+    /// A separate method rather than a parameter on ``authenticate(_:)`` because the two
+    /// have different *inputs*: most integrations have no transport-level certificate to
+    /// offer, and folding the thumbprint in would force every caller to thread a `nil`
+    /// they do not have — which reads as "no certificate" and rejects every bound token.
+    ///
+    /// **An unbound token is still accepted** here, with or without a certificate. Rule 9
+    /// constrains tokens that claim a constraint; it does not make certificates mandatory.
+    ///
+    /// **The thumbprint must come from the transport** — the TLS peer certificate, or a
+    /// value a *trusted* terminating proxy forwarded over a channel your application
+    /// controls. Never from a caller-settable request header: a forgeable input makes the
+    /// whole mechanism decorative.
+    ///
+    /// - Throws: ``AuthError`` on everything ``authenticate(_:)`` throws, plus the three
+    ///   rejecting rows of ``verifyCertificateBinding(_:presentedThumbprint:)``.
+    public func authenticateSenderConstrained(
+        _ context: AxiamRequestContext,
+        presentedThumbprint: String?
+    ) async throws -> AxiamUser {
+        // Rules 1-8 first: rule 9 reports a fact about the token's binding, and reporting
+        // that before the token is known valid at all would answer a question the caller
+        // has not earned.
+        let user = try await authenticate(context)
+
+        guard let token = Self.extractToken(from: context) else {
+            throw AuthError("No AXIAM session: missing Authorization bearer token or axiam_access cookie.")
+        }
+        let verified = try await jwks.verifySignatureOnlyUnchecked(token: token)
+        try Self.verifyCertificateBinding(verified.claims, presentedThumbprint: presentedThumbprint)
+        return user
+    }
+
+    /// CONTRACT.md §10.1 **rule 9** — enforce a token's sender constraint against the
+    /// certificate the caller presented on **this** connection.
+    ///
+    /// | token's `cnf`          | `presentedThumbprint` | result |
+    /// |------------------------|-----------------------|--------|
+    /// | absent                 | anything              | returns |
+    /// | `x5t#S256`             | equal                 | returns |
+    /// | `x5t#S256`             | different, or `nil`   | throws  |
+    /// | present, no `x5t#S256` | anything              | throws  |
+    ///
+    /// The first row is why adopting this rule breaks nothing: an **unbound** token is
+    /// still accepted whether or not a certificate is present.
+    ///
+    /// The last row is the one that is easy to get wrong. A `cnf` naming a confirmation
+    /// method this SDK cannot check — a DPoP `jkt`, say — is an *unverifiable constraint*,
+    /// never *no constraint*. Read the other way, a sender-constrained token silently
+    /// degrades to a bearer token the day a newer AXIAM issues a confirmation this SDK
+    /// predates.
+    ///
+    /// - Throws: ``AuthError`` on any of the three rejecting rows.
+    static func verifyCertificateBinding(
+        _ claims: JwtClaims,
+        presentedThumbprint: String?
+    ) throws {
+        guard let cnf = claims.cnf else {
+            // An ordinary bearer token.
+            return
+        }
+        guard let expected = cnf.certificateThumbprint, !expected.isEmpty else {
+            throw AuthError(
+                "AXIAM token carries a cnf confirmation naming a method this SDK cannot verify "
+                    + "(CONTRACT.md §10.1 rule 9 — an unverifiable constraint is not an absent one).")
+        }
+        guard let presented = presentedThumbprint, !presented.isEmpty else {
+            throw AuthError("AXIAM token is certificate-bound but no client certificate was presented.")
+        }
+        guard constantTimeEqual(expected, presented) else {
+            throw AuthError("AXIAM token is bound to a different client certificate than the one presented.")
+        }
+    }
+
+    /// Constant-time string comparison for rule 9.
+    ///
+    /// The thumbprint is usually public — it derives from a certificate sent in the clear
+    /// during the handshake — so this is defence in depth. It matters most for a
+    /// self-signed client, where the registered thumbprint is the whole credential.
+    private static func constantTimeEqual(_ a: String, _ b: String) -> Bool {
+        let lhs = Array(a.utf8)
+        let rhs = Array(b.utf8)
+        // Length inequality short-circuits, leaking only the length; both operands are
+        // fixed-length base64url SHA-256 digests whenever either is well-formed.
+        guard lhs.count == rhs.count else { return false }
+        var diff: UInt8 = 0
+        for i in 0..<lhs.count {
+            diff |= lhs[i] ^ rhs[i]
+        }
+        return diff == 0
+    }
+
+    /// Compute the RFC 8705 §3.1 `x5t#S256` thumbprint of a DER client certificate:
+    /// base64url-encoded SHA-256, **without** padding.
+    ///
+    /// Unpadded is not a style choice — RFC 7515 §2 defines base64url in JOSE as omitting
+    /// `=`, and a padded value will not compare equal to what AXIAM put in the token. A
+    /// well-formed value is exactly 43 characters.
+    public static func certificateThumbprintS256(der: Data) -> String {
+        let digest = SHA256.hash(data: der)
+        return Data(digest).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+
     public func authenticate(_ context: AxiamRequestContext) async throws -> AxiamUser {
         guard let token = Self.extractToken(from: context) else {
             throw AuthError("No AXIAM session: missing Authorization bearer token or axiam_access cookie.")
