@@ -99,4 +99,97 @@ final class Rule9CertificateBindingTests: XCTestCase {
         otherDer[0] = 0x43
         XCTAssertNotEqual(tp, AxiamRequestAuthenticator.certificateThumbprintS256(der: otherDer))
     }
+    // MARK: - end to end, through the guard entry point
+    //
+    // The cases above exercise the rule in isolation. These drive
+    // `authenticateSenderConstrained` against a real signed token and a real
+    // JWKS, which is what a resource server actually calls — an isolated rule
+    // that no entry point reaches is a rule nobody applies.
+
+    private let signer = TestSigner()
+
+    private func withGuardClient(
+        body: @escaping (AxiamClient, TestHTTPServer) async throws -> Void
+    ) async throws {
+        let signer = self.signer
+        try await withClient(
+            makeConfig: {
+                try TestKit.makeConfig(
+                    port: $0,
+                    tenantSlug: nil,
+                    tenantID: Self.tenantUUID
+                )
+            },
+            router: { request, state in
+                if request.uri.hasSuffix("/oauth2/jwks") {
+                    state.increment("jwks")
+                    return .json(200, signer.jwksJSON())
+                }
+                return .json(404, [:])
+            },
+            body: body
+        )
+    }
+
+    static let tenantUUID = "tenant-uuid-1"
+
+    private func claims(cnf: [String: Any]? = nil) -> [String: Any] {
+        var c: [String: Any] = [
+            "sub": "user-42",
+            "tenant_id": Self.tenantUUID,
+            "roles": ["admin"],
+            "exp": Date().addingTimeInterval(3600).timeIntervalSince1970,
+        ]
+        if let cnf { c["cnf"] = cnf }
+        return c
+    }
+
+    /// The regression test that keeps rule 9 from becoming a certificate
+    /// mandate, asserted where it matters: at the guard.
+    func testGuardAcceptsAnUnboundTokenWithOrWithoutACertificate() async throws {
+        let jwt = signer.makeJWT(claims: claims())
+        try await withGuardClient { client, _ in
+            let auth = client.makeAuthenticator()
+            let ctx = AxiamRequestContext(cookies: ["axiam_access": jwt])
+
+            let a = try await auth.authenticateSenderConstrained(ctx, presentedThumbprint: nil)
+            XCTAssertEqual(a.userID, "user-42")
+
+            let b = try await auth.authenticateSenderConstrained(
+                ctx, presentedThumbprint: Self.thumbprint)
+            XCTAssertEqual(b.userID, "user-42")
+        }
+    }
+
+    func testGuardAcceptsABoundTokenWithItsOwnCertificate() async throws {
+        let jwt = signer.makeJWT(claims: claims(cnf: ["x5t#S256": Self.thumbprint]))
+        try await withGuardClient { client, _ in
+            let auth = client.makeAuthenticator()
+            let user = try await auth.authenticateSenderConstrained(
+                AxiamRequestContext(cookies: ["axiam_access": jwt]),
+                presentedThumbprint: Self.thumbprint
+            )
+            XCTAssertEqual(user.userID, "user-42")
+        }
+    }
+
+    func testGuardRejectsABoundTokenWithNoOrWrongCertificate() async throws {
+        let jwt = signer.makeJWT(claims: claims(cnf: ["x5t#S256": Self.thumbprint]))
+        try await withGuardClient { client, _ in
+            let auth = client.makeAuthenticator()
+            let ctx = AxiamRequestContext(cookies: ["axiam_access": jwt])
+
+            // Explicitly typed: `[nil, x]` would otherwise need inference to
+            // land on `[String?]`, and this file is the one place in the suite
+            // where "no certificate" and "wrong certificate" must stay distinct.
+            let cases: [String?] = [nil, Self.otherThumbprint]
+            for presented in cases {
+                do {
+                    _ = try await auth.authenticateSenderConstrained(
+                        ctx, presentedThumbprint: presented)
+                    XCTFail("expected the guard to reject (presented: \(presented ?? "nil"))")
+                } catch is AuthError { /* ok */ }
+            }
+        }
+    }
 }
