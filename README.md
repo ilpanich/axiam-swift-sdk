@@ -10,7 +10,7 @@
 
 The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization Management).
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19 and §20 (including §6.1
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19 and §20, §21 (including §6.1
 > mTLS, §12.7 logout, and the §11 rule 9 decision reason codes).**
 
 It is a REST client built on [`async-http-client`](https://github.com/swift-server/async-http-client)

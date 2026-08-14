@@ -64,6 +64,41 @@ struct JwtClaims: Decodable, Sendable {
     let nbf: Double?
     let iss: String?
     let aud: JwtAudience?
+    /// RFC 7800 / RFC 8705 §3.1 confirmation claim — present **only** on a
+    /// sender-constrained token (CONTRACT.md §10.1 rule 9, contract 1.15).
+    ///
+    /// Its presence changes what the token *is*. Without it the token is a bearer
+    /// credential: whoever holds it may use it. With it, the token names a key, and
+    /// accepting it without proving the caller holds that key converts it straight back
+    /// into a bearer token.
+    let cnf: CnfClaim?
+}
+
+/// RFC 7800 confirmation claim.
+///
+/// Deliberately a struct with one optional field rather than an enum: RFC 7800 permits
+/// confirmation methods this SDK does not implement, and such a token must still *decode*.
+/// What it must not do is validate — see ``certificateThumbprint``.
+public struct CnfClaim: Decodable, Sendable, Equatable {
+    /// RFC 8705 §3.1 `x5t#S256` — base64url (unpadded) SHA-256 of the DER client
+    /// certificate the token was issued to. `nil` when the confirmation names some other
+    /// method.
+    public let x5tS256: String?
+
+    private enum CodingKeys: String, CodingKey {
+        // The wire key is not a legal Swift identifier, so the mapping is explicit — and
+        // it is load-bearing: a claim under any other key is not what a conforming
+        // resource server reads.
+        case x5tS256 = "x5t#S256"
+    }
+
+    /// The certificate thumbprint this token is bound to, or `nil` when the confirmation
+    /// names some other (unimplemented) method.
+    ///
+    /// A caller that gets `nil` from a claim that *exists* is looking at a constraint it
+    /// cannot check and MUST reject the token. It must never read that as
+    /// "unconstrained".
+    public var certificateThumbprint: String? { x5tS256 }
 }
 
 /// The verified result of parsing a token: its claims (signature already checked).
