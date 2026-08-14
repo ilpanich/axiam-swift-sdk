@@ -477,8 +477,9 @@ The rules this surface exists to enforce:
 - **A ticket is never retried** — not on `5xx`, not on a timeout, not on `invalid_grant`. It is the
   one documented exception to §16's retry policy, and a security rule rather than a performance
   one: the ticket is consumed *before* the exchange is evaluated, so a failed exchange has already
-  spent it and a retry is a *second redemption*. Under concurrency that is exactly the case whose
-  measured residual [`ilpanich/axiam#302`](https://github.com/ilpanich/axiam/issues/302) records.
+  spent it and a retry is a *second redemption*. Under concurrency that is exactly the redemption
+  a server whose storage engine the SDK cannot attest may admit twice
+  ([`ilpanich/axiam#302`](https://github.com/ilpanich/axiam/issues/302)).
   On failure, request a **new** ticket.
 - **`umaParseChallenge` does not exchange what it parsed.** The `as_uri` names an authorization
   server you have not necessarily chosen to trust; auto-exchanging would send the requesting
