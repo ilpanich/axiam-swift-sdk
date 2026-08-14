@@ -302,7 +302,8 @@ extension AxiamClient {
     ///   `invalid_grant`. This is the one documented exception to §16, and a security rule rather
     ///   than a performance one: the ticket is consumed *before* the request is evaluated, so a
     ///   failed exchange has already spent it, and a retry is a second redemption — exactly the
-    ///   concurrent redemption whose measured residual `ilpanich/axiam#302` records. The property
+    ///   concurrent redemption a server whose storage engine this SDK cannot attest may admit
+    ///   twice (`ilpanich/axiam#302`). The property
     ///   holds structurally here: this call goes through ``AxiamClient/rawSend(method:path:body:)``'s
     ///   absolute-URL sibling and never enters ``retryingPOST(operation:path:body:)``'s budget.
     /// - **No defaulted `claimToken`** (rule 2). It is the only channel that names the requesting
