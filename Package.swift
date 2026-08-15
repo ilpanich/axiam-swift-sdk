@@ -31,6 +31,11 @@ let package = Package(
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
                 .product(name: "NIOSSL", package: "swift-nio-ssl"),
                 .product(name: "Crypto", package: "swift-crypto"),
+                // RSASSA-PSS (PS256) for DPoP proof verification — CONTRACT.md §21.7.2
+                // check 2. `Crypto` covers Ed25519 and P-256; RSA-PSS lives in
+                // _CryptoExtras, the same swift-crypto package, so this adds a product
+                // rather than a dependency.
+                .product(name: "_CryptoExtras", package: "swift-crypto"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
             ]
