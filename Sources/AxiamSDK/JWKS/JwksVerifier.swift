@@ -85,11 +85,30 @@ public struct CnfClaim: Decodable, Sendable, Equatable {
     /// method.
     public let x5tS256: String?
 
+    /// RFC 9449 §6.1 `jkt` — the RFC 7638 SHA-256 thumbprint of the DPoP public key the
+    /// token was bound to (contract 1.16). `nil` when the confirmation names some other
+    /// method.
+    ///
+    /// Both fields non-`nil` is a **conjunction**, not a choice — see
+    /// ``AxiamRequestAuthenticator/verifyTokenBinding(_:proofs:)``.
+    public let jkt: String?
+
     private enum CodingKeys: String, CodingKey {
         // The wire key is not a legal Swift identifier, so the mapping is explicit — and
         // it is load-bearing: a claim under any other key is not what a conforming
         // resource server reads.
         case x5tS256 = "x5t#S256"
+        case jkt
+    }
+
+    /// Whether this confirmation names no method this SDK can verify.
+    ///
+    /// The distinction this preserves: such a token is an *unverifiable constraint*,
+    /// never an absent one. Reading it as "unconstrained" is the exact downgrade §10.1
+    /// rule 9 exists to prevent. It is also true of an **empty** `cnf`, which is how
+    /// proto3 delivers an empty `CnfClaim` over gRPC (§10.3 rule 3).
+    public var namesNothingCheckable: Bool {
+        (x5tS256?.isEmpty ?? true) && (jkt?.isEmpty ?? true)
     }
 
     /// The certificate thumbprint this token is bound to, or `nil` when the confirmation

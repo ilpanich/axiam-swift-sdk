@@ -165,15 +165,98 @@ public struct AxiamRequestAuthenticator: Sendable {
             return
         }
         guard let expected = cnf.certificateThumbprint, !expected.isEmpty else {
+            // Includes the DPoP case: this entry point has no proof to check, so a
+            // jkt-bound token is refused rather than silently downgraded.
             throw AuthError(
-                "AXIAM token carries a cnf confirmation naming a method this SDK cannot verify "
-                    + "(CONTRACT.md §10.1 rule 9 — an unverifiable constraint is not an absent one).")
+                "AXIAM token carries a cnf confirmation naming a method this entry point cannot "
+                    + "verify (CONTRACT.md §10.1 rule 9 — an unverifiable constraint is not an "
+                    + "absent one; use verifyTokenBinding for DPoP).")
+        }
+        // A token naming BOTH methods is a conjunction (contract 1.16): this function can
+        // establish one half and must not answer for the whole. Refusing here is what
+        // stops "check whichever we can".
+        if let jkt = cnf.jkt, !jkt.isEmpty {
+            throw AuthError(
+                "AXIAM token names both a certificate and a DPoP key; both must hold "
+                    + "(CONTRACT.md §10.1 rule 9) — use verifyTokenBinding.")
         }
         guard let presented = presentedThumbprint, !presented.isEmpty else {
             throw AuthError("AXIAM token is certificate-bound but no client certificate was presented.")
         }
         guard constantTimeEqual(expected, presented) else {
             throw AuthError("AXIAM token is bound to a different client certificate than the one presented.")
+        }
+    }
+
+    /// CONTRACT.md §10.1 **rule 9** in full — enforce a token's sender constraint against
+    /// **every** proof the caller presented (contract 1.16).
+    ///
+    /// This is the complete rule, and the one to use unless your transport genuinely
+    /// cannot produce a DPoP thumbprint.
+    ///
+    /// | token's `cnf`            | certificate     | DPoP        | result  |
+    /// |--------------------------|-----------------|-------------|---------|
+    /// | absent                   | anything        | anything    | returns |
+    /// | `x5t#S256`               | equal           | ignored     | returns |
+    /// | `x5t#S256`               | different       | ignored     | throws  |
+    /// | `x5t#S256`               | `nil`           | ignored     | throws  |
+    /// | `jkt`                    | ignored         | equal       | returns |
+    /// | `jkt`                    | ignored         | different   | throws  |
+    /// | `jkt`                    | ignored         | `nil`       | throws  |
+    /// | both                     | equal           | equal       | returns |
+    /// | both                     | wrong/missing   | —           | throws  |
+    /// | present, names neither   | anything        | anything    | throws  |
+    ///
+    /// Two rows carry the weight. **Both named is a conjunction**: an operator who turned
+    /// on two constraints asked for two, and satisfying the more convenient one is not
+    /// compliance. **Names neither is a refusal**: a confirmation this SDK cannot
+    /// interpret is an unverifiable constraint, and reading it as "unconstrained" is the
+    /// exact downgrade rule 9 exists to prevent — including an *empty* `cnf`, which is how
+    /// proto3 delivers an empty `CnfClaim` over gRPC (§10.3 rule 3).
+    ///
+    /// - Parameters:
+    ///   - claims: The verified claims of the token being guarded.
+    ///   - proofs: What the caller proved on this connection and request.
+    /// - Throws: ``AuthError`` on any rejecting row.
+    public static func verifyTokenBinding(
+        _ claims: JwtClaims,
+        proofs: PresentedProofs
+    ) throws {
+        // The fast path, and the common one. First on purpose: an unbound token is
+        // accepted with no proofs at all, which is what keeps existing deployments working
+        // when a guard adopts this rule.
+        guard let cnf = claims.cnf else {
+            return
+        }
+        guard !cnf.namesNothingCheckable else {
+            throw AuthError(
+                "AXIAM token carries a cnf confirmation naming no method this SDK can verify "
+                    + "(CONTRACT.md §10.1 rule 9 — an unverifiable constraint is not an absent one).")
+        }
+
+        // Each arm that applies must pass. Two independent checks rather than a switch on
+        // the pair, precisely so "both named" needs no case of its own — it is simply
+        // where both run.
+        if let expected = cnf.x5tS256, !expected.isEmpty {
+            guard let presented = proofs.certificateThumbprint, !presented.isEmpty else {
+                throw AuthError(
+                    "AXIAM token is certificate-bound but no client certificate was presented.")
+            }
+            guard constantTimeEqual(expected, presented) else {
+                throw AuthError(
+                    "AXIAM token is bound to a different client certificate than the one presented.")
+            }
+        }
+
+        if let expected = cnf.jkt, !expected.isEmpty {
+            guard let presented = proofs.dpopThumbprint, !presented.isEmpty else {
+                throw AuthError(
+                    "AXIAM token is DPoP-bound but no verified DPoP proof was presented.")
+            }
+            guard constantTimeEqual(expected, presented) else {
+                throw AuthError(
+                    "AXIAM token is bound to a different DPoP key than the one presented.")
+            }
         }
     }
 
