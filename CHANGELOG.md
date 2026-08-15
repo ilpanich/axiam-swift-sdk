@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **README's Scope table now points at CONTRACT.md §22.11 (the deferred reactor
+  runtime).** §22.11 carries a SHOULD that these READMEs point at it "so an
+  integrator finds the wire chapter rather than concluding reactors are
+  unavailable" — the Scope table listed §8 AMQP as deferred and said nothing about
+  §22, which is exactly where a reader would draw that wrong conclusion. The new
+  row says the accurate thing: §22.11 defers the `reactorServe` *helper* for the
+  same reason §8 has never listed Swift — no vendorable AMQP client for this
+  target — but §22.1–§22.8 is a wire protocol and binds a hand-rolled integrator in
+  full, and the §22.13 vectors are the conformance surface.
+
+  Documentation only: no code change, and **no §22 conformance claim** — §22.11's
+  MUST NOT forbids claiming the chapter while shipping no runtime, and the
+  conformance statement is untouched.
+
 ### Added
 
 - **CONTRACT.md §10.1 rule 9 extended for DPoP, and §21.7.2 proof verification
