@@ -218,7 +218,11 @@ public struct AxiamRequestAuthenticator: Sendable {
     ///   - claims: The verified claims of the token being guarded.
     ///   - proofs: What the caller proved on this connection and request.
     /// - Throws: ``AuthError`` on any rejecting row.
-    public static func verifyTokenBinding(
+    /// Internal, not `public`, for the same reason ``verifyCertificateBinding(_:presentedThumbprint:)``
+    /// is: `JwtClaims` is an internal type, and Swift will not let a public
+    /// signature name one. The public surface reaches rule 9 through the
+    /// authenticator's own entry points.
+    static func verifyTokenBinding(
         _ claims: JwtClaims,
         proofs: PresentedProofs
     ) throws {
