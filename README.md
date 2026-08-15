@@ -31,6 +31,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §10 route-guard, §11 declarative helpers, EdDSA JWKS | ✅ implemented |
 | gRPC transport (incl. `getUserInfo`, CONTRACT §1.1) | ⏭️ deferred follow-up (no §-requirement for Swift; no REST substitution per §1.1) |
 | §8 AMQP HMAC | ⏭️ deferred (contract lists AMQP for Rust/TS/Go/Python/Java/PHP, **not** Swift) |
+| §22 reactors (`reactorServe`) | ⏭️ **runtime** deferred by §22.11, for the same reason as §8: no vendorable AMQP client for this target. That defers the *helper*, not the chapter — **§22.1–§22.8 is a wire protocol and binds a hand-rolled integrator in full**: the §8 v2 verification set on the event, the signed reply shape with its omission rules (note that `hmac_signature` serializes as **`null`** inside a reactor body rather than being omitted as it is in §8's own two message types), the per-event mutable-field allow-lists, and §22.7's hot-path exclusion. The §22.13 vectors are the conformance surface and need no SDK to run against — read [§22 and §22.11 of `CONTRACT.md`](CONTRACT.md) before writing one |
 | §11 rule 9 decision reason codes | ✅ implemented |
 | §16 bounded read-only retry, §17 decision memo, §18 `close()`, §19 telemetry hooks | ✅ implemented |
 | §12 OIDC/SSO relying-party helpers | ✅ implemented (contract 1.11) — the nine operations on `AxiamClient`, under the names §12.2 had reserved for Swift while the section was deferred |
