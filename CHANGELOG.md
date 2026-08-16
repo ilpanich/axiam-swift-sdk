@@ -5,6 +5,28 @@ All notable changes to the AXIAM Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha25] - 2026-08-16
+
+### Added
+
+- Extend §10.1 rule 9 for DPoP and implement §21.7.2 (#27)
+- SubjectTokenType is required (contract 1.13)
+- §15.7 — external-IdP subject tokens at the exchange (X4)
+- §12, §12.7, §14 and §15 — the ported deferral (contract 1.11)
+- §20.3 — emit a UMA challenge from the §11 guard (#20)
+- §20 UMA 2.0 — Protection API and ticket grant (#19)
+- §16 retry, §17 decision memo, §18 close(), §19 telemetry (D5)
+- §11 rule 9 decision reason codes; contract re-sync (D6) (#16)
+
+### Changed
+
+- Point the Scope table at CONTRACT.md §22.11, the deferred reactor runtime (#29)
+- Re-vendor CONTRACT.md 1.19, openapi.json and proto/ from main (R5.8) (#28)
+- Contract 1.15 — §10.1 rule 9, sender-constrained access tokens (#26)
+- Retire the "measured residual" justification (contract 1.14)
+- Re-sync to contract 1.14 (#302 closed)
+- Runnable §16–§19 example for the Swift SDK (F3)
+
 ## [Unreleased]
 
 ### Changed
