@@ -44,7 +44,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ilpanich/axiam-swift-sdk.git", from: "1.0.0-alpha27")
+    .package(url: "https://github.com/ilpanich/axiam-swift-sdk.git", from: "1.0.0-alpha28")
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
@@ -56,7 +56,7 @@ targets: [
 ### CocoaPods
 
 ```ruby
-pod 'AxiamSDK', '~> 1.0.0-alpha27'
+pod 'AxiamSDK', '~> 1.0.0-alpha28'
 ```
 
 ## Quickstart
