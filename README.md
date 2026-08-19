@@ -641,6 +641,10 @@ job is to be expensive in exactly the right way — is worse than declining, so 
 perform; substituting PBKDF2 would derive a different `x` and surface as "invalid password", the
 single most misleading failure available here.
 
+This is recorded in the contract rather than left as a local quirk: §23.3 rule 4's contract-1.25
+errata names Swift, PHP, and C/C++ below OpenSSL 3.2 as the SDKs for which `argon2id` is not
+computable, and states that refusing it is conformant rather than a gap.
+
 If you run Swift clients on SRP, set the tenant's `srp_kdf` to `pbkdf2_sha256`. The trade-off is
 worth stating plainly: PBKDF2 is not memory-hard, so a leaked verifier database enrolled under it is
 cheaper to attack with GPUs than one enrolled under Argon2id. It is still a full KDF evaluation per
