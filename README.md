@@ -10,8 +10,9 @@
 
 The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization Management).
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19 and §20, §21 (including §6.1
-> mTLS, §12.7 logout, and the §11 rule 9 decision reason codes).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19, §20, §21 and §23 (including
+> §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, and the §23 SRP-6a login path —
+> which needs a `pbkdf2_sha256` tenant, see below).**
 
 It is a REST client built on [`async-http-client`](https://github.com/swift-server/async-http-client)
 + [`swift-nio-ssl`](https://github.com/apple/swift-nio-ssl) (so custom-CA and client-certificate
@@ -601,6 +602,128 @@ struct AxiamMiddleware: AsyncMiddleware {
 
 struct AxiamUserKey: StorageKey { typealias Value = AxiamUser }
 ```
+
+## Secure Remote Password (§23)
+
+`loginSrp` proves the password to the server without the password — or anything from which it can
+be cheaply recovered — ever crossing the wire. The server stores a **verifier** `v = g^x mod N`
+instead of a password hash, and what travels is `A` and a proof, neither of which is useful without
+that verifier.
+
+```swift
+let result = try await client.loginSrp(usernameOrEmail: "alice", password: password)
+```
+
+It takes the same arguments as `login` and returns the same `LoginResult`, MFA branch included, so
+switching a tenant to SRP needs no change to how the result is handled. A runnable end-to-end
+example, including the fallback and the enrolment call, is
+[`Examples/SrpLogin`](Examples/SrpLogin/main.swift).
+
+### What this buys, and what it does not
+
+SRP closes holes TLS 1.3 does not:
+
+- a TLS-terminating reverse proxy, ingress controller, CDN or service mesh sees every plaintext
+  password today; under SRP it sees `A` and `M1`;
+- an accidental request-body log, a heap dump or a crash reporter can no longer capture a plaintext
+  password, because the server never has one;
+- a leaked verifier database still costs a full KDF evaluation per candidate password.
+
+It does **not** protect against a compromised AXIAM server, and this SDK does not claim it does.
+
+### This SDK needs a `pbkdf2_sha256` tenant
+
+Swift Crypto ships PBKDF2 and scrypt but **no Argon2**, and there is no Argon2 implementation that
+ships on every platform this SDK supports. Vendoring an unvetted one — for a primitive whose entire
+job is to be expensive in exactly the right way — is worse than declining, so this SDK declines:
+`Srp.argon2Available` is `false`, and a tenant configured for `argon2id` is refused with an
+`AxiamError.network` naming the KDF. That is what §23.3 rule 4 requires of a KDF an SDK cannot
+perform; substituting PBKDF2 would derive a different `x` and surface as "invalid password", the
+single most misleading failure available here.
+
+If you run Swift clients on SRP, set the tenant's `srp_kdf` to `pbkdf2_sha256`. The trade-off is
+worth stating plainly: PBKDF2 is not memory-hard, so a leaked verifier database enrolled under it is
+cheaper to attack with GPUs than one enrolled under Argon2id. It is still a full KDF evaluation per
+candidate password, and §23.0's threat model — proxies, request logs, heap dumps — is unaffected.
+
+### The bundled bignum
+
+Swift has no arbitrary-precision integer in its standard library, so this SDK bundles one:
+`SrpBigInt`, a `[UInt64]`-limb value type with exactly the operations SRP needs, using Montgomery
+multiplication so the file contains no division at all. §23.8 records this, and records that it is
+**not constant-time** — the exponent bits drive a square-and-multiply loop whose branch pattern a
+co-resident attacker with a cache side channel could in principle read. That attacker is already
+inside your process; the threat model SRP addresses is the network path and the server.
+
+The §23.7 vectors are what stands between a carry-propagation slip and a login that fails one time
+in a thousand, so the test suite replays every intermediate of all six, plus limb-boundary carry
+cases the vectors never reach, plus PBKDF2 against an independently computed expectation.
+
+### Tenant policy, and the errors that are not credential failures
+
+`srp_mode` is an organization baseline a tenant may tighten:
+
+| mode | `login` | `loginSrp` |
+|---|---|---|
+| `disabled` (default) | works | `.network` — the endpoint answers `404` |
+| `optional` | works | works |
+| `required` | `.authz` (`srp_required`) | works |
+
+Neither is `.auth`:
+
+- `.network` from `loginSrp` means *this tenant does not offer SRP*, or *this SDK cannot do the KDF
+  it named* — a property of the tenant or the build, never of any user. Fall back to `login`.
+- `.authz` from `login` means *this tenant refuses password login*. The credentials were never
+  examined. Telling a user their perfectly good password is invalid is the failure this mapping
+  exists to prevent.
+
+`required` refuses **every** principal in the tenant, not only the enrolled ones. Splitting the
+response on whether an account has a verifier would turn `/auth/login` into an enumeration oracle
+costing one junk password per name. It also means `required` locks out anyone not yet enrolled: a
+verifier needs the plaintext password, and a stored Argon2id hash is not invertible, so nobody can be
+enrolled retroactively. Operators turn it on last, after a password-reset campaign.
+
+### Enrolment
+
+The server cannot compute a verifier, so any request that **sets** a password has to carry one.
+`srpEnrollment` produces the `srp` object for `POST /api/v1/users`, `/auth/password/change`,
+`/auth/reset/confirm` and `/admin/bootstrap`. It is `Encodable` in exactly §23.5's shape:
+
+```swift
+let enrolment = try await client.srpEnrollment(identity: "alice", password: newPassword)
+body["srp"] = enrolment
+```
+
+The identity must be the account's **username**: `x` is derived over `identity ":" password` using
+the identity the challenge endpoint hands back, so a verifier enrolled against an email address can
+never satisfy a login. For the same reason, **renaming a user invalidates their verifier** — the
+server clears it, and the user re-enrols at their next password change.
+
+The salt is 32 fresh bytes from the platform CSPRNG on every call.
+
+### Cost
+
+`loginSrp` runs the tenant's KDF — 600,000 PBKDF2 iterations by default, which is on the order of a
+second on a phone, and it runs on the calling task. That cost is the point: it is what makes a
+leaked verifier expensive to attack. Do not call it from a UI-blocking context.
+
+### Cryptographic parameters
+
+RFC 5054 Appendix A groups `rfc5054_2048`, `rfc5054_3072` and `rfc5054_4096` (the AXIAM default),
+embedded as constants. A modulus is **never** accepted from the server — a server-supplied `N` is a
+server-supplied trapdoor — and a group this SDK does not recognise is refused rather than guessed.
+
+Two deliberate divergences from RFC 5054, both AXIAM-wide: `H` is **SHA-256**, not SHA-1; and `x` is
+a **KDF output**, not a bare hash, because RFC 5054's bare-hash `x` would make a leaked verifier
+*cheaper* to attack offline than the Argon2id hashes AXIAM already stores.
+
+### Zeroization
+
+§23.3 rule 8 requires clearing what can be cleared and **saying so** where it cannot be. In Swift it
+largely cannot: `String` and `Array` are copy-on-write values the runtime may have duplicated before
+this SDK saw them, and there is no supported way to overwrite the storage behind one. This SDK does
+not pretend otherwise. If a password's residency in memory matters to your threat model, Swift's
+value semantics are working against you and no SDK-level change fixes that.
 
 ## Development
 
