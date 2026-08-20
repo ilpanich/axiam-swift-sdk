@@ -419,125 +419,97 @@ public actor AxiamClient {
         }
     }
 
-    /// Decode the `org_id` claim out of the `axiam_access` cookie the login response set and
-    /// cache it in `resolvedOrgID` (D-14). Best-effort and unverified: the value is used only to
-    /// populate the refresh body, which the server re-derives and re-validates authoritatively,
-    /// so this carries no trust weight (the real credential is the httpOnly cookie the server
-    /// verifies). A malformed token or missing claim leaves `resolvedOrgID` unchanged.
-    // MARK: - Secure Remote Password (CONTRACT.md §23)
+    // MARK: - OPAQUE, RFC 9807 (CONTRACT.md §23)
 
-
-    /// The group an exchange opens in before the server has named one.
-    ///
-    /// The challenge response names the group, but `A` has to be computed *before*
-    /// that response exists — so the first attempt guesses, and the exchange
-    /// restarts if the server names another. The guess is AXIAM's own default, so
-    /// the restart is the exceptional path rather than the normal one.
-    private static var srpOpeningGroup: SrpGroup { SrpGroup.rfc5054_4096 }
-
-    /// `POST /api/v1/auth/srp/challenge` then `/verify` — SRP-6a login
+    /// `POST /api/v1/auth/opaque/login/start` then `/finish` — OPAQUE login, RFC 9807
     /// (CONTRACT.md §23).
     ///
-    /// A sibling of ``login(email:password:)``, not a replacement. It takes the
-    /// same arguments and returns the same ``LoginResult``, MFA branch included, so
-    /// an application can switch a tenant to SRP without touching its own code
-    /// (§23.1).
+    /// A sibling of ``login(email:password:)``, not a replacement. It takes the same arguments and
+    /// returns the same ``LoginResult``, MFA branch included, so an application can switch a
+    /// tenant to OPAQUE without touching its own code.
     ///
     /// ## What this does that `login` does not
     ///
-    /// The password never leaves this process. What crosses the wire is `A` and a
-    /// proof, neither of which is useful without the account's verifier — so a
-    /// TLS-terminating proxy, an accidentally verbose request log, or a heap dump
-    /// on the server cannot capture a plaintext password, because the server never
-    /// has one. It does **not** protect against a compromised AXIAM server.
+    /// The password never leaves this process. What crosses the wire is a blinded group element
+    /// and a MAC, neither useful without the account's registration record *and* the tenant's OPRF
+    /// seed — so a TLS-terminating proxy, an accidentally verbose request log, or a heap dump on
+    /// the server cannot capture a plaintext password, because the server never has one. It also
+    /// means a stolen record database is not offline-crackable on its own, which is the
+    /// pre-computation resistance SRP could not offer. It does **not** protect against a
+    /// compromised AXIAM server.
     ///
-    /// ## This SDK needs a `pbkdf2_sha256` tenant
+    /// ## Swift no longer needs a `pbkdf2_sha256` tenant
     ///
-    /// Swift has no Argon2 that ships on every supported platform, so a tenant
-    /// configured for `argon2id` is refused with an ``AxiamError/network(_:)``
-    /// naming the KDF (§23.8, and ``Srp/argon2Available``). Refusing is what
-    /// §23.3 rule 4 requires: substituting PBKDF2 would derive a different `x` and
-    /// surface as "invalid password".
+    /// The SRP client this replaces refused an `argon2id` tenant outright — Swift has no Argon2
+    /// that ships on every supported platform, and substituting PBKDF2 would have derived a
+    /// different `x` and surfaced as "invalid password". AXIAM's *default* KDF was, for Swift,
+    /// unreachable. The key stretching now happens inside `libaxiam_opaque_ffi`, so the only
+    /// remaining condition is having that library, which ``opaqueAvailable()`` reports.
+    ///
+    /// ## One round trip, and no server-proof step
+    ///
+    /// SRP had to guess a group before the server named one and restart the exchange if it guessed
+    /// wrong; `KE1` does not depend on the key-stretching function. And where the old §23.3 rule 6
+    /// had to mandate an `M2` check in capitals — because skipping it kept only half the protocol
+    /// — RFC 9807's AKE authenticates the server during the handshake, so opening `KE2` *is* the
+    /// proof that it holds the record.
     ///
     /// ## Cost
     ///
-    /// Runs the tenant's KDF — 600,000 PBKDF2 iterations by default, which is on
-    /// the order of a second on a phone. That cost is the point, and it runs on the
+    /// Runs the tenant's key-stretching function: Argon2id at 19 MiB and t=2 by default, tens to
+    /// hundreds of milliseconds of CPU plus that memory. That cost is the point — it is what makes
+    /// a stolen record expensive to attack even by someone holding the OPRF seed. It runs on the
     /// calling task rather than a shared executor.
     ///
-    /// - Throws: ``AxiamError/network(_:)`` when the tenant has SRP disabled (the
-    ///   endpoint answers `404` — a property of the tenant, not of any user), and
-    ///   when this SDK cannot perform the group or KDF the server named.
-    ///   Deliberately not ``AxiamError/auth(_:)``: reporting a client capability gap
-    ///   as a credential failure would send a user off to reset a password that
-    ///   works.
-    /// - Throws: ``AxiamError/auth(_:)`` for a wrong password, and for a server
-    ///   whose `M2` does not verify — in the latter case no session is established,
-    ///   because an endpoint that cannot prove it holds the verifier is not the
-    ///   server it claims to be (§23.3 rule 6).
-    public func loginSrp(usernameOrEmail: String, password: String) async throws -> LoginResult {
+    /// - Throws: ``AxiamError/network(_:)`` when the tenant has OPAQUE disabled (the endpoint
+    ///   answers `404` — a property of the tenant, not of any user), when `libaxiam_opaque_ffi` is
+    ///   not installed, and when the server names a key-stretching function this SDK cannot ask
+    ///   for. Deliberately not ``AxiamError/auth(_:)``: reporting a configuration gap as a
+    ///   credential failure would send a user off to reset a password that works, and would stop a
+    ///   caller falling back to ``login(email:password:)``.
+    /// - Throws: ``AxiamError/auth(_:)`` for a wrong password, an account that does not exist, and
+    ///   a server that does not hold the record — indistinguishable by design. **Nothing is sent
+    ///   to `login/finish` in that case** (§23.4 rule 7), and a caller must not retry over
+    ///   ``login(email:password:)``: that hands the plaintext to an endpoint that just failed to
+    ///   prove itself.
+    public func loginOpaque(usernameOrEmail: String, password: String) async throws -> LoginResult {
         try ensureOpen()
         // §17.1 rule 9: cleared on the CALLER'S INTENT to change credentials.
         memo.clear()
 
-        var session = try SrpClientSession.begin(group: AxiamClient.srpOpeningGroup)
-        var challenge = try await srpChallenge(usernameOrEmail: usernameOrEmail, session: session)
+        let exchange = try Opaque.startLogin(password: password)
+        // A no-op once finish() has spent the handle; the point is the paths where
+        // it has not -- a refused KSF, a malformed response, a non-200 start.
+        defer { exchange.close() }
 
-        // The server named a group other than the one A was computed in, so the
-        // exchange has to restart. Rare — the opening guess is AXIAM's own default
-        // — but a tenant on a narrower group must work rather than fail.
-        guard let named = SrpGroup.fromWire(challenge.group) else {
-            // §23.4: refuse rather than guess. Computing in an unverified group
-            // could mean one whose discrete log the server knows.
-            throw AxiamError.network(NetworkError(
-                "SRP: this SDK does not implement group '\(challenge.group)'; "
-                + "it embeds only rfc5054_2048, rfc5054_3072 and rfc5054_4096"))
-        }
-        if named != session.group {
-            session = try SrpClientSession.begin(group: named)
-            challenge = try await srpChallenge(usernameOrEmail: usernameOrEmail, session: session)
+        let started = try await opaqueStart(
+            path: "api/v1/auth/opaque/login/start",
+            body: try encode(OpaqueLoginStartRequest(
+                username_or_email: usernameOrEmail,
+                ke1: exchange.ke1,
+                tenant_id: config.tenantID,
+                tenant_slug: config.tenantSlug,
+                org_id: config.orgID,
+                org_slug: config.orgSlug
+            )),
+            what: "login/start"
+        )
+
+        guard let ke2 = started.ke2 else {
+            throw AxiamError.network(NetworkError("OPAQUE: login/start returned no `ke2`"))
         }
 
-        // challenge.identity, never usernameOrEmail (§23.3 rule 2).
-        let x = try Srp.deriveX(
-            identity: challenge.identity,
-            password: password,
-            salt: try Srp.fromHex(challenge.salt, field: "salt"),
-            params: SrpKdfParams(
-                kdf: challenge.kdf,
-                iterations: challenge.iterations,
-                memoryKib: challenge.memory_kib ?? 0,
-                parallelism: challenge.parallelism ?? 0
-            )
-        )
-        let proofs = try session.finish(
-            identity: challenge.identity,
-            saltHex: challenge.salt,
-            serverPublicHex: challenge.b_pub,
-            x: x
-        )
+        let ke3 = try exchange.finish(password: password, ke2: ke2, ksf: started.ksfParams)
 
         let body = try encode(
-            SrpVerifyRequest(srp_session: challenge.srp_session, client_proof: proofs.clientProof))
-        let response = try await rawSend(method: .post, path: "api/v1/auth/srp/verify", body: body)
-
-        guard response.status == 200 || response.status == 202 else {
-            throw mapError(response)
-        }
-
-        // Mutual authentication (§23.3 rule 6), checked BEFORE anything from the
-        // response is read back as a session or reported. A rogue server that
-        // cannot prove itself must not get the chance to collect an MFA code
-        // either.
-        let proof = try? JSONDecoder().decode(SrpServerProof.self, from: response.body)
-        guard Srp.verifyServerProof(expected: proofs.expectedServerProof, actual: proof?.server_proof)
-        else {
-            throw AxiamError.auth(
-                AuthError("SRP: the server failed to prove it holds this account's verifier"))
-        }
+            OpaqueLoginFinishRequest(opaque_session: started.opaque_session, ke3: ke3))
+        let response = try await rawSend(
+            method: .post, path: "api/v1/auth/opaque/login/finish", body: body)
 
         // Identical adoption to login(): the union is the same, so the session
-        // state, the cached user and the org-id recovery are too (§23.1).
+        // state, the cached user, the org-id recovery and the 403 disambiguation
+        // are too. An application must be able to keep one result handler when a
+        // tenant moves to OPAQUE, which it cannot if a branch is missing here.
         switch response.status {
         case 200:
             let success = try decode(LoginSuccessResponse.self, response.body)
@@ -547,104 +519,124 @@ public actor AxiamClient {
             resolveOrgIDFromToken()
             challengeToken = nil
             return .authenticated(user)
-        default:
+        case 202:
             let mfa = try decode(MfaRequiredResponse.self, response.body)
             challengeToken = Sensitive(mfa.challenge_token)
             return .mfaRequired(availableMethods: mfa.available_methods)
+        case 403:
+            // As in login(): a 403 here can be the login-flow "MFA enrolment
+            // required" response rather than a genuine authorization denial --
+            // disambiguate on the body shape.
+            if let setup = try? JSONDecoder().decode(
+                MfaSetupRequiredResponse.self, from: response.body),
+               setup.mfa_setup_required {
+                return .mfaSetupRequired
+            }
+            throw mapError(response)
+        default:
+            throw mapError(response)
         }
     }
 
-    /// Opens an SRP exchange and returns the challenge that answers it.
+    /// Builds a registration record for `password`, to send with any request that sets one:
+    /// `POST /api/v1/users`, `/auth/password/change`, `/auth/reset/confirm` and
+    /// `/admin/bootstrap`.
     ///
-    /// Reuses the login body's tenant/org resolution so the two login paths cannot
-    /// drift, and sends no `password` field.
-    private func srpChallenge(
-        usernameOrEmail: String,
-        session: SrpClientSession
-    ) async throws -> SrpChallengeResponse {
-        let request = SrpChallengeRequest(
-            username_or_email: usernameOrEmail,
-            client_public: session.clientPublic,
-            tenant_id: config.tenantID,
-            tenant_slug: config.tenantSlug,
-            org_id: config.orgID,
-            org_slug: config.orgSlug
+    /// The server cannot build this — it never sees the plaintext — so it has to arrive with the
+    /// request or not at all.
+    ///
+    /// Unlike the `srpEnrollment` it replaces this performs I/O: one `register/start` round trip.
+    /// OPAQUE's envelope is sealed under the server's oblivious PRF, so there is no offline
+    /// computation that produces a valid record.
+    ///
+    /// Note the parameters that are gone. There is no `identity`: the SRP version required the
+    /// account's **username**, and an email there produced a verifier no login could ever satisfy,
+    /// whereas a record binds to a credential identifier the server chooses. And there is no
+    /// `group` or `params`, because those come from the `register/start` response — a caller
+    /// cannot pick a cost the server will not honour.
+    ///
+    /// - Throws: ``AxiamError/network(_:)`` when the tenant has OPAQUE disabled, when
+    ///   `libaxiam_opaque_ffi` is not installed, or when the server names a key-stretching
+    ///   function this SDK cannot ask for.
+    public func opaqueEnrollment(password: String) async throws -> OpaqueEnrollment {
+        try ensureOpen()
+
+        let exchange = try Opaque.startRegistration(password: password)
+        defer { exchange.close() }
+
+        let started = try await opaqueStart(
+            path: "api/v1/auth/opaque/register/start",
+            body: try encode(OpaqueRegisterStartRequest(
+                registration_request: exchange.request,
+                tenant_id: config.tenantID,
+                tenant_slug: config.tenantSlug,
+                org_id: config.orgID,
+                org_slug: config.orgSlug
+            )),
+            what: "register/start"
         )
-        let response = try await rawSend(
-            method: .post, path: "api/v1/auth/srp/challenge", body: try encode(request))
+
+        guard let registrationResponse = started.registration_response else {
+            throw AxiamError.network(NetworkError(
+                "OPAQUE: register/start returned no `registration_response`"))
+        }
+
+        let record = try exchange.finish(
+            password: password,
+            registrationResponse: registrationResponse,
+            ksf: started.ksfParams
+        )
+
+        return OpaqueEnrollment(
+            opaque_session: started.opaque_session,
+            registration_record: record
+        )
+    }
+
+    /// Whether this installation can perform OPAQUE (§23.2).
+    ///
+    /// Genuinely able to answer `false`: the protocol comes from `libaxiam_opaque_ffi`, a
+    /// per-platform release asset rather than a SwiftPM package, resolved with `dlopen` at run
+    /// time so that a consumer who never uses OPAQUE is not made to link it.
+    ///
+    /// Unlike the `srpAvailable` it replaces, a `true` here **is** a promise that every tenant
+    /// will work. `srpAvailable` was hard-coded `true` while an `argon2id` tenant still failed at
+    /// login, because Swift had no Argon2 to offer; that gap is gone.
+    public func opaqueAvailable() -> Bool { Opaque.available() }
+
+    /// Sends one `/start` request and returns the decoded response.
+    ///
+    /// Shared by both OPAQUE paths so the meaning of a failure cannot drift between them. A `404`
+    /// is a property of the tenant ("OPAQUE is off here"), not of the user and not of the
+    /// credentials — so it is an ``AxiamError/network(_:)`` a caller can fall back on, never an
+    /// ``AxiamError/auth(_:)`` that would be shown as "invalid password".
+    private func opaqueStart(
+        path: String,
+        body: Data,
+        what: String
+    ) async throws -> OpaqueStartResponse {
+        let response = try await rawSend(method: .post, path: path, body: body)
 
         if response.status == 404 {
-            // 404 is a property of the tenant ("SRP is off here"), not of the user,
-            // and not a credential failure — so a caller can fall back to
-            // login(email:password:) without mistaking it for a bad password.
             throw AxiamError.network(NetworkError(
-                "SRP: this tenant does not offer Secure Remote Password "
-                + "(srp_mode is disabled); use login(email:password:) instead"))
+                "OPAQUE: this tenant does not offer OPAQUE (opaque_mode is disabled); "
+                + "use login(email:password:) instead"))
         }
         guard response.status == 200 else { throw mapError(response) }
 
         do {
-            return try JSONDecoder().decode(SrpChallengeResponse.self, from: response.body)
+            return try JSONDecoder().decode(OpaqueStartResponse.self, from: response.body)
         } catch {
-            throw AxiamError.network(
-                NetworkError("SRP: the challenge response was not the shape §23.5 defines",
-                             cause: error))
-        }
-    }
-
-    /// Computes a verifier for `password`, to send with any request that sets one:
-    /// `POST /api/v1/users`, `/auth/password/change`, `/auth/reset/confirm` and
-    /// `/admin/bootstrap` (§23.3 rule 11).
-    ///
-    /// The server cannot compute this — it never sees the plaintext — so it has to
-    /// arrive with the request or not at all. The salt is 32 fresh bytes from the
-    /// platform CSPRNG on every call. Performs no I/O; it is a method on the client
-    /// only so it sits beside ``loginSrp(usernameOrEmail:password:)`` in the API.
-    ///
-    /// - Parameters:
-    ///   - identity: The account's **username** — the canonical identity the
-    ///     challenge endpoint hands back. An email here produces a verifier no login
-    ///     can ever satisfy.
-    ///   - group: The tenant's group, from `GET /api/v1/auth/me` or the reset
-    ///     context; `nil` means AXIAM's default.
-    ///   - params: The tenant's KDF and costs; any zero cost is filled in with
-    ///     AXIAM's default for that KDF. `nil` means `pbkdf2_sha256` at AXIAM's
-    ///     costs — the only KDF this SDK can perform (§23.8).
-    public func srpEnrollment(
-        identity: String,
-        password: String,
-        group: String? = nil,
-        params: SrpKdfParams? = nil
-    ) throws -> SrpEnrollment {
-        guard let resolvedGroup = SrpGroup.fromWire(group ?? SrpGroup.defaultWireName) else {
             throw AxiamError.network(NetworkError(
-                "SRP: this SDK does not implement group '\(group ?? "")'"))
+                "OPAQUE: the \(what) response was not the shape §23 defines", cause: error))
         }
-        let resolved = (params ?? SrpKdfParams(kdf: SrpKdfParams.pbkdf2Sha256)).withDefaults()
-        let salt = Srp.generateSalt()
-        let x = try Srp.deriveX(
-            identity: identity, password: password, salt: salt, params: resolved)
-
-        return SrpEnrollment(
-            group: resolvedGroup.wireName,
-            kdf: resolved.kdf,
-            // Omitted entirely for PBKDF2 rather than sent as zeros, which is what
-            // §23.5's shape specifies.
-            memoryKib: resolved.memoryKib > 0 ? resolved.memoryKib : nil,
-            iterations: resolved.iterations,
-            parallelism: resolved.parallelism > 0 ? resolved.parallelism : nil,
-            salt: Srp.toHex(salt),
-            verifier: try Srp.computeVerifier(group: resolvedGroup, x: x)
-        )
     }
 
-    /// Whether this build can perform SRP (§23.1).
-    ///
-    /// Always `true` here. It exists because §23.1 puts the probe in every SDK's
-    /// vocabulary, and because a `true` is **not** a promise that every tenant will
-    /// work — see ``Srp/argon2Available``, which is `false` on Swift.
-    public var srpAvailable: Bool { Srp.available }
-
+    /// Decode the `org_id` claim out of the `axiam_access` cookie the login response set and
+    /// cache it in `resolvedOrgID` (D-14). Best-effort and unverified: the value is used only to
+    /// populate the refresh body, which the server re-derives and re-validates authoritatively,
+    /// so this carries no trust weight (the real credential is the httpOnly cookie the server
+    /// verifies). A malformed token or missing claim leaves `resolvedOrgID` unchanged.
     private func resolveOrgIDFromToken() {
         guard let token = cookieJar.value(named: "axiam_access") else { return }
         let segments = token.split(separator: ".", omittingEmptySubsequences: false)

@@ -11,8 +11,8 @@
 The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization Management).
 
 > **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19, §20, §21 and §23 (including
-> §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, and the §23 SRP-6a login path —
-> which needs a `pbkdf2_sha256` tenant, see below).**
+> §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, and the §23 OPAQUE login path —
+> which needs `libaxiam_opaque_ffi` installed, see below).**
 
 It is a REST client built on [`async-http-client`](https://github.com/swift-server/async-http-client)
 + [`swift-nio-ssl`](https://github.com/apple/swift-nio-ssl) (so custom-CA and client-certificate
@@ -603,131 +603,215 @@ struct AxiamMiddleware: AsyncMiddleware {
 struct AxiamUserKey: StorageKey { typealias Value = AxiamUser }
 ```
 
-## Secure Remote Password (§23)
+## OPAQUE — RFC 9807 (§23)
 
-`loginSrp` proves the password to the server without the password — or anything from which it can
-be cheaply recovered — ever crossing the wire. The server stores a **verifier** `v = g^x mod N`
-instead of a password hash, and what travels is `A` and a proof, neither of which is useful without
-that verifier.
+`loginOpaque` proves the password to the server without the password — or anything from which it
+can be cheaply recovered — ever crossing the wire. The server stores a **registration record**
+sealed under a tenant-scoped oblivious PRF instead of a password hash, and what travels is a
+blinded group element and a MAC, neither of which is useful without that record *and* the tenant's
+OPRF seed.
 
 ```swift
-let result = try await client.loginSrp(usernameOrEmail: "alice", password: password)
+let result = try await client.loginOpaque(usernameOrEmail: "alice", password: password)
 ```
 
 It takes the same arguments as `login` and returns the same `LoginResult`, MFA branch included, so
-switching a tenant to SRP needs no change to how the result is handled. A runnable end-to-end
+switching a tenant to OPAQUE needs no change to how the result is handled. A runnable end-to-end
 example, including the fallback and the enrolment call, is
-[`Examples/SrpLogin`](Examples/SrpLogin/main.swift).
+[`Examples/OpaqueLogin`](Examples/OpaqueLogin/main.swift).
 
 ### What this buys, and what it does not
 
-SRP closes holes TLS 1.3 does not:
+OPAQUE closes holes TLS 1.3 does not:
 
 - a TLS-terminating reverse proxy, ingress controller, CDN or service mesh sees every plaintext
-  password today; under SRP it sees `A` and `M1`;
+  password today; under OPAQUE it sees `KE1` and `KE3`;
 - an accidental request-body log, a heap dump or a crash reporter can no longer capture a plaintext
   password, because the server never has one;
-- a leaked verifier database still costs a full KDF evaluation per candidate password.
+- **a stolen record database is not offline-crackable on its own.** This is the substantive gain
+  over the SRP-6a this replaces. An SRP verifier is `g^x mod N` with a public salt: anyone holding
+  the database can grind candidate passwords locally. An OPAQUE record is sealed under the tenant's
+  OPRF seed, so an attacker who takes the records and not the seed has nothing to grind against.
+  That property is called pre-computation resistance and SRP does not have it.
 
 It does **not** protect against a compromised AXIAM server, and this SDK does not claim it does.
 
-### This SDK needs a `pbkdf2_sha256` tenant
+### This SDK does not implement OPAQUE, and that is the design
 
-Swift Crypto ships PBKDF2 and scrypt but **no Argon2**, and there is no Argon2 implementation that
-ships on every platform this SDK supports. Vendoring an unvetted one — for a primitive whose entire
-job is to be expensive in exactly the right way — is worse than declining, so this SDK declines:
-`Srp.argon2Available` is `false`, and a tenant configured for `argon2id` is refused with an
-`AxiamError.network` naming the KDF. That is what §23.3 rule 4 requires of a KDF an SDK cannot
-perform; substituting PBKDF2 would derive a different `x` and surface as "invalid password", the
-single most misleading failure available here.
+CONTRACT.md §23.1 forbids it. OPAQUE needs an oblivious PRF, `hash_to_curve`, `expand_message_xmd`,
+an envelope construction and a three-message authenticated key exchange; eleven independent
+implementations of that is eleven chances to be subtly and silently wrong, in a way no test vector
+catches because the wrong answer is still a well-formed group element.
 
-This is recorded in the contract rather than left as a local quirk: §23.3 rule 4's contract-1.25
-errata names Swift, PHP, and C/C++ below OpenSSL 3.2 as the SDKs for which `argon2id` is not
-computable, and states that refusing it is conformant rather than a gap.
+So this package binds **`libaxiam_opaque_ffi`**, the C ABI of the same audited `opaque-ke` core the
+AXIAM server runs. There is no cryptography anywhere in `Sources/AxiamSDK/Opaque/`.
 
-If you run Swift clients on SRP, set the tenant's `srp_kdf` to `pbkdf2_sha256`. The trade-off is
-worth stating plainly: PBKDF2 is not memory-hard, so a leaked verifier database enrolled under it is
-cheaper to attack with GPUs than one enrolled under Argon2id. It is still a full KDF evaluation per
-candidate password, and §23.0's threat model — proxies, request logs, heap dumps — is unaffected.
+The library is a **per-platform release asset** of
+[`ilpanich/axiam-opaque`](https://github.com/ilpanich/axiam-opaque) — deliberately *not* a SwiftPM
+dependency. It is resolved with `dlopen` at run time rather than declared as a `systemLibrary`
+target, so a consumer who never touches OPAQUE is not made to link it and does not fail to build
+without it. Install it where the dynamic loader already looks, or point `AXIAM_OPAQUE_LIBRARY` at
+the file:
 
-### The bundled bignum
+```bash
+export AXIAM_OPAQUE_LIBRARY=/usr/local/lib/libaxiam_opaque_ffi.dylib
+```
 
-Swift has no arbitrary-precision integer in its standard library, so this SDK bundles one:
-`SrpBigInt`, a `[UInt64]`-limb value type with exactly the operations SRP needs, using Montgomery
-multiplication so the file contains no division at all. §23.8 records this, and records that it is
-**not constant-time** — the exponent bits drive a square-and-multiply loop whose branch pattern a
-co-resident attacker with a cache side channel could in principle read. That attacker is already
-inside your process; the threat model SRP addresses is the network path and the server.
+```swift
+guard client.opaqueAvailable() else {
+    // The library is not installed. Ask BEFORE collecting a password.
+}
+```
 
-The §23.7 vectors are what stands between a carry-propagation slip and a login that fails one time
-in a thousand, so the test suite replays every intermediate of all six, plus limb-boundary carry
-cases the vectors never reach, plus PBKDF2 against an independently computed expectation.
+### Swift no longer needs a `pbkdf2_sha256` tenant
+
+The SRP client this replaces was **doubly conditional**, and the second condition was the awkward
+one. Swift Crypto ships PBKDF2 and scrypt but no Argon2, and there is no Argon2 that ships on every
+platform this SDK supports — so a tenant on AXIAM's *default* `argon2id` was refused outright, and
+operators had to reconfigure the tenant to `pbkdf2_sha256` for Swift clients to work at all. That
+meant weaker, non-memory-hard stretching chosen for a client-language reason.
+
+That is gone. The key stretching happens inside `libaxiam_opaque_ffi`, so `argon2id` is no longer a
+Swift-shaped hole — and `pbkdf2_sha256` is not an OPAQUE key-stretching function at all. `scrypt`
+is the alternative, and this SDK can ask for either.
+
+One condition remains, and it is honest rather than hidden: `opaqueAvailable()` reports whether the
+library is present. Unlike the `srpAvailable` it replaces — hard-coded `true` while an `argon2id`
+tenant still failed at login — a `true` here **is** a promise that every tenant will work.
+
+### The bundled bignum is gone
+
+`SrpBigInt`, a hand-written `[UInt64]`-limb modular exponentiation with its own Montgomery
+multiplication, is deleted along with the six §23.7 SRP vectors that stood between a
+carry-propagation slip and a login that failed one time in a thousand. Nothing in this SDK
+now does field arithmetic. The old §23.8 caveat that it was **not constant-time** goes with it.
+
+### The server names the cost, every time
+
+The `*/start` response names the key-stretching function and its parameters for **that exchange**.
+This SDK never caches them across exchanges and never defaults them locally:
+
+| rule | what it means here |
+|---|---|
+| §23.4 rule 2 | costs come from the server per exchange — a credential enrolled under one cost keeps working after a tenant raises its policy, so a client that guessed would derive a different randomized password and report "invalid password" for a correct one |
+| §23.4 rule 3 | an unrecognised `ksf` is **refused**, never substituted — substituting produces a well-formed randomized password no AXIAM server agrees with |
+| §23.4 rule 5 | a cost field that does not apply to the named function is **absent, not zero** — which is why `KsfParams`' cost properties are `Int?` |
+| §23.4 rule 7 | nothing is sent to `login/finish` once the envelope fails to open |
+
+Costs are additionally range-checked here, so a refusal names the field:
+
+| field | accepted band |
+|---|---|
+| `memory_kib` | 8192 – 1048576 (8 MiB – 1 GiB) |
+| `iterations` | 1 – 10 |
+| `parallelism` | 1 – 16 |
+| `log_n` | 14 – 20 |
+| `r`, `p` | 1 – 16 |
+
+A server is trusted to name its own policy, not to name a cost that would wedge every device an
+account owns. The library range-checks too; doing it here as well means the error says which field.
+
+### One round trip, and no server-proof step
+
+SRP had to guess a group before the server named one, and restart the exchange if it guessed wrong.
+`KE1` does not depend on the key-stretching function, so there is no such dance.
+
+And where the old §23.3 rule 6 had to mandate an `M2` check **in capitals** — because an SDK that
+skipped it implemented only half the protocol and no test would notice — RFC 9807's AKE
+authenticates the server during the handshake. Opening `KE2` *is* the proof that the server holds
+the record. Mutual authentication is no longer something a client can forget.
 
 ### Tenant policy, and the errors that are not credential failures
 
-`srp_mode` is an organization baseline a tenant may tighten:
+`opaque_mode` is an organization baseline a tenant may tighten:
 
-| mode | `login` | `loginSrp` |
+| mode | `login` | `loginOpaque` |
 |---|---|---|
-| `disabled` (default) | works | `.network` — the endpoint answers `404` |
+| `disabled` (default) | works | `.network` — `*/start` answers `404` |
 | `optional` | works | works |
-| `required` | `.authz` (`srp_required`) | works |
+| `required` | `.authz` (`opaque_required`) | works |
 
 Neither is `.auth`:
 
-- `.network` from `loginSrp` means *this tenant does not offer SRP*, or *this SDK cannot do the KDF
-  it named* — a property of the tenant or the build, never of any user. Fall back to `login`.
+- `.network` from `loginOpaque` means *this tenant does not offer OPAQUE*, *`libaxiam_opaque_ffi` is
+  not installed*, *the server named a key-stretching function this SDK cannot ask for*, or *the
+  response was not the shape §23 defines* — a property of the tenant, the build or the deployment,
+  never of any user. Fall back to `login`.
 - `.authz` from `login` means *this tenant refuses password login*. The credentials were never
   examined. Telling a user their perfectly good password is invalid is the failure this mapping
   exists to prevent.
 
+`.auth` from `loginOpaque` means the envelope did not open: a wrong password, an account that does
+not exist, or a server that does not hold the record — indistinguishable by design, and the whole
+credential check now that both halves of mutual authentication live in it. **Do not retry it over
+`login`**: that hands the plaintext to an endpoint that has just failed to prove itself.
+
 `required` refuses **every** principal in the tenant, not only the enrolled ones. Splitting the
-response on whether an account has a verifier would turn `/auth/login` into an enumeration oracle
+response on whether an account has a record would turn `/auth/login` into an enumeration oracle
 costing one junk password per name. It also means `required` locks out anyone not yet enrolled: a
-verifier needs the plaintext password, and a stored Argon2id hash is not invertible, so nobody can be
+record needs the plaintext password, and a stored Argon2id hash is not invertible, so nobody can be
 enrolled retroactively. Operators turn it on last, after a password-reset campaign.
 
 ### Enrolment
 
-The server cannot compute a verifier, so any request that **sets** a password has to carry one.
-`srpEnrollment` produces the `srp` object for `POST /api/v1/users`, `/auth/password/change`,
-`/auth/reset/confirm` and `/admin/bootstrap`. It is `Encodable` in exactly §23.5's shape:
+The server cannot build a registration record, so any request that **sets** a password has to carry
+one. `opaqueEnrollment` produces the `opaque` object for `POST /api/v1/users`,
+`/auth/password/change`, `/auth/reset/confirm` and `/admin/bootstrap`. It is `Encodable` in exactly
+§23.5's shape:
 
 ```swift
-let enrolment = try await client.srpEnrollment(identity: "alice", password: newPassword)
-body["srp"] = enrolment
+let enrolment = try await client.opaqueEnrollment(password: newPassword)
+body["opaque"] = enrolment
 ```
 
-The identity must be the account's **username**: `x` is derived over `identity ":" password` using
-the identity the challenge endpoint hands back, so a verifier enrolled against an email address can
-never satisfy a login. For the same reason, **renaming a user invalidates their verifier** — the
-server clears it, and the user re-enrols at their next password change.
+Three things about it differ from the `srpEnrollment` it replaces, and all three are improvements:
 
-The salt is 32 fresh bytes from the platform CSPRNG on every call.
+- **It performs I/O** — one `register/start` round trip. OPAQUE's envelope is sealed under the
+  server's oblivious PRF, so there is no offline computation that produces a valid record. The SRP
+  version was pure and could be called anywhere; this one needs a reachable server.
+- **There is no `identity` argument.** SRP derived `x` over `identity ":" password` using the
+  identity the challenge endpoint handed back, so passing an email where a username was wanted
+  produced a verifier no login could ever satisfy — and **renaming a user invalidated their
+  verifier**, which the server had to clear. An OPAQUE record binds to a credential identifier the
+  server chooses. A rename is now just a rename.
+- **There is no `group` and no `kdf`.** Those come from the `register/start` response, so a caller
+  cannot pick a cost the server will not honour.
+
+Never log `registration_record`. It is the credential material.
 
 ### Cost
 
-`loginSrp` runs the tenant's KDF — 600,000 PBKDF2 iterations by default, which is on the order of a
-second on a phone, and it runs on the calling task. That cost is the point: it is what makes a
-leaked verifier expensive to attack. Do not call it from a UI-blocking context.
+`loginOpaque` runs the tenant's key-stretching function — Argon2id at 19 MiB and t=2 by default,
+tens to hundreds of milliseconds of CPU plus that memory — and it runs on the calling task. That
+cost is the point: it is what makes a stolen record expensive to attack even by someone holding the
+OPRF seed. Do not call it from a UI-blocking context.
 
 ### Cryptographic parameters
 
-RFC 5054 Appendix A groups `rfc5054_2048`, `rfc5054_3072` and `rfc5054_4096` (the AXIAM default),
-embedded as constants. A modulus is **never** accepted from the server — a server-supplied `N` is a
-server-supplied trapdoor — and a group this SDK does not recognise is refused rather than guessed.
+`OPAQUE-3DH` over **ristretto255**, with **SHA-512**, **HKDF-SHA-512** and **HMAC-SHA-512**. The
+ciphersuite is fixed in `libaxiam_opaque_ffi`; it is not negotiated and is deliberately **not** read
+from the server, because a server-selected ciphersuite is a downgrade channel.
 
-Two deliberate divergences from RFC 5054, both AXIAM-wide: `H` is **SHA-256**, not SHA-1; and `x` is
-a **KDF output**, not a bare hash, because RFC 5054's bare-hash `x` would make a leaked verifier
-*cheaper* to attack offline than the Argon2id hashes AXIAM already stores.
+### Handle lifetime
+
+An exchange owns one Rust-side allocation. It is single-use — `finish` spends it — and `close()` is
+idempotent, so the `defer { exchange.close() }` in `loginOpaque` and `opaqueEnrollment` is a no-op
+on the success path and the thing that prevents a leak on every failure path: a refused KSF, a
+malformed response, a non-200 `/start`. `deinit` is a backstop, not the mechanism.
+
+The key-stretching handle is built **before** the exchange state is spent, and the order is
+load-bearing: a server that names a cost outside the accepted band must not leave the state
+unreachable.
 
 ### Zeroization
 
-§23.3 rule 8 requires clearing what can be cleared and **saying so** where it cannot be. In Swift it
+§23.4 rule 8 requires clearing what can be cleared and **saying so** where it cannot be. In Swift it
 largely cannot: `String` and `Array` are copy-on-write values the runtime may have duplicated before
 this SDK saw them, and there is no supported way to overwrite the storage behind one. This SDK does
-not pretend otherwise. If a password's residency in memory matters to your threat model, Swift's
-value semantics are working against you and no SDK-level change fixes that.
+not pretend otherwise. What it does do is keep the password's residency short — it is passed
+straight across the ABI, and the sensitive derivations happen and are cleared on the Rust side. If a
+password's residency in Swift memory matters to your threat model, Swift's value semantics are
+working against you and no SDK-level change fixes that.
 
 ## Development
 
