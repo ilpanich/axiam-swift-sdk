@@ -576,9 +576,14 @@ public actor AxiamClient {
             what: "register/start"
         )
 
+        guard let registrationResponse = started.registration_response else {
+            throw AxiamError.network(NetworkError(
+                "OPAQUE: register/start returned no `registration_response`"))
+        }
+
         let record = try exchange.finish(
             password: password,
-            registrationResponse: started.registration_response ?? "",
+            registrationResponse: registrationResponse,
             ksf: started.ksfParams
         )
 

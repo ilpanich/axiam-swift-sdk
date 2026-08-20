@@ -51,6 +51,8 @@ final class OpaqueLoginTests: XCTestCase {
         var mfaRequired = false
         var mfaSetupRequired = false
         var omitKe2 = false
+        var omitRegistrationResponse = false
+        var malformedStartBody = false
         var ksf = "argon2id"
 
         private(set) var loginStartBodies: [Data] = []
@@ -80,6 +82,12 @@ final class OpaqueLoginTests: XCTestCase {
             if path.hasSuffix("/auth/opaque/login/start") {
                 loginStartBodies.append(spec.body ?? Data())
                 guard loginStartStatus == 200 else { return json(loginStartStatus, [:]) }
+                if malformedStartBody {
+                    return HTTPResponseData(
+                        status: 200,
+                        headers: [("Content-Type", "application/json")],
+                        body: Data("not json at all".utf8))
+                }
                 var body: [String: Any] = ["opaque_session": "handle-42"]
                 if !omitKe2 { body["ke2"] = OpaqueLoginTests.wireKe2 }
                 body.merge(ksfFields()) { current, _ in current }
@@ -116,10 +124,10 @@ final class OpaqueLoginTests: XCTestCase {
             if path.hasSuffix("/auth/opaque/register/start") {
                 registerStartBodies.append(spec.body ?? Data())
                 guard registerStartStatus == 200 else { return json(registerStartStatus, [:]) }
-                var body: [String: Any] = [
-                    "opaque_session": "reg-handle",
-                    "registration_response": OpaqueLoginTests.wireRegistrationResponse,
-                ]
+                var body: [String: Any] = ["opaque_session": "reg-handle"]
+                if !omitRegistrationResponse {
+                    body["registration_response"] = OpaqueLoginTests.wireRegistrationResponse
+                }
                 body.merge(ksfFields()) { current, _ in current }
                 return json(200, body)
             }
@@ -304,6 +312,69 @@ final class OpaqueLoginTests: XCTestCase {
             return XCTFail("expected a network error, got \(String(describing: thrown))")
         }
         XCTAssertTrue("\(networkError)".contains("opaque_mode is disabled"))
+    }
+
+    func testARegisterStartWithoutARegistrationResponseIsAMalformedResponse() async {
+        // The enrolment twin of the missing-`ke2` case. Passing an empty string
+        // on to the library would spend the exchange to produce a record no
+        // server can ever accept.
+        let transport = OpaqueTransport()
+        transport.omitRegistrationResponse = true
+
+        let thrown = await error {
+            _ = try await self.client(transport).opaqueEnrollment(password: self.password)
+        }
+
+        guard case .network(let networkError)? = thrown as? AxiamError else {
+            return XCTFail("expected a network error, got \(String(describing: thrown))")
+        }
+        XCTAssertTrue("\(networkError)".contains("no `registration_response`"))
+        XCTAssertEqual(lib.statesAlive, 0)
+    }
+
+    func testA401AtRegisterStartIsAnAuthError() async {
+        let transport = OpaqueTransport()
+        transport.registerStartStatus = 401
+
+        let thrown = await error {
+            _ = try await self.client(transport).opaqueEnrollment(password: self.password)
+        }
+
+        guard case .auth? = thrown as? AxiamError else {
+            return XCTFail("expected an auth error, got \(String(describing: thrown))")
+        }
+        XCTAssertEqual(lib.statesAlive, 0)
+    }
+
+    func testAMalformedStartBodyIsANetworkErrorNamingTheEndpoint() async {
+        let transport = OpaqueTransport()
+        transport.malformedStartBody = true
+
+        let thrown = await error {
+            _ = try await self.client(transport).loginOpaque(
+                usernameOrEmail: Self.user, password: self.password)
+        }
+
+        guard case .network(let networkError)? = thrown as? AxiamError else {
+            return XCTFail("expected a network error, got \(String(describing: thrown))")
+        }
+        XCTAssertTrue("\(networkError)".contains("login/start"))
+        XCTAssertEqual(lib.statesAlive, 0)
+    }
+
+    func testAnEnrolmentRefusesAKsfItCannotAskFor() async {
+        let transport = OpaqueTransport()
+        transport.ksf = "bcrypt"
+
+        let thrown = await error {
+            _ = try await self.client(transport).opaqueEnrollment(password: self.password)
+        }
+
+        guard case .network(let networkError)? = thrown as? AxiamError else {
+            return XCTFail("expected a network error, got \(String(describing: thrown))")
+        }
+        XCTAssertTrue("\(networkError)".contains("bcrypt"))
+        XCTAssertEqual(lib.statesAlive, 0)
     }
 
     func testA401AtLoginStartIsAnAuthError() async {

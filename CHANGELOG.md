@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   password path up front. `loginOpaque` returns the same `LoginResult` as
   `login`, MFA branch included.
 - `Examples/OpaqueLogin` (`OpaqueLoginExample`).
+- `opaqueEnrollment` refuses a `register/start` response with no
+  `registration_response` rather than sealing an envelope against an empty
+  string, which would produce a record no server can ever accept.
 
 ### Removed
 

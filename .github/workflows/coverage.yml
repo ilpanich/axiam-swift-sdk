@@ -29,6 +29,9 @@ jobs:
           PROFDATA="$(find .build -name 'default.profdata' | head -n1)"
           XCTEST="$(find "$BIN_PATH" -name '*.xctest' -type f | head -n1)"
           echo "bin=$BIN_PATH profdata=$PROFDATA xctest=$XCTEST"
+
+          # The full report — what Coveralls and the artifact get. Nothing is
+          # hidden from it.
           llvm-cov export \
             -format=lcov \
             -instr-profile "$PROFDATA" \
@@ -37,10 +40,39 @@ jobs:
             > coverage.lcov
           echo "lcov lines: $(wc -l < coverage.lcov)"
 
-      # Regression gate: fail if line coverage drops below the floor. Set below
-      # the current ~95% so it never false-fails; ratchet upward as coverage
-      # rises. Line coverage is computed from the DA records in the lcov report
-      # (a[2] is the hit count for each instrumented line).
+          # The gate's report additionally drops Opaque/DynamicOpaqueNative.swift.
+          # That file is the dlopen()/dlsym() edge against libaxiam_opaque_ffi,
+          # a per-platform release asset that is deliberately NOT a SwiftPM
+          # dependency (CONTRACT.md §23.1) and is not installed on a CI runner.
+          # It cannot be executed here at all, so measuring it would report 0%
+          # for a file whose untestability is the reason every other type in
+          # Sources/AxiamSDK/Opaque/ is driven through the `OpaqueNative`
+          # protocol and IS covered. It is reported on its own below rather
+          # than quietly dropped.
+          llvm-cov export \
+            -format=lcov \
+            -instr-profile "$PROFDATA" \
+            "$XCTEST" \
+            -ignore-filename-regex='(Tests|\.build)/|Opaque/DynamicOpaqueNative\.swift' \
+            > coverage-gate.lcov
+
+      - name: Report the excluded ABI edge separately
+        shell: bash
+        run: |
+          set -euo pipefail
+          awk -F: '
+            /^SF:/ { f = ($2 ~ /DynamicOpaqueNative\.swift$/) }
+            /^DA:/ && f { split($2, a, ","); t++; if (a[2]+0 > 0) c++ }
+            END {
+              if (t) printf "DynamicOpaqueNative.swift: %d/%d lines (%.2f%%), excluded from the gate\n", c, t, 100*c/t
+              else print "DynamicOpaqueNative.swift: not present in the report"
+            }
+          ' coverage.lcov
+
+      # Regression gate: fail if line coverage drops below the floor. Line
+      # coverage is computed from the DA records in the lcov report (a[2] is the
+      # hit count for each instrumented line), over the gate report — which
+      # excludes the un-runnable ABI edge, see above.
       - name: Enforce coverage floor
         shell: bash
         run: |
@@ -48,7 +80,7 @@ jobs:
           total=$(awk -F: '
             /^DA:/ { split($2, a, ","); t++; if (a[2]+0 > 0) c++ }
             END { printf "%.2f", (t ? 100*c/t : 0) }
-          ' coverage.lcov)
+          ' coverage-gate.lcov)
           echo "Line coverage: ${total}%"
           awk -v t="$total" 'BEGIN { exit (t+0 >= 92) ? 0 : 1 }' || {
             echo "::error::coverage ${total}% is below the 92% floor"; exit 1;
