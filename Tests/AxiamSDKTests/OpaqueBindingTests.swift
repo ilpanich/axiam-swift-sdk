@@ -400,11 +400,15 @@ final class OpaqueBindingTests: XCTestCase {
     func testDeinitReleasesAnAbandonedExchange() throws {
         // Swift's refcounting makes this prompt rather than eventual, which is the
         // one place its object model is kinder here than a tracing GC's.
-        try autoreleasepool {
+        // A nested function rather than `autoreleasepool`, which corelibs
+        // Foundation does not vend on Linux. Its locals are released when it
+        // returns, which is the whole of what this needs.
+        func abandonOne() throws {
             let exchange = try Opaque.startRegistration(password: password)
             XCTAssertEqual(lib.statesAlive, 1)
             XCTAssertFalse(exchange.request.isEmpty)
         }
+        try abandonOne()
 
         XCTAssertEqual(lib.statesAlive, 0)
     }
