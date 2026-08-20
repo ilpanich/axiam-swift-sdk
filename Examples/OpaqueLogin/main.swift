@@ -78,7 +78,8 @@ let client = try AxiamClient(config: config)
 // say no — unlike `srpAvailable`, which was hard-coded `true` while an argon2id
 // tenant still failed at login. Ask it BEFORE collecting a password: there is no
 // point prompting for one this installation cannot use.
-if !client.opaqueAvailable() {
+let opaqueReady = await client.opaqueAvailable()
+if !opaqueReady {
     FileHandle.standardError.write(Data("""
         this installation cannot perform OPAQUE: libaxiam_opaque_ffi was not found.
         Install the release asset for this platform from ilpanich/axiam-opaque and
