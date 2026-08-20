@@ -60,6 +60,11 @@ let package = Package(
             path: "Examples/LoginMFA"
         ),
         .executableTarget(
+            name: "SrpLoginExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/SrpLogin"
+        ),
+        .executableTarget(
             name: "RestAuthzExample",
             dependencies: ["AxiamSDK"],
             path: "Examples/RestAuthz"

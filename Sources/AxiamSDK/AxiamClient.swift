@@ -424,6 +424,227 @@ public actor AxiamClient {
     /// populate the refresh body, which the server re-derives and re-validates authoritatively,
     /// so this carries no trust weight (the real credential is the httpOnly cookie the server
     /// verifies). A malformed token or missing claim leaves `resolvedOrgID` unchanged.
+    // MARK: - Secure Remote Password (CONTRACT.md §23)
+
+
+    /// The group an exchange opens in before the server has named one.
+    ///
+    /// The challenge response names the group, but `A` has to be computed *before*
+    /// that response exists — so the first attempt guesses, and the exchange
+    /// restarts if the server names another. The guess is AXIAM's own default, so
+    /// the restart is the exceptional path rather than the normal one.
+    private static var srpOpeningGroup: SrpGroup { SrpGroup.rfc5054_4096 }
+
+    /// `POST /api/v1/auth/srp/challenge` then `/verify` — SRP-6a login
+    /// (CONTRACT.md §23).
+    ///
+    /// A sibling of ``login(email:password:)``, not a replacement. It takes the
+    /// same arguments and returns the same ``LoginResult``, MFA branch included, so
+    /// an application can switch a tenant to SRP without touching its own code
+    /// (§23.1).
+    ///
+    /// ## What this does that `login` does not
+    ///
+    /// The password never leaves this process. What crosses the wire is `A` and a
+    /// proof, neither of which is useful without the account's verifier — so a
+    /// TLS-terminating proxy, an accidentally verbose request log, or a heap dump
+    /// on the server cannot capture a plaintext password, because the server never
+    /// has one. It does **not** protect against a compromised AXIAM server.
+    ///
+    /// ## This SDK needs a `pbkdf2_sha256` tenant
+    ///
+    /// Swift has no Argon2 that ships on every supported platform, so a tenant
+    /// configured for `argon2id` is refused with an ``AxiamError/network(_:)``
+    /// naming the KDF (§23.8, and ``Srp/argon2Available``). Refusing is what
+    /// §23.3 rule 4 requires: substituting PBKDF2 would derive a different `x` and
+    /// surface as "invalid password".
+    ///
+    /// ## Cost
+    ///
+    /// Runs the tenant's KDF — 600,000 PBKDF2 iterations by default, which is on
+    /// the order of a second on a phone. That cost is the point, and it runs on the
+    /// calling task rather than a shared executor.
+    ///
+    /// - Throws: ``AxiamError/network(_:)`` when the tenant has SRP disabled (the
+    ///   endpoint answers `404` — a property of the tenant, not of any user), and
+    ///   when this SDK cannot perform the group or KDF the server named.
+    ///   Deliberately not ``AxiamError/auth(_:)``: reporting a client capability gap
+    ///   as a credential failure would send a user off to reset a password that
+    ///   works.
+    /// - Throws: ``AxiamError/auth(_:)`` for a wrong password, and for a server
+    ///   whose `M2` does not verify — in the latter case no session is established,
+    ///   because an endpoint that cannot prove it holds the verifier is not the
+    ///   server it claims to be (§23.3 rule 6).
+    public func loginSrp(usernameOrEmail: String, password: String) async throws -> LoginResult {
+        try ensureOpen()
+        // §17.1 rule 9: cleared on the CALLER'S INTENT to change credentials.
+        memo.clear()
+
+        var session = try SrpClientSession.begin(group: AxiamClient.srpOpeningGroup)
+        var challenge = try await srpChallenge(usernameOrEmail: usernameOrEmail, session: session)
+
+        // The server named a group other than the one A was computed in, so the
+        // exchange has to restart. Rare — the opening guess is AXIAM's own default
+        // — but a tenant on a narrower group must work rather than fail.
+        guard let named = SrpGroup.fromWire(challenge.group) else {
+            // §23.4: refuse rather than guess. Computing in an unverified group
+            // could mean one whose discrete log the server knows.
+            throw AxiamError.network(NetworkError(
+                "SRP: this SDK does not implement group '\(challenge.group)'; "
+                + "it embeds only rfc5054_2048, rfc5054_3072 and rfc5054_4096"))
+        }
+        if named != session.group {
+            session = try SrpClientSession.begin(group: named)
+            challenge = try await srpChallenge(usernameOrEmail: usernameOrEmail, session: session)
+        }
+
+        // challenge.identity, never usernameOrEmail (§23.3 rule 2).
+        let x = try Srp.deriveX(
+            identity: challenge.identity,
+            password: password,
+            salt: try Srp.fromHex(challenge.salt, field: "salt"),
+            params: SrpKdfParams(
+                kdf: challenge.kdf,
+                iterations: challenge.iterations,
+                memoryKib: challenge.memory_kib ?? 0,
+                parallelism: challenge.parallelism ?? 0
+            )
+        )
+        let proofs = try session.finish(
+            identity: challenge.identity,
+            saltHex: challenge.salt,
+            serverPublicHex: challenge.b_pub,
+            x: x
+        )
+
+        let body = try encode(
+            SrpVerifyRequest(srp_session: challenge.srp_session, client_proof: proofs.clientProof))
+        let response = try await rawSend(method: .post, path: "api/v1/auth/srp/verify", body: body)
+
+        guard response.status == 200 || response.status == 202 else {
+            throw mapError(response)
+        }
+
+        // Mutual authentication (§23.3 rule 6), checked BEFORE anything from the
+        // response is read back as a session or reported. A rogue server that
+        // cannot prove itself must not get the chance to collect an MFA code
+        // either.
+        let proof = try? JSONDecoder().decode(SrpServerProof.self, from: response.body)
+        guard Srp.verifyServerProof(expected: proofs.expectedServerProof, actual: proof?.server_proof)
+        else {
+            throw AxiamError.auth(
+                AuthError("SRP: the server failed to prove it holds this account's verifier"))
+        }
+
+        // Identical adoption to login(): the union is the same, so the session
+        // state, the cached user and the org-id recovery are too (§23.1).
+        switch response.status {
+        case 200:
+            let success = try decode(LoginSuccessResponse.self, response.body)
+            let user = success.toUser()
+            hasSession = true
+            sessionUser = user
+            resolveOrgIDFromToken()
+            challengeToken = nil
+            return .authenticated(user)
+        default:
+            let mfa = try decode(MfaRequiredResponse.self, response.body)
+            challengeToken = Sensitive(mfa.challenge_token)
+            return .mfaRequired(availableMethods: mfa.available_methods)
+        }
+    }
+
+    /// Opens an SRP exchange and returns the challenge that answers it.
+    ///
+    /// Reuses the login body's tenant/org resolution so the two login paths cannot
+    /// drift, and sends no `password` field.
+    private func srpChallenge(
+        usernameOrEmail: String,
+        session: SrpClientSession
+    ) async throws -> SrpChallengeResponse {
+        let request = SrpChallengeRequest(
+            username_or_email: usernameOrEmail,
+            client_public: session.clientPublic,
+            tenant_id: config.tenantID,
+            tenant_slug: config.tenantSlug,
+            org_id: config.orgID,
+            org_slug: config.orgSlug
+        )
+        let response = try await rawSend(
+            method: .post, path: "api/v1/auth/srp/challenge", body: try encode(request))
+
+        if response.status == 404 {
+            // 404 is a property of the tenant ("SRP is off here"), not of the user,
+            // and not a credential failure — so a caller can fall back to
+            // login(email:password:) without mistaking it for a bad password.
+            throw AxiamError.network(NetworkError(
+                "SRP: this tenant does not offer Secure Remote Password "
+                + "(srp_mode is disabled); use login(email:password:) instead"))
+        }
+        guard response.status == 200 else { throw mapError(response) }
+
+        do {
+            return try JSONDecoder().decode(SrpChallengeResponse.self, from: response.body)
+        } catch {
+            throw AxiamError.network(
+                NetworkError("SRP: the challenge response was not the shape §23.5 defines",
+                             cause: error))
+        }
+    }
+
+    /// Computes a verifier for `password`, to send with any request that sets one:
+    /// `POST /api/v1/users`, `/auth/password/change`, `/auth/reset/confirm` and
+    /// `/admin/bootstrap` (§23.3 rule 11).
+    ///
+    /// The server cannot compute this — it never sees the plaintext — so it has to
+    /// arrive with the request or not at all. The salt is 32 fresh bytes from the
+    /// platform CSPRNG on every call. Performs no I/O; it is a method on the client
+    /// only so it sits beside ``loginSrp(usernameOrEmail:password:)`` in the API.
+    ///
+    /// - Parameters:
+    ///   - identity: The account's **username** — the canonical identity the
+    ///     challenge endpoint hands back. An email here produces a verifier no login
+    ///     can ever satisfy.
+    ///   - group: The tenant's group, from `GET /api/v1/auth/me` or the reset
+    ///     context; `nil` means AXIAM's default.
+    ///   - params: The tenant's KDF and costs; any zero cost is filled in with
+    ///     AXIAM's default for that KDF. `nil` means `pbkdf2_sha256` at AXIAM's
+    ///     costs — the only KDF this SDK can perform (§23.8).
+    public func srpEnrollment(
+        identity: String,
+        password: String,
+        group: String? = nil,
+        params: SrpKdfParams? = nil
+    ) throws -> SrpEnrollment {
+        guard let resolvedGroup = SrpGroup.fromWire(group ?? SrpGroup.defaultWireName) else {
+            throw AxiamError.network(NetworkError(
+                "SRP: this SDK does not implement group '\(group ?? "")'"))
+        }
+        let resolved = (params ?? SrpKdfParams(kdf: SrpKdfParams.pbkdf2Sha256)).withDefaults()
+        let salt = Srp.generateSalt()
+        let x = try Srp.deriveX(
+            identity: identity, password: password, salt: salt, params: resolved)
+
+        return SrpEnrollment(
+            group: resolvedGroup.wireName,
+            kdf: resolved.kdf,
+            // Omitted entirely for PBKDF2 rather than sent as zeros, which is what
+            // §23.5's shape specifies.
+            memoryKib: resolved.memoryKib > 0 ? resolved.memoryKib : nil,
+            iterations: resolved.iterations,
+            parallelism: resolved.parallelism > 0 ? resolved.parallelism : nil,
+            salt: Srp.toHex(salt),
+            verifier: try Srp.computeVerifier(group: resolvedGroup, x: x)
+        )
+    }
+
+    /// Whether this build can perform SRP (§23.1).
+    ///
+    /// Always `true` here. It exists because §23.1 puts the probe in every SDK's
+    /// vocabulary, and because a `true` is **not** a promise that every tenant will
+    /// work — see ``Srp/argon2Available``, which is `false` on Swift.
+    public var srpAvailable: Bool { Srp.available }
+
     private func resolveOrgIDFromToken() {
         guard let token = cookieJar.value(named: "axiam_access") else { return }
         let segments = token.split(separator: ".", omittingEmptySubsequences: false)
