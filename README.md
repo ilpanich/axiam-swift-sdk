@@ -10,6 +10,8 @@
 
 The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization Management).
 
+**Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
+
 > **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19, §20, §21 and §23 (including
 > §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, and the §23 OPAQUE login path —
 > which needs `libaxiam_opaque_ffi` installed, see below).**
