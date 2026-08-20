@@ -7,7 +7,7 @@ package and runs via `swift run`.
 | Example | Target | Covers |
 |---------|--------|--------|
 | [`LoginMFA/main.swift`](LoginMFA/main.swift) | `LoginMFAExample` | Two-phase `login` / `verifyMfa` flow (CONTRACT.md §1, §5, §5.1) |
-| [`SrpLogin/main.swift`](SrpLogin/main.swift) | `SrpLoginExample` | The §23 SRP-6a exchange: `loginSrp`, the two ways it can be unavailable, and `srpEnrollment` |
+| [`OpaqueLogin/main.swift`](OpaqueLogin/main.swift) | `OpaqueLoginExample` | The §23 OPAQUE (RFC 9807) exchange: `loginOpaque`, which failures may fall back to `login` and which must not, and `opaqueEnrollment` |
 | [`RestAuthz/main.swift`](RestAuthz/main.swift) | `RestAuthzExample` | REST authorization: `checkAccess`, `can`, `batchCheck` (§1) |
 | [`TelemetryHook/main.swift`](TelemetryHook/main.swift) | `TelemetryHookExample` | The D5 surface: §16 retry, §17 memo + clamp, §18 `close()`, §19 hooks |
 | [`OidcLogin/main.swift`](OidcLogin/main.swift) | `OidcLoginExample` | §12 relying-party flow: discover → begin → **the caller stores state/nonce/verifier** → exchange, plus the §12.7 logout URL |

@@ -5,6 +5,50 @@ All notable changes to the AXIAM Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- OPAQUE (RFC 9807) login and enrolment (CONTRACT §23): `loginOpaque` and
+  `opaqueEnrollment` on `AxiamClient`, plus `opaqueAvailable()` for choosing the
+  password path up front. `loginOpaque` returns the same `LoginResult` as
+  `login`, MFA branch included.
+- `Examples/OpaqueLogin` (`OpaqueLoginExample`).
+
+### Removed
+
+- **BREAKING** — SRP-6a. `loginSrp`, `srpEnrollment`, `srpAvailable`, the
+  `Sources/AxiamSDK/Srp/` module (including the hand-written `SrpBigInt`
+  modular exponentiation), `srp-test-vectors.json` and `Examples/SrpLogin` are
+  all gone. AXIAM's server-side SRP endpoints are removed in the same release,
+  so keeping the client would leave a method that only ever returns 404.
+
+### Changed
+
+- **BREAKING** — the OPAQUE protocol is NOT implemented in this SDK. CONTRACT
+  §23.1 forbids it, so the client half is a `dlopen`/`dlsym` binding to
+  `libaxiam_opaque_ffi` — the same implementation the AXIAM server links,
+  published as a per-platform asset on the axiam-opaque release page. It is
+  resolved at run time rather than declared as a SwiftPM `systemLibrary`
+  target, so a consumer who never touches OPAQUE is not made to link it. Put
+  the library on the loader path or point `AXIAM_OPAQUE_LIBRARY` at it.
+- **Swift no longer needs a `pbkdf2_sha256` tenant.** The SRP client refused an
+  `argon2id` tenant outright — Swift has no Argon2 that ships on every
+  supported platform — so AXIAM's *default* KDF was unreachable here and
+  operators had to weaken the tenant for Swift callers. Key stretching now
+  happens inside the native library, so `argon2id` and `scrypt` both work. The
+  one remaining condition is having the library, which `opaqueAvailable()`
+  reports honestly: unlike `srpAvailable`, which was hard-coded `true` while an
+  `argon2id` tenant still failed at login, a `true` here is a promise that every
+  tenant will work.
+- `opaqueEnrollment` performs I/O — one `register/start` round trip — where
+  `srpEnrollment` was pure. OPAQUE's envelope is sealed under the server's
+  oblivious PRF, so there is no offline computation that produces a valid
+  record. It also loses the `identity` argument: a record binds to a credential
+  identifier the server chooses, so passing an email where a username was wanted
+  can no longer produce an unusable credential, and **renaming a user no longer
+  invalidates it**.
+
 ## [1.0.0-alpha31] - 2026-08-20
 
 ### Changed
