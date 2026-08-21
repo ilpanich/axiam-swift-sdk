@@ -99,38 +99,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - §20 UMA 2.0 — Protection API and ticket grant (#19)
 - §16 retry, §17 decision memo, §18 close(), §19 telemetry (D5)
 - §11 rule 9 decision reason codes; contract re-sync (D6) (#16)
-
-### Changed
-
-- Point the Scope table at CONTRACT.md §22.11, the deferred reactor runtime (#29)
-- Re-vendor CONTRACT.md 1.19, openapi.json and proto/ from main (R5.8) (#28)
-- Contract 1.15 — §10.1 rule 9, sender-constrained access tokens (#26)
-- Retire the "measured residual" justification (contract 1.14)
-- Re-sync to contract 1.14 (#302 closed)
-- Runnable §16–§19 example for the Swift SDK (F3)
-
-## [Unreleased]
-
-### Changed
-
-- Re-vendor `openapi.json` at 1.0.0-alpha27 — the copy was pinned at alpha26 and
-  failing the cross-repo artifact-drift gate
-- **README's Scope table now points at CONTRACT.md §22.11 (the deferred reactor
-  runtime).** §22.11 carries a SHOULD that these READMEs point at it "so an
-  integrator finds the wire chapter rather than concluding reactors are
-  unavailable" — the Scope table listed §8 AMQP as deferred and said nothing about
-  §22, which is exactly where a reader would draw that wrong conclusion. The new
-  row says the accurate thing: §22.11 defers the `reactorServe` *helper* for the
-  same reason §8 has never listed Swift — no vendorable AMQP client for this
-  target — but §22.1–§22.8 is a wire protocol and binds a hand-rolled integrator in
-  full, and the §22.13 vectors are the conformance surface.
-
-  Documentation only: no code change, and **no §22 conformance claim** — §22.11's
-  MUST NOT forbids claiming the chapter while shipping no runtime, and the
-  conformance statement is untouched.
-
-### Added
-
 - **CONTRACT.md §10.1 rule 9 extended for DPoP, and §21.7.2 proof verification
   implemented (contract 1.16/1.17).**
 
@@ -178,51 +146,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CONTRACT.md §21** — the FAPI 2.0 posture as an SDK sees it. Only rule 9 is normative
   for this SDK.
-
-### Changed
-
-- **Re-sync vendored `CONTRACT.md` / `openapi.json` to contract 1.15.**
-
-
-### Changed
-
-- **Re-sync vendored `CONTRACT.md` to contract 1.14** — documentation only, no code change.
-  §20.2 rule 6 (a permission ticket MUST NOT be retried) cited a "measured residual
-  (ilpanich/axiam#302) … roughly 1 in 640" as its second reason. That residual is closed: the
-  server now decides the ticket race with a transaction its storage engine arbitrates plus a
-  redemption nonce read back after the commit. **The rule is unchanged, and this SDK's
-  behaviour is unchanged** — `uma_exchange_ticket` stays excluded from every automatic retry
-  path. What changed is the reasoning: the first reason (a spent ticket makes the retry
-  useless) always stood alone, and the second now rests on what an SDK can actually know —
-  it is talking to a server whose storage engine it cannot attest, and the guarantee is
-  conditional on that engine being persistent.
-- **BREAKING (contract 1.13): `tokenExchange`'s `subjectTokenType` is now required**, losing its
-  `= nil` default and narrowing from `String?` to `String`.
-
-  It shipped optional, defaulting to `accessTokenType` — which satisfied §15.7's "never inspect
-  the subject token" while leaving the rule it serves unenforced: a defaulted parameter *is* a
-  default the SDK applies whenever the caller says nothing. §15.1 now makes it required, so
-  Swift refuses the call outright: omitting the argument no longer compiles.
-
-  The case the compiler cannot catch is a **blank** string — the shape a config-driven caller
-  produces — so that is refused client-side with no wire call, naming both constants. Asserted
-  over `""`, `"   "` and a tab.
-
-  **Migration** — one argument, naming what you were previously getting by silence:
-
-  ```swift
-  let narrowed = try await client.tokenExchange(
-      subjectToken: usersToken,
-      subjectTokenType: AxiamClient.accessTokenType,  // <- add this
-      scopes: ["orders:read"])
-  ```
-
-  This closes a gap rather than opening one: `subject_token_type` has always been required *on
-  the wire*, and the SDK was covering for that with a constant which stopped being the only legal
-  value when X4 landed.
-
-### Added
-
 - **§15.7 external-IdP subject tokens (X4).** `tokenExchange` can now exchange a token minted by a
   trusted external IdP — a partner's Entra, Okta or Keycloak — for an AXIAM token scoped to what
   the resolved AXIAM user may actually do. No new operation: the same method, plus a
@@ -307,6 +230,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Point the Scope table at CONTRACT.md §22.11, the deferred reactor runtime (#29)
+- Re-vendor CONTRACT.md 1.19, openapi.json and proto/ from main (R5.8) (#28)
+- Contract 1.15 — §10.1 rule 9, sender-constrained access tokens (#26)
+- Retire the "measured residual" justification (contract 1.14)
+- Re-sync to contract 1.14 (#302 closed)
+- Runnable §16–§19 example for the Swift SDK (F3)
+- Re-vendor `openapi.json` at 1.0.0-alpha27 — the copy was pinned at alpha26 and
+  failing the cross-repo artifact-drift gate
+- **README's Scope table now points at CONTRACT.md §22.11 (the deferred reactor
+  runtime).** §22.11 carries a SHOULD that these READMEs point at it "so an
+  integrator finds the wire chapter rather than concluding reactors are
+  unavailable" — the Scope table listed §8 AMQP as deferred and said nothing about
+  §22, which is exactly where a reader would draw that wrong conclusion. The new
+  row says the accurate thing: §22.11 defers the `reactorServe` *helper* for the
+  same reason §8 has never listed Swift — no vendorable AMQP client for this
+  target — but §22.1–§22.8 is a wire protocol and binds a hand-rolled integrator in
+  full, and the §22.13 vectors are the conformance surface.
+
+  Documentation only: no code change, and **no §22 conformance claim** — §22.11's
+  MUST NOT forbids claiming the chapter while shipping no runtime, and the
+  conformance statement is untouched.
+- **Re-sync vendored `CONTRACT.md` / `openapi.json` to contract 1.15.**
+- **Re-sync vendored `CONTRACT.md` to contract 1.14** — documentation only, no code change.
+  §20.2 rule 6 (a permission ticket MUST NOT be retried) cited a "measured residual
+  (ilpanich/axiam#302) … roughly 1 in 640" as its second reason. That residual is closed: the
+  server now decides the ticket race with a transaction its storage engine arbitrates plus a
+  redemption nonce read back after the commit. **The rule is unchanged, and this SDK's
+  behaviour is unchanged** — `uma_exchange_ticket` stays excluded from every automatic retry
+  path. What changed is the reasoning: the first reason (a spent ticket makes the retry
+  useless) always stood alone, and the second now rests on what an SDK can actually know —
+  it is talking to a server whose storage engine it cannot attest, and the guarantee is
+  conditional on that engine being persistent.
+- **BREAKING (contract 1.13): `tokenExchange`'s `subjectTokenType` is now required**, losing its
+  `= nil` default and narrowing from `String?` to `String`.
+
+  It shipped optional, defaulting to `accessTokenType` — which satisfied §15.7's "never inspect
+  the subject token" while leaving the rule it serves unenforced: a defaulted parameter *is* a
+  default the SDK applies whenever the caller says nothing. §15.1 now makes it required, so
+  Swift refuses the call outright: omitting the argument no longer compiles.
+
+  The case the compiler cannot catch is a **blank** string — the shape a config-driven caller
+  produces — so that is refused client-side with no wire call, naming both constants. Asserted
+  over `""`, `"   "` and a tab.
+
+  **Migration** — one argument, naming what you were previously getting by silence:
+
+  ```swift
+  let narrowed = try await client.tokenExchange(
+      subjectToken: usersToken,
+      subjectTokenType: AxiamClient.accessTokenType,  // <- add this
+      scopes: ["orders:read"])
+  ```
+
+  This closes a gap rather than opening one: `subject_token_type` has always been required *on
+  the wire*, and the SDK was covering for that with a constant which stopped being the only legal
+  value when X4 landed.
 - **`AuthzError` gains a `challenge` property** (optional, defaulting to `nil`), holding the
   formatted challenge described above. Additive: every existing initialiser call keeps compiling,
   and an adapter that ignores it emits exactly the 403 it always did. It is deliberately **not**
@@ -324,23 +303,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Apply the full CONTRACT §10.1 local-verification set
-
-### Changed
-
-- Add the §10.1 rule-8 guardrail regression tests (#15)
-- Device (mTLS) tokens now carry aud=axiam:m2m (#14)
-- Service accounts can use login_client_credentials (#13)
-
-### Fixed
-
-- Require a kid when selecting a JWKS key (§13.4 observation 7) (#12)
-- Reject tokens with no exp claim (SEC-080)
-- Bind sessions to the configured tenant, refuse plaintext base URLs, constant-time Sensitive equality; add webhook verifier
-
-## [Unreleased]
-
-### Added
-
 - **UMA 2.0 — Protection API and ticket grant (CONTRACT §20).** `umaDiscover`,
   `umaRegisterResource`, `umaReadResource`, `umaUpdateResource`, `umaDeleteResource`,
   `umaListResources`, `umaRequestTicket` and `umaExchangeTicket` on `AxiamClient`, plus the two
@@ -411,29 +373,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `TelemetryEvent` is an `enum` with a closed case list and no dictionary payload, which
   is what makes "no event carries a token" checkable by reading one declaration, and it
   carries the path *template* rather than a URL with ids substituted in.
-
-### Security
-
-- **JWKS key selection is now by `kid` only (§13.4 observation 7).** `selectKey`
-  fell back to "the sole EdDSA key, when unambiguous" whenever a token's header
-  carried no `kid`. Kotlin, PHP and Java all reject that outright, and the
-  fallback is fragile in exactly the situation key ids exist for: during a key
-  rotation the JWKS holds two keys, so a token that verified yesterday starts
-  failing for a reason that has nothing to do with the token.
-
-  The same fallback was also reached when a `kid` **was** present but matched
-  nothing — a stricter problem than the observation named. A token naming a key
-  the server does not publish was verified against whichever single key happened
-  to be there, and if it was signed by that key it was **accepted**. Confirmed by
-  falsification: against the previous code, both new tests report acceptance, not
-  a late signature failure.
-
-  A `kid` is now required, and one that names no published EdDSA key is a hard
-  failure. Tokens minted by the AXIAM server always carry a `kid`, so this is not
-  expected to affect any working deployment.
+- **`iss` and `aud` verification, conditional on configuration (§10.1 rules 5 and 6).**
+  `AxiamConfig.expectedIssuer` and `AxiamConfig.expectedAudience` are optional and unset by
+  default: unset means the claim is not checked, exactly as §10.1 specifies. When one is set,
+  `AxiamRequestAuthenticator` rejects a token whose claim is absent or does not match — an
+  absent claim is never treated as "nothing to check". `aud` is decoded in both the RFC 7519
+  single-string and array forms (`JwtAudience`); a wrong-typed `aud` fails the claim decode
+  rather than reading as "no audience". A resource server guarding a user-facing API SHOULD set
+  `expectedAudience = "axiam:user"`.
+- **`AxiamRequestAuthenticator.clockSkewTolerance` (§10.1 rule 7)** — the single named, bounded
+  60 s leeway applied to the `exp` and `nbf` comparisons. It is a constant, not an inline
+  literal, and deliberately has no setter: the contract forbids an operator raising it to an
+  unbounded value.
+- `JwtClaims` now models `nbf`, `iss` and `aud`. The SDK could not check what it never decoded —
+  that omission is what let rules 3, 5 and 6 go unenforced.
+- The full §10.1 negative-test set (`LocalVerificationSetTests`): expired; no `exp`; non-numeric
+  `exp`; future `nbf`; different tenant; no `tenant_id`; `alg: none`; an HS-signed token bearing
+  an EdDSA key id; and issuer/audience mismatch and absent-claim cases. The `alg: none` and
+  HS-confusion cases additionally assert that the JWKS endpoint was never contacted, pinning
+  "rejected without consulting a key".
+- Vendored `CONTRACT.md` re-synced to add §10.1.
+- **T-145 / CONTRACT §13 — `AxiamWebhooks.verify(...)`**, the webhook-signature verifier every
+  SDK must ship. Recomputes `HMAC-SHA256(secret, "<t>.<raw_body>")`, parses the
+  `t=`/`v1=` fields of `X-Axiam-Signature` (unknown keys ignored for forward compatibility, a
+  header with **no** `v1` is a failure), compares **constant-time over the decoded bytes**
+  against every supplied candidate, and enforces a **two-sided** freshness window defaulting to
+  300 s so a future-dated timestamp is rejected as well as a stale one. Failures surface as a
+  typed `AxiamWebhookError` that never carries the expected signature or the secret. Overloads
+  take the secret as `Sensitive<String>` (§7) or plain `String`, and either the raw
+  `X-Axiam-Signature` value or a case-insensitive header dictionary; `now:` is the test
+  injection seam. The body is taken as raw `Data` — re-serializing parsed JSON changes key order
+  and whitespace and breaks the MAC, which the API docs and README state explicitly, along with
+  `X-Axiam-Delivery` being the at-least-once dedup key.
+- `ConstantTimeComparable` + the internal `ConstantTime.equals` primitive, shared by `Sensitive`
+  equality and the webhook verifier.
+- Tests: cross-tenant token rejected with and without an `X-Tenant-ID` header, token with no
+  `tenant_id` claim rejected, `assertTenant` unit semantics; token with no `exp` claim rejected
+  and a malformed non-numeric `exp` pinned as rejected (SEC-080); `http://` rejected, loopback
+  `http://` accepted, loopback-host predicate; constant-time equality over `String`/`Data`/
+  `[UInt8]` including length mismatches; and the full §13.4 webhook suite (valid+fresh, tampered
+  body, re-serialized body, wrong secret, stale `t`, future `t`, malformed headers, duplicate
+  `t`, non-hex `v1`, multiple candidates, timestamp-header cross-check, no-leak assertion, and
+  the shared cross-SDK vector computed in test setup).
 
 ### Changed
 
+- Add the §10.1 rule-8 guardrail regression tests (#15)
+- Device (mTLS) tokens now carry aud=axiam:m2m (#14)
+- Service accounts can use login_client_credentials (#13)
 - Re-vendored `CONTRACT.md` at **1.10** and `openapi.json` (the server's `/uma2/*` surface).
 - `AuthError` gained `oauthError` and `oauthErrorDescription`, both optional and both `nil` for
   every failure that is not an OAuth2 protocol error, so existing callers are unaffected. §20.4
@@ -443,6 +430,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Swift structs cannot be subclassed, so an `AuthError` that carries the code is the equivalent,
   and the §2 taxonomy stays at exactly three cases rather than gaining a fourth (which would have
   broken every exhaustive `switch` over `AxiamError`).
+- Vendored `CONTRACT.md` re-synced with the new **§13 Webhook Signature Verification**.
 
 ### Changed — BREAKING
 
@@ -470,31 +458,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `expectedAudience`, both defaulting to `nil`. Callers using the memberwise initializer with
     argument labels are unaffected.
 
-### Added
+### Fixed
 
-- **`iss` and `aud` verification, conditional on configuration (§10.1 rules 5 and 6).**
-  `AxiamConfig.expectedIssuer` and `AxiamConfig.expectedAudience` are optional and unset by
-  default: unset means the claim is not checked, exactly as §10.1 specifies. When one is set,
-  `AxiamRequestAuthenticator` rejects a token whose claim is absent or does not match — an
-  absent claim is never treated as "nothing to check". `aud` is decoded in both the RFC 7519
-  single-string and array forms (`JwtAudience`); a wrong-typed `aud` fails the claim decode
-  rather than reading as "no audience". A resource server guarding a user-facing API SHOULD set
-  `expectedAudience = "axiam:user"`.
-- **`AxiamRequestAuthenticator.clockSkewTolerance` (§10.1 rule 7)** — the single named, bounded
-  60 s leeway applied to the `exp` and `nbf` comparisons. It is a constant, not an inline
-  literal, and deliberately has no setter: the contract forbids an operator raising it to an
-  unbounded value.
-- `JwtClaims` now models `nbf`, `iss` and `aud`. The SDK could not check what it never decoded —
-  that omission is what let rules 3, 5 and 6 go unenforced.
-- The full §10.1 negative-test set (`LocalVerificationSetTests`): expired; no `exp`; non-numeric
-  `exp`; future `nbf`; different tenant; no `tenant_id`; `alg: none`; an HS-signed token bearing
-  an EdDSA key id; and issuer/audience mismatch and absent-claim cases. The `alg: none` and
-  HS-confusion cases additionally assert that the JWKS endpoint was never contacted, pinning
-  "rejected without consulting a key".
-- Vendored `CONTRACT.md` re-synced to add §10.1.
+- Require a kid when selecting a JWKS key (§13.4 observation 7) (#12)
+- Reject tokens with no exp claim (SEC-080)
+- Bind sessions to the configured tenant, refuse plaintext base URLs, constant-time Sensitive equality; add webhook verifier
 
 ### Security
 
+- **JWKS key selection is now by `kid` only (§13.4 observation 7).** `selectKey`
+  fell back to "the sole EdDSA key, when unambiguous" whenever a token's header
+  carried no `kid`. Kotlin, PHP and Java all reject that outright, and the
+  fallback is fragile in exactly the situation key ids exist for: during a key
+  rotation the JWKS holds two keys, so a token that verified yesterday starts
+  failing for a reason that has nothing to do with the token.
+
+  The same fallback was also reached when a `kid` **was** present but matched
+  nothing — a stricter problem than the observation named. A token naming a key
+  the server does not publish was verified against whichever single key happened
+  to be there, and if it was signed by that key it was **accepted**. Confirmed by
+  falsification: against the previous code, both new tests report acceptance, not
+  a late signature failure.
+
+  A `kid` is now required, and one that names no published EdDSA key is a hard
+  failure. Tokens minted by the AXIAM server always carry a `kid`, so this is not
+  expected to affect any working deployment.
 - **SEC-080 — a token with no `exp` claim was previously accepted (SEC-072 residual).**
   `AxiamRequestAuthenticator.authenticate` enforced expiry as `if let exp = claims.exp, exp <
   now { throw }`; a token carrying **no** `exp` claim decodes to `nil`, so the `if let` never
@@ -533,35 +521,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deliberately **not** `Hashable` — secrets should not become `Set`/dictionary keys, where
   lookup is a hash-bucketed comparison that is not constant time.
 
-### Added
-
-- **T-145 / CONTRACT §13 — `AxiamWebhooks.verify(...)`**, the webhook-signature verifier every
-  SDK must ship. Recomputes `HMAC-SHA256(secret, "<t>.<raw_body>")`, parses the
-  `t=`/`v1=` fields of `X-Axiam-Signature` (unknown keys ignored for forward compatibility, a
-  header with **no** `v1` is a failure), compares **constant-time over the decoded bytes**
-  against every supplied candidate, and enforces a **two-sided** freshness window defaulting to
-  300 s so a future-dated timestamp is rejected as well as a stale one. Failures surface as a
-  typed `AxiamWebhookError` that never carries the expected signature or the secret. Overloads
-  take the secret as `Sensitive<String>` (§7) or plain `String`, and either the raw
-  `X-Axiam-Signature` value or a case-insensitive header dictionary; `now:` is the test
-  injection seam. The body is taken as raw `Data` — re-serializing parsed JSON changes key order
-  and whitespace and breaks the MAC, which the API docs and README state explicitly, along with
-  `X-Axiam-Delivery` being the at-least-once dedup key.
-- `ConstantTimeComparable` + the internal `ConstantTime.equals` primitive, shared by `Sensitive`
-  equality and the webhook verifier.
-- Tests: cross-tenant token rejected with and without an `X-Tenant-ID` header, token with no
-  `tenant_id` claim rejected, `assertTenant` unit semantics; token with no `exp` claim rejected
-  and a malformed non-numeric `exp` pinned as rejected (SEC-080); `http://` rejected, loopback
-  `http://` accepted, loopback-host predicate; constant-time equality over `String`/`Data`/
-  `[UInt8]` including length mismatches; and the full §13.4 webhook suite (valid+fresh, tampered
-  body, re-serialized body, wrong secret, stale `t`, future `t`, malformed headers, duplicate
-  `t`, non-hex `v1`, multiple candidates, timestamp-header cross-check, no-leak assertion, and
-  the shared cross-SDK vector computed in test setup).
-
-### Changed
-
-- Vendored `CONTRACT.md` re-synced with the new **§13 Webhook Signature Verification**.
-
 ## [1.0.0-alpha23] - 2026-08-02
 
 ### Changed
@@ -569,27 +528,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Maintenance release — no notable changes since v1.0.0-alpha21.
 
 ## [1.0.0-alpha21] - 2026-07-30
-
-### Changed
-
-- Re-sync vendored CONTRACT.md to contract 1.6
-
-### Fixed
-
-- Identity-check the single-flight refresh slot vacate (rule 6c) + rule 6 regression tests
-
-## [Unreleased]
-
-### Fixed
-
-- **§9 rule 6c (contract 1.6): the single-flight refresh slot is now vacated identity-checked.**
-  `AxiamClient.refreshOnce()` cleared `refreshTask` unconditionally on both its success and its
-  failure path. The invariant held only by a whole-function argument (ownership is taken and
-  released with no intervening suspension point, so the slot could not change identity underneath
-  an owner) — nothing local prevented a lagging attempt from wiping a *newer* leader's live entry,
-  which is the shape of the bug fixed in the C++ SDK and would open the door to a second wire call
-  against an already-consumed, single-use refresh token. The clear now happens only while the slot
-  still holds the clearing attempt's own `Task`.
 
 ### Added
 
@@ -605,6 +543,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The four rule-6 invariants, and why each holds for the `actor` + shared-`Task` mechanism §9
   prescribes for Swift, are documented at the guard itself (`AxiamClient.refreshOnce()`).
 
+### Changed
+
+- Re-sync vendored CONTRACT.md to contract 1.6
+
+### Fixed
+
+- Identity-check the single-flight refresh slot vacate (rule 6c) + rule 6 regression tests
+- **§9 rule 6c (contract 1.6): the single-flight refresh slot is now vacated identity-checked.**
+  `AxiamClient.refreshOnce()` cleared `refreshTask` unconditionally on both its success and its
+  failure path. The invariant held only by a whole-function argument (ownership is taken and
+  released with no intervening suspension point, so the slot could not change identity underneath
+  an owner) — nothing local prevented a lagging attempt from wiping a *newer* leader's live entry,
+  which is the shape of the bug fixed in the C++ SDK and would open the door to a second wire call
+  against an already-consumed, single-use refresh token. The clear now happens only while the slot
+  still holds the clearing attempt's own `Task`.
+
 ## [1.0.0-alpha18] - 2026-07-24
 
 ### Changed
@@ -616,11 +570,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Adopt CONTRACT 1.3; defer gRPC get_user_info
-
-## [Unreleased]
-
-### Changed
-
 - Adopt CONTRACT.md 1.3: the new gRPC-only `getUserInfo` operation (CONTRACT §1.1) is
   documented as a deferred follow-up (this SDK ships no gRPC transport in v1) and the
   vendored contract/proto copies are re-synced. Per §1.1 the REST `/oauth2/userinfo` endpoint is not substituted.
@@ -644,17 +593,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Publish theme-settings.json and root redirect (#3)
 
 ## [1.0.0-alpha10] - 2026-07-18
-
-### Changed
-
-- Resolve org_id from access-token claim for the refresh body (D-14) (#2)
-- Force bash for gh-pages publish step
-- Publish API docs to gh-pages branch
-- Drop configure-pages step, mirror C SDK template
-- Auto-enable GitHub Pages (enablement: true)
-- Add docs publish workflow to GitHub Pages
-
-## [Unreleased]
 
 ### Added
 
@@ -681,6 +619,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   300-second cache, single-flighted fetch, and algorithm rejection before key lookup.
 - §10 framework-agnostic route guard (`AxiamRequestAuthenticator`) and §11 declarative
   helpers (`requireAuth` / `requireAccess(_:resource:)` / `requireRole(_:)`).
+
+### Changed
+
+- Resolve org_id from access-token claim for the refresh body (D-14) (#2)
+- Force bash for gh-pages publish step
+- Publish API docs to gh-pages branch
+- Drop configure-pages step, mirror C SDK template
+- Auto-enable GitHub Pages (enablement: true)
+- Add docs publish workflow to GitHub Pages
 
 ### Deferred (follow-ups)
 
