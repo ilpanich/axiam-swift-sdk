@@ -5,6 +5,23 @@ All notable changes to the AXIAM Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha34] - 2026-08-21
+
+### Added
+
+- Replace SRP-6a with OPAQUE (RFC 9807)
+
+### Changed
+
+- Link to the AXIAM platform documentation site
+- Re-vendor openapi.json at alpha32 (#35)
+- Cover the enrolment refusals; exclude the un-runnable ABI edge from the coverage gate
+
+### Fixed
+
+- Drop autoreleasepool, which corelibs Foundation does not vend on Linux
+- Await the actor-isolated opaqueAvailable() probe
+
 ## [Unreleased]
 
 ### Added
