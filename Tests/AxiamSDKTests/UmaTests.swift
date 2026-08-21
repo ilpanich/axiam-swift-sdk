@@ -452,6 +452,50 @@ final class UmaTests: XCTestCase {
             XCTAssertFalse(rendered.contains(Self.claimToken))
         }
     }
+    // MARK: - §20 argument guards and challenge tolerance
+
+    /// §20.1: a ticket is required, and the refusal happens client-side.
+    ///
+    /// The `claimToken` guard immediately below it is already covered; this one
+    /// was not, which meant the first of two adjacent guards was unverified
+    /// while the second looked tested.
+    func testAnEmptyTicketIsRefusedClientSideWithNoWireCall() async throws {
+        let transport = UmaTransport()
+        let client = try makeClient(transport)
+        do {
+            _ = try await client.umaExchangeTicket(
+                ticket: Sensitive(""),
+                claimToken: Sensitive("a-claim-token"),
+                credentials: Self.credentials())
+            XCTFail("an empty ticket must be refused before the wire")
+        } catch let error as AxiamError {
+            guard case .auth = error else { return XCTFail("expected an AuthError") }
+            XCTAssertTrue(transport.paths.isEmpty, "nothing may reach the network")
+        }
+    }
+
+    /// UMA 2.0 permits a server to add its own challenge parameters. Ignoring
+    /// an unknown one rather than rejecting the whole header is what keeps the
+    /// ticket — refusing would throw away the very thing the challenge exists
+    /// to deliver.
+    func testAnUnknownChallengeParameterIsIgnoredAndTheTicketSurvives() throws {
+        let header = #"UMA realm="axiam", as_uri="https://as.test", ticket="tkt-1", future_param="x""#
+        let parsed = try XCTUnwrap(AxiamClient.umaParseChallenge(header))
+        XCTAssertEqual(parsed.realm, "axiam")
+        XCTAssertEqual(parsed.asURI, "https://as.test")
+        XCTAssertEqual(parsed.ticket?.wrapped, "tkt-1")
+    }
+
+    /// The public memberwise initializer of a value type callers are expected
+    /// to construct themselves. Never exercised, so a change to its stored
+    /// properties would have compiled and shipped untested.
+    func testRptPermissionIsConstructibleByCallers() {
+        let permission = UmaRptPermission(
+            resourceID: "res-1", resourceScopes: ["read", "write"], exp: 4_102_444_800)
+        XCTAssertEqual(permission.resourceID, "res-1")
+        XCTAssertEqual(permission.resourceScopes, ["read", "write"])
+        XCTAssertEqual(permission.exp, 4_102_444_800)
+    }
 }
 
 // MARK: - Harness
@@ -576,4 +620,5 @@ final class UmaTransport: HTTPTransport, @unchecked Sendable {
             return HTTPResponseData(status: 0, headers: [], body: Data())
         }
     }
+
 }

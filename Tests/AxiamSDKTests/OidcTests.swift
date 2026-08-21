@@ -407,4 +407,179 @@ final class OidcTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - §12.6 client-credentials grant
+
+    /// The §12.6 embedded-consumer path: a token with no `openid` scope, so no ID token comes
+    /// back and none is demanded. The rest of the OIDC suite drives the authorization-code
+    /// flow, which meant this whole method was never executed.
+    func testClientCredentialsReturnsATokenSetWithNoIdToken() async throws {
+        let router = makeRouter(tokenBody: { _ in
+            ["access_token": "cc-access", "token_type": "Bearer", "expires_in": 900,
+             "scope": "invoices:read"]
+        })
+        try await withOidcClient(router: router) { client, _ in
+            let set = try await client.loginClientCredentials(scope: "invoices:read")
+            XCTAssertEqual(set.accessToken.wrapped, "cc-access")
+            XCTAssertNil(set.idClaims, "a client-credentials grant carries no ID token")
+        }
+    }
+
+    func testClientCredentialsWithoutAClientSecretIsRefusedBeforeTheWire() async throws {
+        let router = makeRouter(tokenBody: { _ in [:] })
+        try await withOidcClient(clientSecret: nil, router: router) { client, server in
+            do {
+                _ = try await client.loginClientCredentials()
+                XCTFail("a public client cannot use the client-credentials grant")
+            } catch {
+                // The check is that nothing reached the token endpoint: a missing secret must
+                // fail locally rather than by sending an unauthenticated grant request.
+                XCTAssertEqual(server.state.count("token"), 0)
+            }
+        }
+    }
+
+    // MARK: - §12.1 introspect
+
+    func testIntrospectReturnsTheParsedResult() async throws {
+        let router = makeRouter(
+            tokenBody: { _ in [:] },
+            extra: { request, state in
+                guard request.uri.contains("/oauth2/introspect") else { return nil }
+                state.increment("introspect")
+                return .json(200, [
+                    "active": true, "scope": "invoices:read", "client_id": "invoices-client",
+                    "username": "alice", "token_type": "Bearer", "sub": "user-42",
+                ])
+            })
+        try await withOidcClient(router: router) { client, _ in
+            let result = try await client.introspect(
+                token: Sensitive("some-token"), tokenTypeHint: "access_token")
+            XCTAssertTrue(result.active)
+            XCTAssertEqual(result.subject, "user-42")
+            XCTAssertEqual(result.clientID, "invoices-client")
+        }
+    }
+
+    /// RFC 7662 says an inactive token is a 200 with `active: false`, not an error. Worth
+    /// pinning: treating it as a failure would make "this token is not valid" indistinguishable
+    /// from "introspection is broken", and callers would fail open on the wrong one.
+    func testIntrospectReportsAnInactiveTokenAsASuccessfulAnswer() async throws {
+        let router = makeRouter(
+            tokenBody: { _ in [:] },
+            extra: { request, _ in
+                guard request.uri.contains("/oauth2/introspect") else { return nil }
+                return .json(200, ["active": false])
+            })
+        try await withOidcClient(router: router) { client, _ in
+            let result = try await client.introspect(token: Sensitive("revoked"))
+            XCTAssertFalse(result.active)
+            XCTAssertNil(result.subject)
+        }
+    }
+
+    // MARK: - §12.1 sso_start
+
+    func testSsoStartSendsTenantContextAndReturnsTheAuthorizeURL() async throws {
+        let router = makeRouter(
+            tokenBody: { _ in [:] },
+            extra: { request, state in
+                guard request.uri.contains("/auth/federation/oidc/start") else { return nil }
+                state.increment("sso_start")
+                return .json(200, [
+                    "authorize_url": "https://idp.example.test/authorize?state=abc",
+                    "state": "abc",
+                    "expires_in_secs": 300,
+                ])
+            })
+        try await withOidcClient(router: router) { client, server in
+            let result = try await client.ssoStart(
+                federationConfigID: "fed-1", redirectURI: "https://app.test/cb")
+            XCTAssertEqual(result.state, "abc")
+            XCTAssertEqual(result.expiresInSecs, 300)
+            XCTAssertTrue(result.authorizeURL.hasPrefix("https://idp.example.test/"))
+            // §5.1: the tenant travels in the JSON body here, not as a query parameter.
+            let sent = server.state.requests(pathContaining: "/oidc/start").first
+            let body = String(data: sent?.body ?? Data(), encoding: .utf8) ?? ""
+            XCTAssertTrue(body.contains(Self.tenantUUID), "sso_start must carry tenant context")
+        }
+    }
+
+    // MARK: - discovery documents that omit an endpoint
+
+    /// A router whose discovery document contains ONLY the keys in `keep`.
+    ///
+    /// Every optional endpoint in the document is a branch: the SDK has to
+    /// refuse the operation rather than construct a URL from nil. These were
+    /// the last uncovered lines in Oidc.swift, Logout.swift and
+    /// DeviceGrant.swift, and they are the ones a server misconfiguration
+    /// actually hits.
+    private func routerWithPartialDiscovery(keep: [String]) -> TestRouter {
+        let signer = self.signer
+        let full = discoveryJSON
+        return { request, state in
+            if request.uri.hasSuffix("/oauth2/jwks") { return .json(200, signer.jwksJSON()) }
+            if request.uri.contains("/.well-known/openid-configuration") {
+                state.increment("discovery")
+                let base = "http://\(request.header("Host") ?? "127.0.0.1")"
+                let complete = full(base)
+                var trimmed: [String: Any] = ["issuer": complete["issuer"] ?? ""]
+                for key in keep { trimmed[key] = complete[key] }
+                return .json(200, trimmed)
+            }
+            return .json(404, [:])
+        }
+    }
+
+    func testIntrospectRefusesWhenDiscoveryAdvertisesNoIntrospectionEndpoint() async throws {
+        try await withOidcClient(
+            router: routerWithPartialDiscovery(keep: ["token_endpoint"])
+        ) { client, _ in
+            do {
+                _ = try await client.introspect(token: Sensitive("t"))
+                XCTFail("introspection without an endpoint must not be attempted")
+            } catch let error as AxiamError {
+                guard case .network = error else { return XCTFail("expected a NetworkError") }
+            }
+        }
+    }
+
+    func testRevokeRefusesWhenDiscoveryAdvertisesNoRevocationEndpoint() async throws {
+        try await withOidcClient(
+            router: routerWithPartialDiscovery(keep: ["token_endpoint"])
+        ) { client, _ in
+            do {
+                try await client.revoke(token: Sensitive("t"))
+                XCTFail("revocation without an endpoint must not be attempted")
+            } catch let error as AxiamError {
+                guard case .network = error else { return XCTFail("expected a NetworkError") }
+            }
+        }
+    }
+
+    func testEndSessionRefusesWhenDiscoveryAdvertisesNoEndSessionEndpoint() async throws {
+        try await withOidcClient(
+            router: routerWithPartialDiscovery(keep: ["token_endpoint"])
+        ) { client, _ in
+            do {
+                _ = try await client.logoutURL(idToken: Sensitive("t"))
+                XCTFail("a logout URL cannot be built without an end_session_endpoint")
+            } catch let error as AxiamError {
+                guard case .network = error else { return XCTFail("expected a NetworkError") }
+            }
+        }
+    }
+
+    func testDeviceAuthorizationRefusesWhenDiscoveryAdvertisesNoDeviceEndpoint() async throws {
+        try await withOidcClient(
+            router: routerWithPartialDiscovery(keep: ["token_endpoint"])
+        ) { client, _ in
+            do {
+                _ = try await client.deviceAuthorize()
+                XCTFail("the device grant cannot start without its endpoint")
+            } catch let error as AxiamError {
+                guard case .network = error else { return XCTFail("expected a NetworkError") }
+            }
+        }
+    }
 }
