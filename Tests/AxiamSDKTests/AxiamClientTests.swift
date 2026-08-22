@@ -68,9 +68,11 @@ final class AxiamClientTests: XCTestCase {
             .json(403, ["mfa_setup_required": true, "setup_token": "setup-x"])
         }) { client, _ in
             let result = try await client.login(email: "a@b.c", password: "pw")
-            guard case .mfaSetupRequired = result else {
+            guard case .mfaSetupRequired(let setupToken) = result else {
                 return XCTFail("expected mfaSetupRequired")
             }
+            // §25.2 rule 1: the outcome carries the token that completes the login.
+            XCTAssertEqual(setupToken.expose(), "setup-x")
         }
     }
 

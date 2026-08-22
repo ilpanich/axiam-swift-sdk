@@ -95,6 +95,21 @@ let package = Package(
             path: "Examples/UmaClient"
         ),
         .executableTarget(
+            name: "WebauthnPasskeysExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/WebauthnPasskeys"
+        ),
+        .executableTarget(
+            name: "AccountLifecycleExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/AccountLifecycle"
+        ),
+        .executableTarget(
+            name: "ParLoginExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/ParLogin"
+        ),
+        .executableTarget(
             name: "TelemetryHookExample",
             dependencies: ["AxiamSDK"],
             path: "Examples/TelemetryHook"

@@ -25,8 +25,11 @@ case .authenticated(let user):
     print(user.userID, canEdit)
 case .mfaRequired:
     try await client.verifyMfa("123456")
-case .mfaSetupRequired:
-    break
+case .mfaSetupRequired(let setupToken):
+    // §25.2 rule 1: an outcome, not a refusal. Finish enrolment with the token.
+    let enrollment = try await client.mfaSetupEnroll(setupToken: setupToken)
+    renderQR(enrollment.totpURI.expose())
+    try await client.mfaSetupConfirm(setupToken: setupToken, totpCode: "123456")
 }
 ```
 

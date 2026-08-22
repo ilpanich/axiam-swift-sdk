@@ -5,6 +5,45 @@ All notable changes to the AXIAM Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- CONTRACT.md §24 — WebAuthn / passkeys. The six relying-party operations and
+  §24.6a's JSON bridge on **every** target, plus §24.6b's linked-API ceremony
+  helpers (`webauthnRegister`, `webauthnLogin`, `webauthnDiscoverableLogin`) on
+  iOS 16+ and macOS 13+, behind `#if canImport(AuthenticationServices)`.
+
+  One helper set for both Apple platforms, not an iOS one and a macOS one:
+  the credential providers exist on both, and the presentation anchor — the
+  only genuinely per-platform part — is supplied by the caller through
+  `WebauthnPresentationAnchorProviding`. The Linux build keeps the RP layer and
+  the bridge, and `webauthnCeremonySupported` answers `false` there rather than
+  throwing (§24.6b rule 6).
+
+  `WebauthnFailure.classify` maps a platform error name to the five §24.6b
+  rule 5 outcomes, and is present on every build — a browser front end relaying
+  a `DOMException` name to a Swift service has the same five.
+- CONTRACT.md §25 — account lifecycle and MFA enrolment: voluntary and forced
+  TOTP enrolment, email verification, and the password-reset triple including
+  the `reset/context` call a tenant with §23 enabled requires before a new
+  password can be built.
+- CONTRACT.md §26 — Pushed Authorization Requests, RFC 9126 (`oidcPar`,
+  `PushedAuthorizationRequest`). Required for a FAPI 2.0 client, which cannot
+  authorize any other way (§21.1).
+- `Examples/WebauthnPasskeys`, `Examples/AccountLifecycle` and
+  `Examples/ParLogin`, each a `swift run` target.
+
+### Changed
+
+- **Breaking:** `LoginResult.mfaSetupRequired` gained an associated value —
+  the setup token (§25.2 rule 1). A caller that matched it exhaustively needs
+  one line changed. Taken because the alternative was an SDK that reports a
+  recoverable, guided state and withholds the only thing that can complete it.
+- `OidcConfiguration` gained `pushedAuthorizationRequestEndpoint`, optional and
+  parsed from discovery.
+- Re-vendored `CONTRACT.md` and `openapi.json` at contract 1.28.
+
 ## [1.0.0-alpha37] - 2026-08-21
 
 ### Changed

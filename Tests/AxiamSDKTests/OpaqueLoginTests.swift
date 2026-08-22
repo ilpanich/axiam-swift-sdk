@@ -261,7 +261,13 @@ final class OpaqueLoginTests: XCTestCase {
         let result = try await client(transport).loginOpaque(
             usernameOrEmail: Self.user, password: password)
 
-        XCTAssertEqual(result, .mfaSetupRequired)
+        guard case .mfaSetupRequired(let setupToken) = result else {
+            return XCTFail("expected mfaSetupRequired, got \(result)")
+        }
+        // §25.2 rule 1: the outcome carries the token that completes the login it
+        // interrupted. An enrolment branch without one tells the caller what is wrong and
+        // withholds the only thing that can fix it.
+        XCTAssertEqual(setupToken.expose(), "setup")
     }
 
     // MARK: - Failures

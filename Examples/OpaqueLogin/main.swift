@@ -115,8 +115,11 @@ do {
         // place rather than returning a second result.
         try await client.verifyMfa(totpCode)
         print("authenticated after MFA")
-    case .mfaSetupRequired:
-        print("this account must complete MFA enrolment first")
+    case .mfaSetupRequired(let setupToken):
+        // §25.2 rule 1: an outcome, not a refusal — and it carries the token that
+        // finishes the interrupted login. See Examples/AccountLifecycle for the pair
+        // of calls that complete it.
+        print("this account must complete MFA enrolment first: \(setupToken)")
     }
 
     // Enrolment, for any request that SETS a password. The server cannot build a
