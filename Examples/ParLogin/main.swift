@@ -42,7 +42,7 @@ do {
 
     // oidcBegin still runs first, and still owns state/nonce/PKCE. §26.2 rule 1 forbids a
     // second generator: two sources for any of those are two things that can disagree.
-    let begun = try client.oidcBegin(
+    let begun = try await client.oidcBegin(
         redirectURI: redirectURI,
         scope: "openid profile",
         configuration: document
