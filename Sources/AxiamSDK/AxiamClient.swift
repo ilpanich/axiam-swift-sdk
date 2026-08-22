@@ -973,7 +973,9 @@ extension AxiamClient {
     func _memoCount() -> Int { memo.count }
 }
 
-private extension LoginSuccessResponse {
+// Internal rather than fileprivate: `AxiamClient+Account.swift` builds the same
+// user from the same §25.2 login-success shape after an MFA-setup ceremony.
+extension LoginSuccessResponse {
     func toUser() -> AxiamUser {
         AxiamUser(
             userID: user.id,
