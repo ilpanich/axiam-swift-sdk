@@ -193,10 +193,15 @@ public actor AxiamClient {
             return .mfaRequired(availableMethods: mfa.available_methods)
         case 403:
             // A 403 here can be the login-flow "MFA enrolment required" response rather than a
-            // genuine authorization denial — disambiguate on the body shape.
+            // genuine authorization denial — disambiguate on the body shape (§25.2 rule 1).
+            //
+            // The setup token travels out with the outcome rather than being retained the way
+            // the MFA challenge token is: unlike verifyMfa, forced enrolment is TWO calls with
+            // a human step between them, and a caller that has to persist state across that
+            // gap needs the token in hand.
             if let setup = try? JSONDecoder().decode(MfaSetupRequiredResponse.self, from: response.body),
-               setup.mfa_setup_required {
-                return .mfaSetupRequired
+               setup.mfa_setup_required, !setup.setup_token.isEmpty {
+                return .mfaSetupRequired(setupToken: Sensitive(setup.setup_token))
             }
             throw mapError(response)
         default:
@@ -529,8 +534,8 @@ public actor AxiamClient {
             // disambiguate on the body shape.
             if let setup = try? JSONDecoder().decode(
                 MfaSetupRequiredResponse.self, from: response.body),
-               setup.mfa_setup_required {
-                return .mfaSetupRequired
+               setup.mfa_setup_required, !setup.setup_token.isEmpty {
+                return .mfaSetupRequired(setupToken: Sensitive(setup.setup_token))
             }
             throw mapError(response)
         default:
@@ -841,6 +846,91 @@ public actor AxiamClient {
     }
 }
 
+// MARK: - Internal seams for the §24/§25/§26 extensions
+//
+// `rawSend`/`mapError`/`memo` are file-private, and the WebAuthn and account-lifecycle
+// operations live in their own files to keep this one readable. These few internal
+// accessors are what they reach through — deliberately a named surface rather than
+// widening the private members, so what those extensions can touch stays enumerable.
+
+extension AxiamClient {
+    /// The §17 memo drop every credential change owes (§17.1 rule 9).
+    func clearDecisionMemo() {
+        memo.clear()
+    }
+
+    /// Whether a prior `login`/ceremony left this client holding a session.
+    var hasActiveSession: Bool { hasSession }
+
+    /// The challenge token a `login` that answered `.mfaRequired` retained (§1), so a
+    /// second-factor WebAuthn ceremony can continue it without the caller re-supplying one.
+    func currentChallengeToken() -> Sensitive<String>? { challengeToken }
+
+    var configuredTenantID: String? { config.tenantID }
+    var configuredTenantSlug: String? { config.tenantSlug }
+    var configuredOrgID: String? { resolvedOrgID ?? config.orgID }
+    var configuredOrgSlug: String? { config.orgSlug }
+
+    /// Marks the client authenticated after a §24.3 / §25.2 rule 2 credential adoption. The
+    /// session cookies arrived on the same response and were stored by `rawSend`; this is
+    /// the in-memory half.
+    func adoptSessionAfterCeremony(user: AxiamUser? = nil) {
+        hasSession = true
+        challengeToken = nil
+        if let user { sessionUser = user }
+        resolveOrgIDFromToken()
+    }
+
+    /// One JSON POST against this client's own base URL, carrying the §3/§4/§5 decoration
+    /// every other REST call gets.
+    func webauthnRawSend(path: String, body: Data?) async throws -> HTTPResponseData {
+        try await rawSend(method: .post, path: path, body: body)
+    }
+
+    /// One GET against this client's own base URL carrying a query string.
+    ///
+    /// Built through `URLComponents`, never by concatenation: `rawSend` joins its `path`
+    /// with `appendingPathComponent`, which percent-escapes a `?` INTO the path — and a
+    /// reset-context call that lands on the wrong path 404s in a way that reads exactly
+    /// like an expired token.
+    func rawGetWithQuery(
+        path: String,
+        query: [URLQueryItem],
+        context: String
+    ) async throws -> HTTPResponseData {
+        let base = config.baseURL.appendingPathComponent(path)
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            throw AxiamError.network(NetworkError("\(context): could not build a request URL"))
+        }
+        components.queryItems = query
+        guard let url = components.url else {
+            throw AxiamError.network(NetworkError("\(context): could not build a request URL"))
+        }
+
+        var headers: [(String, String)] = [
+            ("X-Tenant-ID", config.tenantHeaderValue),
+            ("Accept", "application/json"),
+        ]
+        if let cookieHeader = cookieJar.cookieHeader(for: url) {
+            headers.append(("Cookie", cookieHeader))
+        }
+        let spec = HTTPRequestSpec(method: .get, url: url, headers: headers, body: nil)
+        return try await transport.execute(spec, timeout: config.requestTimeout)
+    }
+
+    /// The §2 status mapping, applied to a response the caller already has in hand.
+    func webauthnMapError(_ response: HTTPResponseData, _ context: String) -> AxiamError {
+        let errBody = try? JSONDecoder().decode(ErrorBody.self, from: response.body)
+        let message = errBody?.message ?? errBody?.error ?? context
+        return ErrorMapper.map(
+            status: response.status,
+            message: context.hasSuffix(message) ? context : "\(context): \(message)",
+            action: errBody?.action,
+            resourceID: errBody?.resource_id
+        )
+    }
+}
+
 // MARK: - Internal test seams
 
 extension AxiamClient {
@@ -883,7 +973,9 @@ extension AxiamClient {
     func _memoCount() -> Int { memo.count }
 }
 
-private extension LoginSuccessResponse {
+// Internal rather than fileprivate: `AxiamClient+Account.swift` builds the same
+// user from the same §25.2 login-success shape after an MFA-setup ceremony.
+extension LoginSuccessResponse {
     func toUser() -> AxiamUser {
         AxiamUser(
             userID: user.id,

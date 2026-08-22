@@ -52,8 +52,17 @@ do {
         try await client.verifyMfa(totpCode)
         print("MFA verified — session established")
 
-    case .mfaSetupRequired:
-        print("MFA enrolment required before this account can authenticate")
+    case .mfaSetupRequired(let setupToken):
+        // Not a failure (§25.2 rule 1). The tenant requires MFA, this account has
+        // none, and the server handed back the token that completes the login it
+        // interrupted. Two calls, with a human step — scanning the QR — between them.
+        let enrollment = try await client.mfaSetupEnroll(setupToken: setupToken)
+        print("scan this: \(enrollment.totpURI.expose())")
+        let user = try await client.mfaSetupConfirm(
+            setupToken: setupToken,
+            totpCode: readLine() ?? ""
+        )
+        print("enrolled and signed in as \(user.userID)")
     }
 
     // Tokens are delivered via httpOnly cookies and never surfaced here (§4/§7).

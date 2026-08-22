@@ -38,8 +38,18 @@ public enum LoginResult: Sendable, Equatable {
     /// `availableMethods` lists the offered factors (e.g. `["totp"]`). The challenge token
     /// is retained internally (as `Sensitive`) and never surfaced here.
     case mfaRequired(availableMethods: [String])
-    /// The account must complete MFA enrolment before it can authenticate.
-    case mfaSetupRequired
+    /// The tenant requires MFA and this account has no factor yet (CONTRACT.md §25.2
+    /// rule 1). **Not a failure**: the server handed back a token to finish enrolment with,
+    /// and there is no session until `mfaSetupConfirm` completes the login this interrupted.
+    ///
+    /// Pass `setupToken` to ``AxiamClient/mfaSetupEnroll(setupToken:)`` and then to
+    /// ``AxiamClient/mfaSetupConfirm(setupToken:totpCode:)``. It is ``Sensitive`` because it
+    /// is a bearer credential that completes a login (§25.3).
+    ///
+    /// > Important: this case gained its associated value in contract 1.28. A caller that
+    /// > matched it exhaustively needs one line changed — the alternative was an SDK that
+    /// > tells you enrolment is required and withholds the only thing that can complete it.
+    case mfaSetupRequired(setupToken: Sensitive<String>)
 }
 
 /// Outcome of a single authorization check (§1: `checkAccess`, `batchCheck`).

@@ -34,11 +34,14 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §10 route-guard, §11 declarative helpers, EdDSA JWKS | ✅ implemented |
 | gRPC transport (incl. `getUserInfo`, CONTRACT §1.1) | ⏭️ deferred follow-up (no §-requirement for Swift; no REST substitution per §1.1) |
 | §8 AMQP HMAC | ⏭️ deferred (contract lists AMQP for Rust/TS/Go/Python/Java/PHP, **not** Swift) |
-| §22 reactors (`reactorServe`) | ⏭️ **runtime** deferred by §22.11, for the same reason as §8: no vendorable AMQP client for this target. That defers the *helper*, not the chapter — **§22.1–§22.8 is a wire protocol and binds a hand-rolled integrator in full**: the §8 v2 verification set on the event, the signed reply shape with its omission rules (note that `hmac_signature` serializes as **`null`** inside a reactor body rather than being omitted as it is in §8's own two message types), the per-event mutable-field allow-lists, and §22.7's hot-path exclusion. The §22.13 vectors are the conformance surface and need no SDK to run against — read [§22 and §22.11 of `CONTRACT.md`](CONTRACT.md) before writing one |
+| §22 reactors (`reactorServe`) | ✅ implemented (contract 1.28) — §22.1–§22.8 and §22.14 in full, over a **caller-supplied transport**. §22.11 now defers only the *connection*: this SDK vendors no AMQP client, and you conform `ReactorTransport` over whichever one you already trust. "Conforms to … §22" is the claim; **"ships an AMQP client" is not** |
 | §11 rule 9 decision reason codes | ✅ implemented |
 | §16 bounded read-only retry, §17 decision memo, §18 `close()`, §19 telemetry hooks | ✅ implemented |
 | §12 OIDC/SSO relying-party helpers | ✅ implemented (contract 1.11) — the nine operations on `AxiamClient`, under the names §12.2 had reserved for Swift while the section was deferred |
 | §12.7 logout, §14 device grant, §15 token exchange | ✅ implemented (contract 1.11) — all three build on §12's discovery cache, token endpoint and ID-token validation, which is exactly why they land together with it |
+| §24 WebAuthn / passkeys | ✅ implemented (contract 1.28) — the six relying-party operations and §24.6a's JSON bridge on **every** target, plus §24.6b's linked-API ceremony helpers on iOS 16+ and macOS 13+. The Linux build keeps the RP layer and the bridge; `webauthnCeremonySupported` answers `false` there rather than throwing |
+| §25 account lifecycle & MFA enrolment | ✅ implemented (contract 1.28) — voluntary and forced TOTP enrolment, email verification, and the password-reset triple |
+| §26 Pushed Authorization Requests (RFC 9126) | ✅ implemented (contract 1.28) — required for a FAPI 2.0 client, which cannot authorize any other way (§21.1) |
 | §20 UMA 2.0 Protection API + ticket grant | ✅ implemented, and it landed *before* §12 rather than waiting for it: UMA carries its own discovery document (`/.well-known/uma2-configuration`), the Protection API is ordinary bearer-authenticated REST, and the ticket grant returns an opaque RPT with no `id_token` to validate. That §20 could ship alone is part of what showed the §12 deferral was cutting across the wrong seam — see contract §12.6 |
 
 ## Installation
@@ -814,6 +817,304 @@ not pretend otherwise. What it does do is keep the password's residency short �
 straight across the ABI, and the sensitive derivations happen and are cleared on the Rust side. If a
 password's residency in Swift memory matters to your threat model, Swift's value semantics are
 working against you and no SDK-level change fixes that.
+
+## WebAuthn / passkeys (§24)
+
+Six wire operations, two ceremonies, and — on Apple platforms — three composed helpers that
+do the whole thing in one call.
+
+```swift
+// Enrolment — requires a session (§24.1), refused client-side without one.
+let challenge = try await client.webauthnRegisterStart()
+let credential = try await client.webauthnRegisterFinish(
+    stateToken: challenge.stateToken,
+    credentialName: "Alice's laptop",
+    response: platformResponseJSON            // verbatim
+)
+
+// Sign-in with no username at all — the authenticator picks the account.
+let signIn = try await client.webauthnDiscoverableStart()
+let session = try await client.webauthnDiscoverableFinish(
+    stateToken: signIn.stateToken,
+    response: assertionJSON
+)
+```
+
+**The server chooses every option and verifies every response; this SDK passes both through
+byte-for-byte** (§24.0). `WebauthnChallenge.challengeData` holds the raw JSON rather than a
+decoded model, and the `*Finish` body is assembled as bytes with the caller's response
+string spliced in unmodified — decoding and re-encoding it would reorder keys and round
+every number through a `Double`, handing the server a byte sequence the authenticator never
+signed.
+
+### One helper set, both Apple platforms (§24.6b)
+
+`ASAuthorizationPlatformPublicKeyCredentialProvider` and its security-key sibling exist on
+iOS and macOS alike, and the presentation anchor is the only genuinely per-platform part —
+which is why the caller supplies it:
+
+```swift
+final class Anchor: WebauthnPresentationAnchorProviding {
+    @MainActor func webauthnPresentationAnchor() -> ASPresentationAnchor { window }
+}
+
+let credential = try await client.webauthnRegister(
+    credentialName: "iPhone",
+    anchor: anchor,
+    attachment: .platform          // §24.6b rule 4: the ONE permitted addition
+)
+
+let session = try await client.webauthnDiscoverableLogin(
+    anchor: anchor,
+    conditional: client.webauthnConditionalMediationSupported
+)
+```
+
+`attachment` is a hint about which authenticator the user is reaching for, and the **only**
+thing this SDK ever adds to the server's options — without it a user who asked for a
+security key is prompted for Face ID instead. The SDK never infers it and never defaults it.
+
+Conditional mediation (passkey autofill) may never settle — the user simply may not pick a
+passkey — so cancel the enclosing `Task` to abandon it. That surfaces as
+`WebauthnFailure.cancelled`, **not** as an authentication failure (§24.6b rule 3).
+
+**The composed helpers are additive** (§24.6b rule 1): the six wire operations stay public,
+because a caller running a virtual authenticator in a test, or holding a response produced
+on another device, needs the pieces.
+
+### Linux, and the §24.6a bridge
+
+`AuthenticationServices` does not exist there, so the helpers are compiled out and
+`webauthnCeremonySupported` answers `false` — a **query, not an exception** (§24.6b rule 6),
+so a caller hides a button rather than offering one that throws. `challenge.requestJson` is
+the string to send to whatever *does* have an authenticator, and its response JSON comes
+straight back into the matching `*Finish`. Nothing is destructured, nothing is re-encoded.
+
+Passing something that is not JSON, or is not a JSON object, raises `AxiamError.auth`
+client-side with no wire call: the SDK will not POST a body it already knows the server
+cannot verify.
+
+### The two authentication ceremonies are different flows (§24.2)
+
+`webauthnAuthenticateStart`/`Finish` is a **second factor** — it continues a `login` that
+answered `.mfaRequired` with `"webauthn"` among its methods, and the challenge token names
+the user so the server can send an `allowCredentials` list. `webauthnDiscoverableStart`/
+`Finish` is a **primary factor**: nothing precedes it, `allowCredentials` is empty, and the
+assertion itself identifies the user. They are not one operation with an optional token —
+merging them reproduces a bug the server already fixed, which is why the token is required
+on one and rejected on the other.
+
+One difference a reactor author will ask about: `discoverable/finish` fires the
+`login.post_auth` hook event (§22.5) and `authenticate/finish` does not. The latter
+continues a login already gated at its password step; the former has no such step.
+
+### Two error rows that are not the §2 defaults (§24.4)
+
+- A **403 from `register/finish`** is the tenant's *attestation policy* rejecting this
+  particular authenticator. The server's message is the only place that says which one would
+  be accepted, so it is lifted into the `AuthzError`'s message rather than discarded.
+- A **503 from `register/start`** means the policy needs FIDO metadata the server cannot
+  reach. That is a configuration state, not a transient one, and it is **not retried** — the
+  second documented exception to §16 after §20's.
+
+Worked end to end in [`Examples/WebauthnPasskeys`](Examples/WebauthnPasskeys)
+(`swift run WebauthnPasskeysExample`).
+
+## Account lifecycle and MFA enrolment (§25)
+
+Nine operations covering the things a user does to their own account — none of which is
+administration.
+
+```swift
+switch try await client.login(email: email, password: password) {
+case let .mfaSetupRequired(setupToken):
+    // The third outcome. The tenant requires MFA, this account has none, and the
+    // server handed back a token to finish with. There is no session yet.
+    let enrollment = try await client.mfaSetupEnroll(setupToken: setupToken)
+    renderQR(enrollment.totpURI.expose())
+    let user = try await client.mfaSetupConfirm(setupToken: setupToken, totpCode: code)
+case .mfaRequired:
+    try await client.verifyMfa(code)
+case let .authenticated(user):
+    break
+}
+```
+
+> **Breaking, deliberately.** `LoginResult.mfaSetupRequired` gained an associated value in
+> contract 1.28. A caller that matched it exhaustively needs one line changed; the
+> alternative was an SDK that tells you enrolment is required and withholds the only thing
+> that can complete it (§25.2 rule 1).
+
+`mfaSetupConfirm` adopts credentials exactly as `login` does, because it *is* the completion
+of a login (§25.2 rule 2). `mfaEnroll`/`mfaConfirm` are the voluntary pair, from inside an
+existing session, and they do **not** clear the §17 decision memo — the subject has not
+changed, and discarding a warm memo on an unrelated profile action costs a round trip on
+every check that follows.
+
+Enrolment is two calls and the first is not enough. §25.2 rule 4 forbids a composed one-call
+helper here, because the human step in the middle — scanning the URI, reading a code — is
+not something a helper can wait for, and one that returned after `enroll` would report MFA
+as enabled when it is not.
+
+Both halves of an `MfaEnrollment` are `Sensitive`, and the second one matters: the
+`otpauth://` URI *contains* the secret (§25.3). Wrapping the bare secret and then logging
+the URI leaks the same bytes.
+
+### Password reset, and the two things it will not tell you
+
+```swift
+try await client.requestPasswordReset(PasswordResetRequest(email: "alice@example.com"))
+// returns Void, whether or not that address has an account
+
+let context = try await client.passwordResetContext(token: token)
+if context.hasOpaquePolicy {
+    // This tenant runs §23. Build a registration record from these parameters;
+    // a plaintext password would be refused, and refused late (§25.4 rule 1).
+}
+try await client.confirmPasswordReset(
+    PasswordResetConfirmation(token: token, newPassword: newPassword, tenantID: tenantID)
+)
+```
+
+`requestPasswordReset` returns nothing and throws nothing on an unknown address, and this
+SDK exposes no way to tell the two cases apart. That is not an omission to improve on: a
+client that surfaced a "no such user" state — even one inferred from timing — would turn the
+endpoint into the account-enumeration oracle its uniform response exists to prevent.
+Likewise a `404` from `passwordResetContext` means unknown, expired **or** already-consumed,
+and the SDK does not distinguish them either (§25.4 rule 3).
+
+`verifyEmail` and `resendVerification` are unauthenticated — a user whose address is
+unverified may have no session at all — and carry the tenant as a **body** field, since
+§12.1 rule 2's `?tenant_id=` convention is scoped to the `/oauth2` endpoints.
+
+Worked end to end in [`Examples/AccountLifecycle`](Examples/AccountLifecycle).
+
+## Pushed Authorization Requests (§26, RFC 9126)
+
+PAR moves the authorization request off the browser. Instead of putting `scope`,
+`redirect_uri`, `state` and the PKCE challenge into a URL the user agent carries, the client
+POSTs them straight to AXIAM over an authenticated back channel and puts an opaque
+`request_uri` in the redirect.
+
+```swift
+let document = try await client.oidcDiscover()
+guard document.pushedAuthorizationRequestEndpoint != nil else {
+    // §26 is optional; fall back to the plain oidcBegin redirect.
+    return
+}
+
+let begun = try client.oidcBegin(
+    redirectURI: redirectURI, scope: "openid profile", configuration: document)
+let pushed = try await client.oidcPar(
+    request: begun, redirectURI: redirectURI, scope: "openid profile", configuration: document)
+
+redirect(to: pushed.url)      // exactly ?client_id=…&request_uri=…
+```
+
+Three things worth knowing:
+
+- **The server answers `201`,** not `200` — RFC 9126 §2.2 specifies *Created*. A success
+  predicate written `== 200` treats every successful push as a failure.
+- **The redirect URL carries exactly two parameters.** The server refuses a request that
+  mixes a `request_uri` with inline authorization parameters rather than merging them;
+  merging is where parameter confusion lives (§26.2 rule 2). Any query the discovered
+  `authorizationEndpoint` already carried is dropped.
+- **`oidcBegin` still owns `state`, `nonce` and the PKCE pair.** There is no second generator
+  (§26.2 rule 1), and `PushedAuthorizationRequest` carries all three straight through to the
+  exchange.
+
+The push is **not retried** on a 5xx or a transport failure: it is a POST that creates server
+state, so it falls outside §16.2's read-only eligibility exactly as `oidcExchange` does. The
+safe recovery is a fresh push, which costs one round trip and cannot double-consume
+anything. The `requestURI` is `Sensitive` because between the push and the redirect it is a
+bearer handle to a fully-formed authorization request (§26.5).
+
+A **FAPI 2.0 client has no alternative**: `profile: "fapi2"` refuses a registration that does
+not set `require_par`, so such a client cannot authorize any other way (§21.1).
+
+Worked end to end in [`Examples/ParLogin`](Examples/ParLogin).
+
+## Reactors (§22) — the protocol core over your own transport
+
+A **reactor** is an external service AXIAM consults synchronously at five points
+in its own flows: it may veto a login, enrich a token, or adjust a user before
+creation. This SDK ships §22.1–§22.8 and §22.14 in full — the §8 v2 verification
+set on the event, the canonical serialization and MAC in both directions, the
+§22.5 registry and its allow-lists, §22.8's strictest-wins default, the runtime,
+and the declarative builder.
+
+**What it does not ship is a connection.** §22.11 defers the transport, and only
+the transport:
+
+> the convenience that genuinely needed a vendored dependency was the
+> **connection**, and the runtime around it needed none.
+
+Until contract 1.28 this SDK shipped nothing from §22 at all while the section
+still bound an integrator to §22.1–§22.8. The half deferred for want of a
+*dependency* was the transport; the half every integrator was left to hand-roll
+from prose was the **protocol** — v2 HMAC over a canonical serialization with a
+`null` signature placeholder, freshness in both directions, nonce and correlation
+binding, the per-event allow-lists. That is the half with the sharp edges, none
+of them AMQP-shaped, and asking every integrator to reimplement it is how a
+signing bug ships.
+
+```swift
+// §8b rules 1–5, BEFORE anything opens a socket. A public, tested function
+// rather than a doc comment — §22.11 rule 3.
+let endpoint = try amqpsEndpoint(brokerURL, caPEM: caPEM)
+
+// §22.14: one handler per event. An unregistered name is refused AT BIND TIME,
+// and the strongly-typed `on(_:_:)` cannot even spell one.
+var router = ReactorRouter()
+try router.on(.loginPostAuth) { event in
+    let payload = try event.decodePayload(LoginPayload.self)
+    return suspicious(payload) ? .allowWithStepUp : .allow
+}
+
+let config = ReactorConfig(tenantID: tenantID, reactorID: reactorID, signingKey: subkey)
+try await reactorServe(config: config, transport: yourTransport, handler: router.handler())
+```
+
+**The transport protocol has exactly two capabilities** (§22.11 rule 1): take the
+next delivery, and publish a reply to a named destination. It is not wider than
+that on purpose — a protocol that also exposed declare, bind or queue-name
+derivation would hand you the tools §22.1 forbids using. A reactor that can bind
+is a reactor that can bind itself to `*.token.pre_issue` and read another
+tenant's issuance events.
+
+**It fails closed on its own errors** (§22.10 rule 2). A handler that throws, a
+body it cannot verify, or a window that has closed all produce **no reply**, and
+the registration's `failure_policy` decides. A runtime that answered `.allow` for
+a handler that threw would have overridden the operator's `fail_closed` setting
+from inside the library — which is exactly the defect §22.14 exists to keep out of
+*your* code too, where a `default:` arm returning `.allow` does the same thing
+from a file nobody reads. An unbound event abstains; returning `nil` is how any
+handler says so.
+
+**It does not filter a patch** (§22.4 rule 1). One forbidden key rejects the
+whole patch server-side, including the fields that would have been fine — and
+dropping the offender to rescue the rest would leave the author believing a field
+was set when it was dropped. `ReactorEventName.allowsPatchField(_:)` will *tell*
+you what the registry admits; nothing in this SDK calls it to prune anything.
+
+**The three hot-path decision operations are not hookable** (§22.7), and they
+appear in no case of `ReactorEventName`. A reactor round trip is milliseconds;
+the check path's budget is microseconds. An application needing external input on
+an authorization decision writes a **deny grant**, which the engine evaluates in
+the hot path at hot-path cost.
+
+**A builder rather than an attribute**, and §22.14 records why: a Swift reactor
+handler is an `async` closure, and collecting `async` members by reflection costs
+a runtime dependency an SDK should not add to hand out an attribute. The builder
+type-checks the closure against `(ReactorEvent) async throws -> ReactorAnswer` at
+compile time, which is stricter than what the reflection would have bought.
+Kotlin made the same trade for the same reason.
+
+Correctness is not asserted against this implementation's own opinion: the suite
+runs the committed **§22.13 reference vectors** in both directions, generated by
+the server's own sign path and vendored at
+`Tests/AxiamSDKTests/Support/reactor_v2_reference_vectors.json`. Worked example,
+including a transport skeleton: [`Examples/Reactor`](Examples/Reactor/main.swift).
 
 ## Development
 

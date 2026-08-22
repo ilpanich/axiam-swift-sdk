@@ -21,6 +21,13 @@ public struct OidcConfiguration: Sendable, Decodable, Equatable {
     public let revocationEndpoint: String?
     public let endSessionEndpoint: String?
     public let deviceAuthorizationEndpoint: String?
+    /// RFC 9126 pushed authorization request endpoint, used by `oidcPar` (§26.1).
+    ///
+    /// `nil` when the server does not implement PAR. Its absence is an error at call time,
+    /// never a cue to build the URL by concatenation — and for a FAPI 2.0 client it is fatal
+    /// rather than a fallback, since §21.1 refuses a `fapi2` registration that does not set
+    /// `require_par`.
+    public let pushedAuthorizationRequestEndpoint: String?
     public let scopesSupported: [String]?
     public let responseTypesSupported: [String]?
     public let idTokenSigningAlgValuesSupported: [String]?
@@ -34,6 +41,7 @@ public struct OidcConfiguration: Sendable, Decodable, Equatable {
         case revocationEndpoint = "revocation_endpoint"
         case endSessionEndpoint = "end_session_endpoint"
         case deviceAuthorizationEndpoint = "device_authorization_endpoint"
+        case pushedAuthorizationRequestEndpoint = "pushed_authorization_request_endpoint"
         case scopesSupported = "scopes_supported"
         case responseTypesSupported = "response_types_supported"
         case idTokenSigningAlgValuesSupported = "id_token_signing_alg_values_supported"
@@ -234,4 +242,46 @@ struct TokenExchangeWire: Decodable {
     let token_type: String
     let expires_in: Int
     let scope: String?
+}
+
+
+/// The result of `oidcPar` (CONTRACT.md §26.1).
+///
+/// The server answered **201** — RFC 9126 §2.2 specifies Created, and a success predicate
+/// written `== 200` would treat every successful push as a failure.
+///
+/// ``state``, ``nonce`` and ``codeVerifier`` are carried straight through from the
+/// ``AuthorizationRequest`` that was pushed: §26.2 rule 1 forbids a second generator, and
+/// rule 6 wants exactly one verifier so there is no second place for the two to disagree.
+public struct PushedAuthorizationRequest: Sendable {
+    /// Where to redirect the user agent.
+    ///
+    /// Carries **exactly** `client_id` and `request_uri` — the server refuses a request that
+    /// mixes a `request_uri` with inline authorization parameters rather than merging them,
+    /// because merging is where parameter confusion lives (§26.2 rule 2).
+    public let url: String
+
+    /// The opaque, single-use handle.
+    ///
+    /// ``Sensitive`` per §26.5: between the push and the redirect it is a bearer handle to a
+    /// fully-formed authorization request, and a log line is the wrong place for it to sit
+    /// for the length of that window.
+    public let requestURI: Sensitive<String>
+
+    /// The handle's lifetime in seconds; not advisory (§26.2 rule 3).
+    public let expiresIn: Int
+
+    /// The value to compare against the `state` the IdP returns.
+    public let state: String
+
+    /// The value that must equal the ID token's `nonce` claim.
+    public let nonce: String
+
+    /// The PKCE verifier to pass into `oidcExchange` — the same one `oidcBegin` produced.
+    public let codeVerifier: Sensitive<String>
+}
+
+struct PushedAuthorizationResponseWire: Decodable {
+    let request_uri: String
+    let expires_in: Int
 }
