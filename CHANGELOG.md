@@ -5,6 +5,20 @@ All notable changes to the AXIAM Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha38] - 2026-08-22
+
+### Added
+
+- The §22 reactor protocol core over a caller-supplied transport
+
+### Changed
+
+- Await the actor-isolated oidcBegin in the PAR tests
+- Await the actor-isolated oidcBegin in the PAR example
+- Make LoginSuccessResponse.toUser internal
+- Re-vendor CONTRACT.md at 1.28
+- Add WebAuthn, account lifecycle and PAR (CONTRACT §24–§26)
+
 ## [Unreleased]
 
 ### Added
