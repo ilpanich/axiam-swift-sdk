@@ -34,7 +34,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §10 route-guard, §11 declarative helpers, EdDSA JWKS | ✅ implemented |
 | gRPC transport (incl. `getUserInfo`, CONTRACT §1.1) | ⏭️ deferred follow-up (no §-requirement for Swift; no REST substitution per §1.1) |
 | §8 AMQP HMAC | ⏭️ deferred (contract lists AMQP for Rust/TS/Go/Python/Java/PHP, **not** Swift) |
-| §22 reactors (`reactorServe`) | ⏭️ **runtime** deferred by §22.11, for the same reason as §8: no vendorable AMQP client for this target. That defers the *helper*, not the chapter — **§22.1–§22.8 is a wire protocol and binds a hand-rolled integrator in full**: the §8 v2 verification set on the event, the signed reply shape with its omission rules (note that `hmac_signature` serializes as **`null`** inside a reactor body rather than being omitted as it is in §8's own two message types), the per-event mutable-field allow-lists, and §22.7's hot-path exclusion. The §22.13 vectors are the conformance surface and need no SDK to run against — read [§22 and §22.11 of `CONTRACT.md`](CONTRACT.md) before writing one |
+| §22 reactors (`reactorServe`) | ✅ implemented (contract 1.28) — §22.1–§22.8 and §22.14 in full, over a **caller-supplied transport**. §22.11 now defers only the *connection*: this SDK vendors no AMQP client, and you conform `ReactorTransport` over whichever one you already trust. "Conforms to … §22" is the claim; **"ships an AMQP client" is not** |
 | §11 rule 9 decision reason codes | ✅ implemented |
 | §16 bounded read-only retry, §17 decision memo, §18 `close()`, §19 telemetry hooks | ✅ implemented |
 | §12 OIDC/SSO relying-party helpers | ✅ implemented (contract 1.11) — the nine operations on `AxiamClient`, under the names §12.2 had reserved for Swift while the section was deferred |
@@ -1033,6 +1033,88 @@ A **FAPI 2.0 client has no alternative**: `profile: "fapi2"` refuses a registrat
 not set `require_par`, so such a client cannot authorize any other way (§21.1).
 
 Worked end to end in [`Examples/ParLogin`](Examples/ParLogin).
+
+## Reactors (§22) — the protocol core over your own transport
+
+A **reactor** is an external service AXIAM consults synchronously at five points
+in its own flows: it may veto a login, enrich a token, or adjust a user before
+creation. This SDK ships §22.1–§22.8 and §22.14 in full — the §8 v2 verification
+set on the event, the canonical serialization and MAC in both directions, the
+§22.5 registry and its allow-lists, §22.8's strictest-wins default, the runtime,
+and the declarative builder.
+
+**What it does not ship is a connection.** §22.11 defers the transport, and only
+the transport:
+
+> the convenience that genuinely needed a vendored dependency was the
+> **connection**, and the runtime around it needed none.
+
+Until contract 1.28 this SDK shipped nothing from §22 at all while the section
+still bound an integrator to §22.1–§22.8. The half deferred for want of a
+*dependency* was the transport; the half every integrator was left to hand-roll
+from prose was the **protocol** — v2 HMAC over a canonical serialization with a
+`null` signature placeholder, freshness in both directions, nonce and correlation
+binding, the per-event allow-lists. That is the half with the sharp edges, none
+of them AMQP-shaped, and asking every integrator to reimplement it is how a
+signing bug ships.
+
+```swift
+// §8b rules 1–5, BEFORE anything opens a socket. A public, tested function
+// rather than a doc comment — §22.11 rule 3.
+let endpoint = try amqpsEndpoint(brokerURL, caPEM: caPEM)
+
+// §22.14: one handler per event. An unregistered name is refused AT BIND TIME,
+// and the strongly-typed `on(_:_:)` cannot even spell one.
+var router = ReactorRouter()
+try router.on(.loginPostAuth) { event in
+    let payload = try event.decodePayload(LoginPayload.self)
+    return suspicious(payload) ? .allowWithStepUp : .allow
+}
+
+let config = ReactorConfig(tenantID: tenantID, reactorID: reactorID, signingKey: subkey)
+try await reactorServe(config: config, transport: yourTransport, handler: router.handler())
+```
+
+**The transport protocol has exactly two capabilities** (§22.11 rule 1): take the
+next delivery, and publish a reply to a named destination. It is not wider than
+that on purpose — a protocol that also exposed declare, bind or queue-name
+derivation would hand you the tools §22.1 forbids using. A reactor that can bind
+is a reactor that can bind itself to `*.token.pre_issue` and read another
+tenant's issuance events.
+
+**It fails closed on its own errors** (§22.10 rule 2). A handler that throws, a
+body it cannot verify, or a window that has closed all produce **no reply**, and
+the registration's `failure_policy` decides. A runtime that answered `.allow` for
+a handler that threw would have overridden the operator's `fail_closed` setting
+from inside the library — which is exactly the defect §22.14 exists to keep out of
+*your* code too, where a `default:` arm returning `.allow` does the same thing
+from a file nobody reads. An unbound event abstains; returning `nil` is how any
+handler says so.
+
+**It does not filter a patch** (§22.4 rule 1). One forbidden key rejects the
+whole patch server-side, including the fields that would have been fine — and
+dropping the offender to rescue the rest would leave the author believing a field
+was set when it was dropped. `ReactorEventName.allowsPatchField(_:)` will *tell*
+you what the registry admits; nothing in this SDK calls it to prune anything.
+
+**The three hot-path decision operations are not hookable** (§22.7), and they
+appear in no case of `ReactorEventName`. A reactor round trip is milliseconds;
+the check path's budget is microseconds. An application needing external input on
+an authorization decision writes a **deny grant**, which the engine evaluates in
+the hot path at hot-path cost.
+
+**A builder rather than an attribute**, and §22.14 records why: a Swift reactor
+handler is an `async` closure, and collecting `async` members by reflection costs
+a runtime dependency an SDK should not add to hand out an attribute. The builder
+type-checks the closure against `(ReactorEvent) async throws -> ReactorAnswer` at
+compile time, which is stricter than what the reflection would have bought.
+Kotlin made the same trade for the same reason.
+
+Correctness is not asserted against this implementation's own opinion: the suite
+runs the committed **§22.13 reference vectors** in both directions, generated by
+the server's own sign path and vendored at
+`Tests/AxiamSDKTests/Support/reactor_v2_reference_vectors.json`. Worked example,
+including a transport skeleton: [`Examples/Reactor`](Examples/Reactor/main.swift).
 
 ## Development
 

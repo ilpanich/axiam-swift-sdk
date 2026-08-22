@@ -15,6 +15,7 @@ package and runs via `swift run`.
 | [`TokenExchange/main.swift`](TokenExchange/main.swift) | `TokenExchangeExample` | §15 RFC 8693: delegation vs impersonation, and the three refusals this SDK surfaces rather than papering over |
 | [`UmaResourceServer/main.swift`](UmaResourceServer/main.swift) | `UmaResourceServerExample` | UMA 2.0 (§20), emit half: register a resource, guard it, answer a denial with `WWW-Authenticate: UMA` |
 | [`UmaClient/main.swift`](UmaClient/main.swift) | `UmaClientExample` | The other half: refusal → parse → **trust decision** → exchange → retry with the RPT |
+| [`Reactor/main.swift`](Reactor/main.swift) | `ReactorExample` | A §22 reactor on the SDK's protocol core (§22.11): the §8b broker-URL guard, the §22.14 builder, and the runtime driven over a transport skeleton you replace with your own AMQP client |
 
 ## Running
 
