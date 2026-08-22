@@ -91,7 +91,7 @@ final class ParTests: XCTestCase {
     func testASuccessfulPushAnswers201() async throws {
         try await withParClient(router: router()) { client, _ in
             let config = try await client.oidcDiscover()
-            let begun = try client.oidcBegin(
+            let begun = try await client.oidcBegin(
                 redirectURI: Self.redirectURI,
                 scope: "openid profile",
                 configuration: config
@@ -112,7 +112,7 @@ final class ParTests: XCTestCase {
     func testThePushGoesToTheDiscoveredEndpointWithTheTenantQuery() async throws {
         try await withParClient(router: router()) { client, server in
             let config = try await client.oidcDiscover()
-            let begun = try client.oidcBegin(
+            let begun = try await client.oidcBegin(
                 redirectURI: Self.redirectURI, configuration: config)
 
             _ = try await client.oidcPar(
@@ -129,7 +129,7 @@ final class ParTests: XCTestCase {
     func testThePushCarriesEverythingOidcBeginComputed() async throws {
         try await withParClient(router: router()) { client, server in
             let config = try await client.oidcDiscover()
-            let begun = try client.oidcBegin(
+            let begun = try await client.oidcBegin(
                 redirectURI: Self.redirectURI,
                 scope: "openid profile",
                 configuration: config
@@ -168,7 +168,7 @@ final class ParTests: XCTestCase {
     func testAConfidentialClientAuthenticatesThePush() async throws {
         try await withParClient(router: router()) { client, server in
             let config = try await client.oidcDiscover()
-            let begun = try client.oidcBegin(
+            let begun = try await client.oidcBegin(
                 redirectURI: Self.redirectURI, configuration: config)
 
             _ = try await client.oidcPar(
@@ -182,7 +182,7 @@ final class ParTests: XCTestCase {
     func testAPublicClientPushesWithoutASecret() async throws {
         try await withParClient(clientSecret: nil, router: router()) { client, server in
             let config = try await client.oidcDiscover()
-            let begun = try client.oidcBegin(
+            let begun = try await client.oidcBegin(
                 redirectURI: Self.redirectURI, configuration: config)
 
             _ = try await client.oidcPar(
@@ -196,7 +196,7 @@ final class ParTests: XCTestCase {
     func testParDiscoversWhenGivenNoConfiguration() async throws {
         try await withParClient(router: router()) { client, server in
             let config = try await client.oidcDiscover()
-            let begun = try client.oidcBegin(
+            let begun = try await client.oidcBegin(
                 redirectURI: Self.redirectURI, configuration: config)
 
             _ = try await client.oidcPar(request: begun, redirectURI: Self.redirectURI)
@@ -216,7 +216,7 @@ final class ParTests: XCTestCase {
     func testTheRedirectUrlCarriesExactlyTwoParameters() async throws {
         try await withParClient(router: router()) { client, _ in
             let config = try await client.oidcDiscover()
-            let begun = try client.oidcBegin(
+            let begun = try await client.oidcBegin(
                 redirectURI: Self.redirectURI, configuration: config)
 
             let pushed = try await client.oidcPar(
@@ -253,7 +253,7 @@ final class ParTests: XCTestCase {
 
         try await withParClient(router: noisy) { client, _ in
             let config = try await client.oidcDiscover()
-            let begun = try client.oidcBegin(
+            let begun = try await client.oidcBegin(
                 redirectURI: Self.redirectURI, configuration: config)
 
             let pushed = try await client.oidcPar(
@@ -269,7 +269,7 @@ final class ParTests: XCTestCase {
     func testAServerWithoutParIsRefusedClientSideWithNoWireCall() async throws {
         try await withParClient(router: router(withPar: false)) { client, server in
             let config = try await client.oidcDiscover()
-            let begun = try client.oidcBegin(
+            let begun = try await client.oidcBegin(
                 redirectURI: Self.redirectURI, configuration: config)
 
             do {
@@ -296,7 +296,7 @@ final class ParTests: XCTestCase {
             )
         ) { client, _ in
             let config = try await client.oidcDiscover()
-            let begun = try client.oidcBegin(
+            let begun = try await client.oidcBegin(
                 redirectURI: Self.redirectURI, configuration: config)
 
             do {
@@ -312,7 +312,7 @@ final class ParTests: XCTestCase {
     func testA503IsNotRetried() async throws {
         try await withParClient(router: router(parStatus: 503, parBody: [:])) { client, server in
             let config = try await client.oidcDiscover()
-            let begun = try client.oidcBegin(
+            let begun = try await client.oidcBegin(
                 redirectURI: Self.redirectURI, configuration: config)
 
             do {
@@ -339,7 +339,7 @@ final class ParTests: XCTestCase {
             router: router(parBody: ["expires_in": 90])
         ) { client, _ in
             let config = try await client.oidcDiscover()
-            let begun = try client.oidcBegin(
+            let begun = try await client.oidcBegin(
                 redirectURI: Self.redirectURI, configuration: config)
 
             do {
@@ -357,7 +357,7 @@ final class ParTests: XCTestCase {
     func testTheRequestUriIsSensitive() async throws {
         try await withParClient(router: router()) { client, _ in
             let config = try await client.oidcDiscover()
-            let begun = try client.oidcBegin(
+            let begun = try await client.oidcBegin(
                 redirectURI: Self.redirectURI, configuration: config)
 
             let pushed = try await client.oidcPar(
