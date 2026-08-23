@@ -81,6 +81,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Re-vendor `CONTRACT.md`. Repairs §14.1's link to the `device_login` heading,
+  which dropped a hyphen the em dash leaves behind and so rendered as a link
+  that went nowhere; the same heading's other two links were already correct.
+  Link target only — no normative change and no contract-version bump.
+- **Conformance statement names §17 and §19 individually.** `§16–§19` was a
+  range where the contract asks for individual naming. §16 and §18 are now
+  absent rather than folded in — the contract makes them MUST-level and says
+  they are not named — with a note saying so, so their absence does not read as
+  a narrowing.
+
 - **Conformance statement now names §22, §24, §25 and §26.** All four have been
   implemented since contract 1.28 and documented in the Scope table; the headline
   statement had not caught up, so this SDK was formally claiming less than it

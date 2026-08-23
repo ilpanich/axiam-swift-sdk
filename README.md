@@ -12,13 +12,20 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19, §20, §21, §22, §23,
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23,
 > §24, §25 and §26 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, and
 > the §23 OPAQUE login path — which needs `libaxiam_opaque_ffi` installed, see below).**
 >
 > §22 is §22.1–§22.8 and §22.14 over a **caller-supplied transport**: this SDK vendors no AMQP
 > client, and you conform `ReactorTransport` over whichever one you already trust (§22.11).
 > "Conforms to … §22" is the claim; "ships an AMQP client" is not.
+>
+> Sections are named individually rather than folded into ranges: widening a
+> range silently turns a statement that was true when written into a different
+> claim. **§16 and §18 are absent by that same rule, not by omission** — the
+> contract makes retry policy and deterministic shutdown MUST-level and says
+> they are not named, because an SDK is either conformant on them or it is not.
+> This one is.
 
 It is a REST client built on [`async-http-client`](https://github.com/swift-server/async-http-client)
 + [`swift-nio-ssl`](https://github.com/apple/swift-nio-ssl) (so custom-CA and client-certificate
