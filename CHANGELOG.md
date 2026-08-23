@@ -81,6 +81,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Conformance statement now names §22, §24, §25 and §26.** All four have been
+  implemented since contract 1.28 and documented in the Scope table; the headline
+  statement had not caught up, so this SDK was formally claiming less than it
+  ships. §22 is stated with its §22.11 rule 4 qualifier: the reactor protocol is
+  in the library, the transport is caller-supplied.
+
+- Re-vendor `openapi.json` at **1.0.0-alpha38**. The server registered the four
+  GDPR data-subject endpoints (`POST /api/v1/account/export`,
+  `GET /api/v1/account/export/{token}`, `POST /api/v1/account/delete`,
+  `GET /api/v1/auth/account/delete/cancel`), taking the document to 181
+  operations across 121 paths. Purely additive, and no SDK surface changes with
+  it: nothing in this repo is generated from the spec, so the cross-repo
+  artifact-drift gate was the only thing reporting `STALE`.
+
 - **Breaking:** `LoginResult.mfaSetupRequired` gained an associated value —
   the setup token (§25.2 rule 1). A caller that matched it exhaustively needs
   one line changed. Taken because the alternative was an SDK that reports a
