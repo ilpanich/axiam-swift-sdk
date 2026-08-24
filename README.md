@@ -76,6 +76,56 @@ targets: [
 pod 'AxiamSDK', '~> 1.0.0-alpha41'
 ```
 
+## Supported Swift versions
+
+| | Version | Why this one |
+|---|---|---|
+| **Floor** | 5.9 | The `swift-tools-version` in `Package.swift`. SwiftPM refuses to resolve the package on anything older. Exported as `SupportedVersions.minimumSwiftToolsVersion`. |
+| **Newest** | 6.3 | The newest Swift with an official Linux container image, which is what CI runs. (6.4 exists for Apple platforms but has no Linux image yet.) |
+
+Swift 5.10 sits between the two and is supported — it also runs the full suite
+under the Coverage and docs workflows.
+
+**The floor enforces itself; the ceiling does not.** SwiftPM reads
+`swift-tools-version` before resolving anything, so an old toolchain refuses the
+package with a clear message. Nothing does the equivalent at the top: a package
+declaring tools-version 5.9 resolves and builds on a Swift 6 toolchain whether
+or not anybody ever compiled it there — and the differences that matter there
+(strict concurrency, `Sendable` inference, isolation checking) are exactly the
+ones that surface as errors only when someone tries.
+
+### Two manifests, and Swift 6 language mode
+
+The package ships **both** `Package.swift` (tools-version 5.9) and
+`Package@swift-6.0.swift` (tools-version 6.0). SwiftPM selects by toolchain
+automatically:
+
+| Your toolchain | Manifest selected | Language mode |
+|---|---|---|
+| 5.9, 5.10 | `Package.swift` | Swift 5 |
+| 6.0+ | `Package@swift-6.0.swift` | **Swift 6** |
+
+That is what lets the SDK keep a 5.9 floor while compiling its own targets under
+**full strict-concurrency checking** wherever a 6.x toolchain is present — data-race
+safety enforced as errors, not deferred as warnings.
+
+The alternatives were worse and are worth naming, because both look reasonable
+until you try them. `swift build -Xswiftc -swift-version -Xswiftc 6` applies to
+*every* target in the dependency graph, including swift-nio and
+async-http-client, which are not built for it. And `.unsafeFlags` in
+`swiftSettings` makes a package unusable as a dependency at all — it would break
+every consumer in order to change a compiler setting. A version-specific
+manifest with per-target `.swiftLanguageMode(.v6)` is the one mechanism that
+scopes to this package and nothing else.
+
+The cost is duplication: SwiftPM has no include mechanism, so the two manifests
+must describe the same package by hand. `VersionPolicyTests` fails the build if
+they ever stop doing so — a target added to one and not the other would build on
+one toolchain and fail on the other.
+
+`SupportedVersions.isSwiftSixLanguageMode` reports which mode you actually got.
+See [`Examples/VersionCompatibility`](./Examples/VersionCompatibility).
+
 ## Quickstart
 
 ```swift

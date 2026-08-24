@@ -18,22 +18,38 @@ enum OpaqueLibrary {
     /// Overrides the search: an absolute path to the shared library.
     static let pathEnvironmentVariable = "AXIAM_OPAQUE_LIBRARY"
 
+    /// The memoized outcome of the one `dlopen` attempt, guarded by ``lock``.
+    ///
+    /// A boxed reference rather than two `static var`s because Swift 6's strict
+    /// concurrency checking rejects non-isolated global mutable state outright — and it is
+    /// right to. Nothing in the type system was enforcing that every access went through
+    /// ``lock``; that was a convention held by two call sites. Moving the storage inside a
+    /// box makes the invariant structural: the only mutable state is in here, and the only
+    /// code that can reach it is ``load()``, which holds the lock across the whole body.
+    ///
+    /// `@unchecked Sendable` is the honest annotation. The compiler cannot see that the
+    /// lock serialises access, so the guarantee is stated rather than derived — exactly the
+    /// situation the attribute exists for.
+    private final class Memo: @unchecked Sendable {
+        var library: OpaqueNative?
+        var attempted = false
+    }
+
     private static let lock = NSLock()
-    private static var library: OpaqueNative?
-    private static var attempted = false
+    private static let memo = Memo()
 
     /// The library, or `nil` when it is not present.
     static func load() -> OpaqueNative? {
         lock.lock()
         defer { lock.unlock() }
 
-        if attempted { return library }
-        attempted = true
+        if memo.attempted { return memo.library }
+        memo.attempted = true
 
         for path in candidatePaths() {
             if let native = DynamicOpaqueNative.open(path: path), native.available() {
-                library = native
-                return library
+                memo.library = native
+                return memo.library
             }
         }
 
