@@ -178,6 +178,20 @@ final class VersionPolicyTests: XCTestCase {
                 + "migrated for it — expect ~48 strict-concurrency errors"
         )
 
+        // Absence is NOT an opt-out, and this is the assertion that says so.
+        //
+        // Under swift-tools-version 6.0, Swift 6 is the DEFAULT language mode for every
+        // target. Simply omitting the setting leaves the target at that default, which
+        // is the opposite of what deleting it looks like it does. This cost a CI round
+        // to learn: the test target was still compiled in Swift 6 mode, and still
+        // failing, after its `.v6` setting had been removed.
+        XCTAssertTrue(
+            testStanza.contains(".swiftLanguageMode(.v5)"),
+            "the test target does not explicitly declare Swift 5 language mode. Under "
+                + "tools-version 6.0 that means it gets Swift 6 by default, and the suite "
+                + "has not been migrated for it — opting out has to be explicit"
+        )
+
         // The library target is the first `.target(` in the file, and it must have it.
         guard let libStart = manifest.range(of: ".target(\n            name: \"AxiamSDK\"") else {
             return XCTFail("could not locate the AxiamSDK library target")

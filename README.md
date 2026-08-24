@@ -119,7 +119,14 @@ something the shipped SDK does.
 
 Scoping the mode to the targets that actually ship makes "this SDK is data-race-safe
 under full checking" a claim about **the artifact you get**, proven on every build,
-instead of one blocked behind a rewrite of the test harness. Migrating the suite is
+instead of one blocked behind a rewrite of the test harness.
+
+> **Opting a target out has to be explicit.** Under `swift-tools-version: 6.0`,
+> Swift 6 is the *default* language mode for every target — omitting
+> `.swiftLanguageMode` does not opt a target out, it leaves it at the default. The
+> test target therefore declares `.swiftLanguageMode(.v5)` outright. (Which makes
+> the `.v6` on the other targets redundant; they keep it so a reader does not have
+> to know this rule to know what mode a target is in.) Migrating the suite is
 real work with no product-behaviour change and belongs in its own commit.
 `VersionPolicyTests` pins the arrangement in both directions, so neither the library
 losing the mode nor the test target silently gaining it can pass unnoticed.

@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   proven on every build, rather than one gated behind a test-harness rewrite.
   That migration is tracked separately.
 
+  The opt-out is spelled `.swiftLanguageMode(.v5)` rather than by omission:
+  under `swift-tools-version: 6.0` Swift 6 is the **default** language mode for
+  every target, so leaving the setting off does not opt a target out.
+
   The two obvious alternatives do not work. `-Xswiftc -swift-version 6` applies
   to the whole dependency graph including swift-nio and async-http-client, and
   `.unsafeFlags` makes a package unusable as a dependency at all.
