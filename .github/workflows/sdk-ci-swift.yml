@@ -37,14 +37,15 @@ jobs:
       - name: Swift version
         run: swift --version
 
-      # Says out loud which manifest SwiftPM selected, so a leg that silently
-      # fell back to Package.swift — and therefore tested nothing it was added
-      # to test — is visible in the log rather than just green.
-      - name: Manifest in effect
-        run: |
-          set -euo pipefail
-          if swift package dump-package | grep -q '"swiftLanguageVersions"'; then :; fi
-          echo "tools-version in effect: $(swift package tools-version)"
+      # Says out loud which manifest SwiftPM selected — 5.9 on the floor leg,
+      # 6.0 on the newest — so a leg that silently fell back to Package.swift,
+      # and therefore tested nothing it was added to test, is visible in the log
+      # rather than just green.
+      #
+      # A bare command, not a script: these containers run steps under `sh -e`
+      # (dash), where `set -o pipefail` is an error.
+      - name: Manifest in effect (tools-version selected by this toolchain)
+        run: swift package tools-version
 
       - name: Build
         run: swift build
