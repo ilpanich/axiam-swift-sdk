@@ -25,18 +25,28 @@ final class ReactorTests: XCTestCase {
 
     // MARK: - Fixtures
 
-    private static let loadedVectors: [String: Any] = {
+    /// The vector file's bytes. `Data` is `Sendable`, so this can be a shared static;
+    /// the parsed `[String: Any]` tree cannot be, and lives per test instance below.
+    private static let vectorJSON: Data = {
         guard let url = Bundle.module.url(
             forResource: "reactor_v2_reference_vectors", withExtension: "json"),
-            let data = try? Data(contentsOf: url),
-            let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            let data = try? Data(contentsOf: url)
         else {
             fatalError("the §22.13 reference vectors are missing from the test bundle")
         }
-        return root
+        return data
     }()
 
-    private var vectors: [String: Any] { Self.loadedVectors }
+    /// Parsed once per test instance. Read-only from here on — every accessor below
+    /// projects out of it and nothing writes back.
+    private lazy var vectors: [String: Any] = {
+        guard let root = try? JSONSerialization.jsonObject(with: Self.vectorJSON)
+            as? [String: Any]
+        else {
+            fatalError("the §22.13 reference vectors are not a JSON object")
+        }
+        return root
+    }()
 
     private func node(_ path: String...) -> [String: Any] {
         var current = vectors

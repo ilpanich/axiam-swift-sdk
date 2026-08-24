@@ -74,36 +74,32 @@ let package = Package(
             // own reactor sign path. They travel with the suite so §22
             // conformance needs no broker, no server and no network.
             resources: [.copy("Support/reactor_v2_reference_vectors.json")],
-            // Explicitly v5, and the explicitness is load-bearing: under
-            // swift-tools-version 6.0, Swift 6 is the DEFAULT language mode for
-            // every target. Omitting the setting does not opt a target out, it
-            // leaves it at the default — so opting out has to be said out loud.
-            // (Which also makes the `.v6` settings on the other targets
-            // redundant. They are kept because a reader should not have to know
-            // this rule to know what mode a target is in.)
+            // Every target in this manifest is in Swift 6 language mode, this one
+            // included. The test target was the last holdout — 48 strict-concurrency
+            // errors across 19 files, all test-harness plumbing — and the migration
+            // that cleared them:
             //
-            // This is the only target not in Swift 6 mode. The library and every example compile clean under Swift 6
-            // language mode; the test target does not, in 48 places across 19
-            // files, and all of them are test-harness plumbing rather than
-            // anything the shipped SDK does:
+            //   - NSLock critical sections in async test doubles now go through
+            //     `NSLock.locked(_:)`, a synchronous closure that cannot contain a
+            //     suspension point, instead of bare lock()/unlock() calls that Swift 6
+            //     makes unavailable from asynchronous contexts;
+            //   - `[String: Any]` JSON fixtures captured by @Sendable router closures
+            //     are serialized to `Data` at the point they are built;
+            //   - `TestSigner` stores its Ed25519 seed as `Data` and is genuinely
+            //     `Sendable`, so routers capture it directly;
+            //   - the OidcTests harness is static, because a @Sendable closure can
+            //     never capture an XCTestCase and no annotation makes that safe.
             //
-            //   - NSLock.lock()/unlock() called inside async test doubles
-            //     (MockTransport, ScriptedTransport, RefreshProbeTransport), which
-            //     Swift 6 makes unavailable from asynchronous contexts;
-            //   - `[String: Any]` JSON fixtures and XCTestCase `self` captured in
-            //     the @Sendable handler closures those doubles take;
-            //   - `[String: Any]` fixtures held as static properties.
-            //
-            // Scoping the mode to the targets that actually ship is the honest
-            // split: it makes "this SDK is data-race-safe under full checking" a
-            // claim about the artifact consumers get, proven on every build, rather
-            // than one blocked behind a rewrite of the test harness. Migrating the
-            // suite is real work with no product-behaviour change, and belongs in
-            // its own change where the diff can be reviewed as what it is.
+            // Note that the explicit `.v6` here is redundant: under
+            // swift-tools-version 6.0, Swift 6 is the DEFAULT language mode for every
+            // target, so DELETING this setting would not revert anything — only an
+            // explicit `.v5` opts out. The settings are spelled out on every target
+            // anyway, because a reader should not have to know that rule to know what
+            // mode a target is in.
             //
             // VersionPolicyTests pins this arrangement so it cannot drift silently
             // in either direction.
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         // Runnable, self-contained examples (see Examples/README.md). These are
         // executable targets, not library products, so downstream consumers that

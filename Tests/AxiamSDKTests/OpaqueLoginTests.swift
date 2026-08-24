@@ -106,9 +106,14 @@ final class OpaqueLoginTests: XCTestCase {
         func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval) async throws
             -> HTTPResponseData
         {
-            lock.lock()
-            defer { lock.unlock() }
+            // The routing decision is one synchronous critical section — it appends to the
+            // recorded-body arrays and reads the scripted flags under the lock, and there is
+            // no suspension point anywhere inside it. Splitting it out is what lets that stay
+            // true by construction under Swift 6's `noasync` rule for `NSLock`.
+            lock.locked { respond(to: spec) }
+        }
 
+        private func respond(to spec: HTTPRequestSpec) -> HTTPResponseData {
             let path = spec.url.path
             if path.hasSuffix("/auth/opaque/login/start") {
                 loginStartBodies.append(spec.body ?? Data())

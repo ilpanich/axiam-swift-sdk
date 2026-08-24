@@ -52,7 +52,7 @@ final class MockTransport: HTTPTransport, @unchecked Sendable {
                 parked = continuation
                 lock.unlock()
             }
-            lock.lock(); refreshed = true; lock.unlock()
+            lock.locked { refreshed = true }
             return json(200, ["expires_in": 900])
         }
 

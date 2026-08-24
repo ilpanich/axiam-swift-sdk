@@ -21,7 +21,7 @@ final class ParTests: XCTestCase {
     private static let requestURI =
         "urn:ietf:params:oauth:request_uri:6esc_11ACC5bwc014ltc14eY22c"
 
-    private func discoveryJSON(base: String, withPar: Bool = true) -> [String: Any] {
+    private static func discoveryJSON(base: String, withPar: Bool = true) -> [String: Any] {
         var document: [String: Any] = [
             "issuer": base,
             "authorization_endpoint": "\(base)/oauth2/authorize",
@@ -41,15 +41,18 @@ final class ParTests: XCTestCase {
         parStatus: Int = 201,
         parBody: [String: Any]? = nil
     ) -> TestRouter {
-        let discovery = discoveryJSON
-        let body = parBody ?? ["request_uri": Self.requestURI, "expires_in": 90]
+        let discovery: @Sendable (String, Bool) -> [String: Any] = {
+            ParTests.discoveryJSON(base: $0, withPar: $1)
+        }
+        let body = TestResponse.jsonBody(
+            parBody ?? ["request_uri": Self.requestURI, "expires_in": 90])
         return { request, _ in
             let base = "http://\(request.header("Host") ?? "127.0.0.1")"
             if request.uri.contains("/.well-known/openid-configuration") {
                 return .json(200, discovery(base, withPar))
             }
             if request.uri.contains("/oauth2/par") {
-                return .json(parStatus, body)
+                return TestResponse(status: parStatus, body: body)
             }
             return .json(404, [:])
         }
@@ -237,7 +240,9 @@ final class ParTests: XCTestCase {
     func testTheRedirectUrlDropsAnyQueryTheDiscoveredEndpointCarried() async throws {
         // An authorization_endpoint that already carries a query is legal, and its
         // parameters are exactly the ones rule 2 forbids travelling alongside a request_uri.
-        let discovery = discoveryJSON
+        let discovery: @Sendable (String, Bool) -> [String: Any] = {
+            ParTests.discoveryJSON(base: $0, withPar: $1)
+        }
         let noisy: TestRouter = { request, _ in
             let base = "http://\(request.header("Host") ?? "127.0.0.1")"
             if request.uri.contains("/.well-known/openid-configuration") {

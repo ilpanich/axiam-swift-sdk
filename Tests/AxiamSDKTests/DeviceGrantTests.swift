@@ -17,7 +17,9 @@ final class DeviceGrantTests: XCTestCase {
         pollAnswers: [(Int, [String: Any])]
     ) -> TestRouter {
         let signer = self.signer
-        let answers = pollAnswers
+        // Serialized up front: the router closure is `@Sendable` and cannot capture the
+        // `[String: Any]` payloads, only the bytes they encode to.
+        let answers: [(Int, Data)] = pollAnswers.map { ($0.0, TestResponse.jsonBody($0.1)) }
         return { request, state in
             if request.uri.hasSuffix("/oauth2/jwks") { return .json(200, signer.jwksJSON()) }
             if request.uri.contains("/.well-known/openid-configuration") {
@@ -44,7 +46,7 @@ final class DeviceGrantTests: XCTestCase {
             if request.uri.contains("/oauth2/token") {
                 let index = state.increment("poll") - 1
                 let answer = answers[min(index, answers.count - 1)]
-                return .json(answer.0, answer.1)
+                return TestResponse(status: answer.0, body: answer.1)
             }
             return .json(404, [:])
         }
