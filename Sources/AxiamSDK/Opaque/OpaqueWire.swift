@@ -38,6 +38,22 @@ struct OpaqueStartResponse: Decodable {
     let ke2: String?
     /// Present on `register/start`.
     let registration_response: String?
+
+    /// The tenant's `opaque_mode`, on `login/start` only: `"optional"` or `"required"`, never
+    /// `"disabled"` — a disabled tenant answers `404`.
+    ///
+    /// Optional because a server older than contract 1.29 does not send it, and its absence has a
+    /// defined meaning: §23.4 rule 7 treats it exactly as `"required"`, which is the closed side
+    /// of the branch. An unrecognised value is treated the same way.
+    ///
+    /// This is **not** downgrade protection and must not be described as such. A hostile server
+    /// that wanted the plaintext could answer `404` at `login/start` and get the caller's fallback
+    /// whatever it puts here; what closes that is `required` server-side, which refuses
+    /// `/auth/login` for every principal in the tenant before examining any credential. `mode` is
+    /// a property of the tenant, identical for a real and a decoy exchange, so it also cannot be
+    /// used to tell whether an identity is enrolled.
+    let mode: String?
+
     let ksf: String
     let memory_kib: Int?
     let iterations: Int?
@@ -45,6 +61,13 @@ struct OpaqueStartResponse: Decodable {
     let log_n: Int?
     let r: Int?
     let p: Int?
+
+    /// Whether §23.4 rule 7 requires a retry over `POST /auth/login` when `KE2` fails to open.
+    ///
+    /// True for exactly one value, `"optional"`. `"required"`, an absent field (a server older
+    /// than the field) and any value this SDK does not recognise all fail closed: the failure is
+    /// the end of the exchange and no plaintext password goes on the wire.
+    var retriesOverPasswordLogin: Bool { mode == "optional" }
 
     var ksfParams: KsfParams {
         KsfParams(

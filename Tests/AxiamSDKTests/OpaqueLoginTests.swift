@@ -20,6 +20,23 @@ final class OpaqueLoginTests: XCTestCase {
 
     private static let user = "alice"
 
+    /// The §3 login union's `200` body, shared by `login/finish` and the plaintext `/auth/login`
+    /// so a test can tell which endpoint produced a result by the username it carries.
+    static func sessionBody(username: String) -> [String: Any] {
+        [
+            "user": [
+                "id": "11111111-1111-1111-1111-111111111111",
+                "username": username,
+                "email": "alice@example.test",
+                "tenant_id": "22222222-2222-2222-2222-222222222222",
+                "tenant_slug": "acme",
+                "org_slug": "globex",
+            ],
+            "session_id": "55555555-5555-5555-5555-555555555555",
+            "expires_in": 900,
+        ]
+    }
+
     private var lib: FakeOpaqueNative!
 
     /// Minted per run rather than written down; nothing here depends on the value.
@@ -55,9 +72,23 @@ final class OpaqueLoginTests: XCTestCase {
         var malformedStartBody = false
         var ksf = "argon2id"
 
+        /// The tenant's `opaque_mode`, echoed in the `login/start` response.
+        ///
+        /// `nil` models a server older than contract 1.29, which omits the field entirely — a
+        /// case §23.4 rule 7 gives a defined meaning rather than leaving open.
+        var loginMode: String?
+
+        /// What the **plaintext** `POST /auth/login` answers, for the §23.4 rule 7 retry.
+        var passwordLoginStatus = 200
+
         private(set) var loginStartBodies: [Data] = []
         private(set) var loginFinishBodies: [Data] = []
         private(set) var registerStartBodies: [Data] = []
+
+        /// Every body that reached `POST /api/v1/auth/login`. Under `required` and under a server
+        /// that names no mode this MUST stay empty: the assertion is that no plaintext password
+        /// went on the wire, which is not observable from the returned error.
+        private(set) var passwordLoginBodies: [Data] = []
 
         private func json(_ status: Int, _ object: Any) -> HTTPResponseData {
             let data = (try? JSONSerialization.data(withJSONObject: object)) ?? Data()
@@ -90,6 +121,7 @@ final class OpaqueLoginTests: XCTestCase {
                 }
                 var body: [String: Any] = ["opaque_session": "handle-42"]
                 if !omitKe2 { body["ke2"] = OpaqueLoginTests.wireKe2 }
+                if let mode = loginMode { body["mode"] = mode }
                 body.merge(ksfFields()) { current, _ in current }
                 return json(200, body)
             }
@@ -107,18 +139,14 @@ final class OpaqueLoginTests: XCTestCase {
                         "available_methods": ["totp"],
                     ])
                 }
-                return json(200, [
-                    "user": [
-                        "id": "11111111-1111-1111-1111-111111111111",
-                        "username": OpaqueLoginTests.user,
-                        "email": "alice@example.test",
-                        "tenant_id": "22222222-2222-2222-2222-222222222222",
-                        "tenant_slug": "acme",
-                        "org_slug": "globex",
-                    ],
-                    "session_id": "55555555-5555-5555-5555-555555555555",
-                    "expires_in": 900,
-                ])
+                return json(200, OpaqueLoginTests.sessionBody(username: OpaqueLoginTests.user))
+            }
+
+            // The plaintext endpoint, reached only by §23.4 rule 7's `optional` retry.
+            if path.hasSuffix("/auth/login") {
+                passwordLoginBodies.append(spec.body ?? Data())
+                guard passwordLoginStatus == 200 else { return json(passwordLoginStatus, [:]) }
+                return json(200, OpaqueLoginTests.sessionBody(username: "alice-via-password"))
             }
 
             if path.hasSuffix("/auth/opaque/register/start") {
@@ -412,6 +440,140 @@ final class OpaqueLoginTests: XCTestCase {
         guard case .auth? = thrown as? AxiamError else {
             return XCTFail("expected an auth error, got \(String(describing: thrown))")
         }
+        XCTAssertTrue(transport.loginFinishBodies.isEmpty)
+    }
+
+    // MARK: - §23.4 rule 7: what `mode` decides (contract 1.29)
+
+    /// A failed `KE2` under `optional` is the ORDINARY case, not a wrong password: every account
+    /// has no registration record the moment an operator enables OPAQUE and acquires one only when
+    /// its password is next set. Reporting the failure would lock out every user of a tenant
+    /// mid-migration, which is the state `optional` exists to serve.
+    func testAnOptionalTenantRetriesOverPasswordLogin() async throws {
+        lib.fail("login_finish")
+        let transport = OpaqueTransport()
+        transport.loginMode = "optional"
+
+        let result = try await client(transport).loginOpaque(
+            usernameOrEmail: Self.user, password: password)
+
+        // The retry's outcome IS the outcome — a successful login, not an error.
+        guard case .authenticated(let user) = result else {
+            return XCTFail("expected .authenticated, got \(result)")
+        }
+        // Answered by /auth/login, not by login/finish.
+        XCTAssertEqual(user.username, "alice-via-password")
+
+        // Rule 7's other half holds regardless of mode: KE3 was never sent.
+        XCTAssertTrue(transport.loginFinishBodies.isEmpty)
+
+        // Exactly one retry, carrying the same credentials over the plaintext path.
+        XCTAssertEqual(transport.passwordLoginBodies.count, 1)
+        let body = try decoded(transport.passwordLoginBodies[0])
+        XCTAssertEqual(body["username_or_email"] as? String, Self.user)
+        XCTAssertEqual(body["password"] as? String, password)
+        XCTAssertEqual(lib.statesAlive, 0)
+    }
+
+    func testAnOptionalTenantSurfacesThePasswordLoginFailure() async {
+        // The retry is not a second chance for the SDK to invent an outcome: the
+        // fallback's error is what the caller gets, so a genuinely wrong password
+        // still ends as an auth error rather than being swallowed.
+        lib.fail("login_finish")
+        let transport = OpaqueTransport()
+        transport.loginMode = "optional"
+        transport.passwordLoginStatus = 401
+
+        let thrown = await error {
+            _ = try await self.client(transport).loginOpaque(
+                usernameOrEmail: Self.user, password: self.password)
+        }
+
+        guard case .auth? = thrown as? AxiamError else {
+            return XCTFail("expected an auth error, got \(String(describing: thrown))")
+        }
+        XCTAssertEqual(transport.passwordLoginBodies.count, 1)
+        XCTAssertTrue(transport.loginFinishBodies.isEmpty)
+    }
+
+    func testARequiredTenantNeverPutsThePlaintextOnTheWire() async {
+        // `required` answers 403 opaque_required for every principal before it looks
+        // at any credential, so a retry could only ever leak a plaintext password
+        // for nothing.
+        lib.fail("login_finish")
+        let transport = OpaqueTransport()
+        transport.loginMode = "required"
+
+        let thrown = await error {
+            _ = try await self.client(transport).loginOpaque(
+                usernameOrEmail: Self.user, password: self.password)
+        }
+
+        guard case .auth? = thrown as? AxiamError else {
+            return XCTFail("expected an auth error, got \(String(describing: thrown))")
+        }
+        XCTAssertTrue(transport.passwordLoginBodies.isEmpty)
+        XCTAssertTrue(transport.loginFinishBodies.isEmpty)
+    }
+
+    func testAStartResponseWithNoModeFieldFailsClosed() async {
+        // A server older than contract 1.29 names no mode. Absence is not "unknown,
+        // so try both" — rule 7 gives it the `required` meaning, which is the side
+        // that sends nothing.
+        lib.fail("login_finish")
+        let transport = OpaqueTransport()
+        XCTAssertNil(transport.loginMode)
+
+        let thrown = await error {
+            _ = try await self.client(transport).loginOpaque(
+                usernameOrEmail: Self.user, password: self.password)
+        }
+
+        guard case .auth? = thrown as? AxiamError else {
+            return XCTFail("expected an auth error, got \(String(describing: thrown))")
+        }
+        XCTAssertTrue(transport.passwordLoginBodies.isEmpty)
+        XCTAssertTrue(transport.loginFinishBodies.isEmpty)
+    }
+
+    func testAnUnrecognisedModeIsTreatedAsRequired() async {
+        // Fail closed. A future mode this build has never heard of must not be the
+        // one value that opens a plaintext fallback.
+        lib.fail("login_finish")
+        let transport = OpaqueTransport()
+        transport.loginMode = "optional-ish"
+
+        let thrown = await error {
+            _ = try await self.client(transport).loginOpaque(
+                usernameOrEmail: Self.user, password: self.password)
+        }
+
+        guard case .auth? = thrown as? AxiamError else {
+            return XCTFail("expected an auth error, got \(String(describing: thrown))")
+        }
+        XCTAssertTrue(transport.passwordLoginBodies.isEmpty)
+        XCTAssertTrue(transport.loginFinishBodies.isEmpty)
+    }
+
+    func testAnOptionalTenantDoesNotFallBackForANonCredentialFailure() async {
+        // Rule 7's retry is for the credential check specifically. A key-stretching
+        // function this build cannot ask for is a configuration gap, and retrying it
+        // over the plaintext path would hide a misconfigured tenant behind a
+        // password prompt.
+        let transport = OpaqueTransport()
+        transport.loginMode = "optional"
+        transport.ksf = "bcrypt"
+
+        let thrown = await error {
+            _ = try await self.client(transport).loginOpaque(
+                usernameOrEmail: Self.user, password: self.password)
+        }
+
+        guard case .network(let networkError)? = thrown as? AxiamError else {
+            return XCTFail("expected a network error, got \(String(describing: thrown))")
+        }
+        XCTAssertTrue("\(networkError)".contains("bcrypt"))
+        XCTAssertTrue(transport.passwordLoginBodies.isEmpty)
         XCTAssertTrue(transport.loginFinishBodies.isEmpty)
     }
 

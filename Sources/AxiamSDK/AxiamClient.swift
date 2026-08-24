@@ -466,17 +466,38 @@ public actor AxiamClient {
     /// a stolen record expensive to attack even by someone holding the OPRF seed. It runs on the
     /// calling task rather than a shared executor.
     ///
+    /// ## When `KE2` does not open, `mode` decides what happens next
+    ///
+    /// The `login/start` response carries the tenant's `opaque_mode`, and §23.4 rule 7 branches on
+    /// it and on nothing else:
+    ///
+    /// - `optional` — this method **retries over ``login(email:password:)``** with the same
+    ///   credentials and returns that call's outcome, before reporting any failure. `optional` is
+    ///   the mid-migration state: every account has no OPAQUE record the moment an operator
+    ///   enables it, and acquires one only when its password is next set, so treating the failed
+    ///   exchange as final would lock out every user of the tenant.
+    /// - `required`, **and a response with no `mode` field at all** (a server older than the
+    ///   field), and any value this SDK does not recognise — ``AxiamError/auth(_:)``, the exchange
+    ///   is over, and nothing is retried. Failing closed is the default.
+    ///
+    /// `mode` is **not** downgrade protection: a hostile server that wanted the plaintext could
+    /// answer `404` and get a caller's fallback whatever it puts here. What closes that is
+    /// `required` server-side, which refuses `/auth/login` for every principal before examining
+    /// any credential.
+    ///
     /// - Throws: ``AxiamError/network(_:)`` when the tenant has OPAQUE disabled (the endpoint
     ///   answers `404` — a property of the tenant, not of any user), when `libaxiam_opaque_ffi` is
     ///   not installed, and when the server names a key-stretching function this SDK cannot ask
     ///   for. Deliberately not ``AxiamError/auth(_:)``: reporting a configuration gap as a
     ///   credential failure would send a user off to reset a password that works, and would stop a
     ///   caller falling back to ``login(email:password:)``.
-    /// - Throws: ``AxiamError/auth(_:)`` for a wrong password, an account that does not exist, and
-    ///   a server that does not hold the record — indistinguishable by design. **Nothing is sent
-    ///   to `login/finish` in that case** (§23.4 rule 7), and a caller must not retry over
-    ///   ``login(email:password:)``: that hands the plaintext to an endpoint that just failed to
-    ///   prove itself.
+    /// - Throws: ``AxiamError/auth(_:)`` for a wrong password, an account that does not exist, an
+    ///   account with no registration record, and a server that does not hold the record —
+    ///   indistinguishable by design. **Nothing is sent to `login/finish` in that case**
+    ///   (§23.4 rule 7). A caller must not retry it over ``login(email:password:)`` by hand: under
+    ///   `optional` this method has already done so (see above), and under `required` the retry is
+    ///   refused anyway and would put a plaintext password on the wire for nothing.
+    ///
     public func loginOpaque(usernameOrEmail: String, password: String) async throws -> LoginResult {
         try ensureOpen()
         // §17.1 rule 9: cleared on the CALLER'S INTENT to change credentials.
@@ -504,7 +525,29 @@ public actor AxiamClient {
             throw AxiamError.network(NetworkError("OPAQUE: login/start returned no `ke2`"))
         }
 
-        let ke3 = try exchange.finish(password: password, ke2: ke2, ksf: started.ksfParams)
+        let ke3: String
+        do {
+            ke3 = try exchange.finish(password: password, ke2: ke2, ksf: started.ksfParams)
+        } catch let failure as AxiamError {
+            // §23.4 rule 7 (contract 1.29). `KE2` failing to open ends the OPAQUE exchange either
+            // way -- nothing is sent to login/finish -- and what happens next depends on `mode`
+            // and on nothing else. A .network failure here is a refused key-stretching function
+            // or a spent exchange, not a credential check, so it is never a fallback trigger.
+            guard case .auth = failure, started.retriesOverPasswordLogin else { throw failure }
+
+            // `optional` is the mid-migration state: every account has no registration record the
+            // moment an operator enables OPAQUE and acquires one only when its password is next
+            // set, so a failed exchange is the ORDINARY case rather than a wrong password.
+            // Treating it as final would lock out every user of the tenant. Under `required` this
+            // branch is not taken -- the server would answer 403 opaque_required anyway, and an
+            // SDK that tried would put a plaintext password on the wire for nothing.
+            //
+            // The retry is login() itself rather than a second hand-rolled request, so the MFA
+            // branches, the 403 disambiguation, the session adoption and the org-id recovery are
+            // the ones a caller already gets, and this call's outcome IS the outcome: its success
+            // on success, its error on failure.
+            return try await login(email: usernameOrEmail, password: password)
+        }
 
         let body = try encode(
             OpaqueLoginFinishRequest(opaque_session: started.opaque_session, ke3: ke3))

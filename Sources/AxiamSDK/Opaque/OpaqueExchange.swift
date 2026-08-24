@@ -141,6 +141,13 @@ public final class LoginExchange: OpaqueExchange {
     /// `KE2`'s MAC only verifies if the server actually holds the record. Nothing may be sent
     /// afterwards (§23.4 rule 7).
     ///
+    /// Whether the caller is *finished* is a separate question, and one this type deliberately
+    /// does not answer: under an `optional` tenant a failure here is the ordinary case for an
+    /// account that has no registration record yet, and §23.4 rule 7 requires a retry over
+    /// `POST /auth/login`. That branch needs the `mode` field from the `login/start` response, so
+    /// it lives in `AxiamClient.loginOpaque` where the response is; the error raised here is the
+    /// same one either way.
+    ///
     /// That case is an ``AxiamError/auth(_:)``, unlike every other refusal in this package. The
     /// distinction is the point: a wrong password, an account that does not exist and a server
     /// that does not hold the record are indistinguishable by design and are all authentication

@@ -96,6 +96,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **CONTRACT.md §23.4 rule 7 (contract 1.29): what happens after `KE2` fails to
+  open now depends on the tenant's `opaque_mode`.** `POST
+  /api/v1/auth/opaque/login/start` gained an optional `mode` field carrying
+  `"optional"` or `"required"` (never `"disabled"` — that path answers `404`),
+  and `loginOpaque` branches on it and on nothing else:
+
+  - `"optional"` — `loginOpaque` **retries over `login(email:password:)`** with
+    the same credentials before reporting any failure, and returns that call's
+    outcome: its success on success, its error on failure. `optional` is the
+    mid-migration state — every account has no OPAQUE record the moment an
+    operator enables it and acquires one only when its password is next set — so
+    an SDK that treated the failed exchange as final locked out every user of the
+    tenant, which made enabling `optional` indistinguishable from enabling
+    `required` with nobody enrolled.
+  - `"required"`, **a response with no `mode` field at all** (a server older than
+    the field), and any value this SDK does not recognise — `.auth`, the exchange
+    is over, and nothing is retried. Failing closed is the default.
+
+  Unchanged: `KE3` is still never sent once the envelope fails to open, the error
+  is still the existing `AxiamError.auth`, a `.network` failure (a refused
+  key-stretching function, a malformed response) never triggers the retry, and a
+  `404` from `/auth/opaque/*` is still the distinguishable "this tenant has
+  OPAQUE disabled" network error.
+
+  `mode` is **not** downgrade protection and is not documented as such: a hostile
+  server that wanted the plaintext could answer `404` and get a caller's fallback
+  whatever it puts here. What closes that is `required` server-side, which
+  refuses `/auth/login` for every principal before examining any credential.
+- Re-vendor `CONTRACT.md` at **1.29** and `openapi.json` at
+  **1.0.0-alpha40**, byte-identical to the platform repo's `sdks/`. §23.4 rule 7
+  above is the one normative change; the rest is additive.
 - Re-vendor `CONTRACT.md`. Repairs §14.1's link to the `device_login` heading,
   which dropped a hyphen the em dash leaves behind and so rendered as a link
   that went nowhere; the same heading's other two links were already correct.
