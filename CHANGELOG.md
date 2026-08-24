@@ -5,6 +5,71 @@ All notable changes to the AXIAM Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Swift 6 language mode, via a version-specific manifest.** The package now
+  ships `Package@swift-6.0.swift` alongside `Package.swift`. SwiftPM selects by
+  toolchain: 5.9/5.10 get the 5.9 manifest as before, and 6.0+ get the new one,
+  which sets `.swiftLanguageMode(.v6)` on the library and every example. Their
+  sources are therefore compiled under full strict-concurrency checking — as
+  errors — wherever a Swift 6 toolchain is present, **without** raising the floor
+  for consumers still on 5.9.
+
+  `Sources/` and `Examples/` compile clean under Swift 6 with **zero**
+  diagnostics. The **test target is deliberately left in Swift 5 mode**: the
+  harness has 48 strict-concurrency errors across 19 files, all of them fixture
+  plumbing (`NSLock` inside async test doubles, `[String: Any]` JSON fixtures
+  captured in `@Sendable` handler closures, fixtures held as statics) and none of
+  them anything the shipped SDK does. Scoping the mode to the targets that ship
+  makes the data-race-safety guarantee one about the artifact consumers get,
+  proven on every build, rather than one gated behind a test-harness rewrite.
+  That migration is tracked separately.
+
+  The opt-out is spelled `.swiftLanguageMode(.v5)` rather than by omission:
+  under `swift-tools-version: 6.0` Swift 6 is the **default** language mode for
+  every target, so leaving the setting off does not opt a target out.
+
+  The two obvious alternatives do not work. `-Xswiftc -swift-version 6` applies
+  to the whole dependency graph including swift-nio and async-http-client, and
+  `.unsafeFlags` makes a package unusable as a dependency at all.
+
+- **Swift 6.3 is now a CI leg.** The gating matrix is floor + newest (5.9, 6.3)
+  rather than 5.9/5.10 — two Swift 5 toolchains that between them proved nothing
+  about Swift 6. 6.3 is the newest Swift with an official Linux container image;
+  6.4 exists for Apple platforms but has no Linux image yet. 5.10 remains
+  supported and still runs the full suite under the Coverage and docs workflows.
+
+- **`SupportedVersions`** — `minimumSwiftToolsVersion`, `newestTestedSwift`, and
+  `isSwiftSixLanguageMode`. The last reports which language mode a build actually
+  got, which is invisible from the outside and is the difference between the
+  concurrency guarantees having been *checked* and merely *intended*.
+
+- **`VersionPolicyTests`** — asserts the constants against both manifests and the
+  CI matrix, that the 6.0 manifest really declares tools-version 6.0 (the
+  filename selects it, but only the declared version unlocks the language mode),
+  that every target in it carries the language-mode setting, that the newest CI
+  leg is a 6.x toolchain so the manifest is exercised at all, and that **both
+  manifests declare the same targets**. SwiftPM has no include mechanism, so
+  that duplication is unavoidable and nothing but a test can hold it together.
+
+- **`Examples/VersionCompatibility`** — reports the compiling toolchain and
+  whether Swift 6 language mode is in effect.
+
+- **A "Supported Swift versions" section in the README.**
+
+### Fixed
+
+- **`OpaqueLibrary`'s memoized load state is no longer non-isolated global
+  mutable state.** Two `private static var`s guarded by an `NSLock` are rejected
+  outright by Swift 6's strict concurrency checking — correctly, since nothing
+  in the type system enforced that every access went through the lock; that was
+  a convention held by two call sites. The storage now lives in a lock-guarded
+  box, which makes the invariant structural rather than conventional. Behaviour
+  is unchanged: still one `dlopen` attempt per process, memoizing failure as
+  well as success.
+
 ## [1.0.0-alpha41] - 2026-08-24
 
 ### Added

@@ -14,12 +14,38 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        swift: ['5.9', '5.10']
+        # The gating matrix is floor + newest. The floor is the
+        # `swift-tools-version` in Package.swift (5.9); the newest is the
+        # latest Swift with an official Linux image (6.3 — 6.4 exists for
+        # Apple platforms but has no Linux container yet).
+        #
+        # These two legs do NOT compile the same way, and that is the point.
+        # SwiftPM picks the manifest by toolchain: 5.9 sees only Package.swift
+        # and builds in Swift 5 language mode, while 6.3 picks up
+        # Package@swift-6.0.swift and builds this package's targets in **Swift 6
+        # language mode**, where the strict-concurrency rules are errors rather
+        # than warnings. So the floor leg proves the SDK still builds for
+        # consumers on 5.9, and the newest leg proves it is actually
+        # data-race-safe rather than merely un-analysed.
+        #
+        # 5.10 sits between two green legs. PackageManifestParityTests fails
+        # the build if the two manifests ever describe different packages.
+        swift: ['5.9', '6.3']
     steps:
       - uses: actions/checkout@v4
 
       - name: Swift version
         run: swift --version
+
+      # Says out loud which manifest SwiftPM selected — 5.9 on the floor leg,
+      # 6.0 on the newest — so a leg that silently fell back to Package.swift,
+      # and therefore tested nothing it was added to test, is visible in the log
+      # rather than just green.
+      #
+      # A bare command, not a script: these containers run steps under `sh -e`
+      # (dash), where `set -o pipefail` is an error.
+      - name: Manifest in effect (tools-version selected by this toolchain)
+        run: swift package tools-version
 
       - name: Build
         run: swift build

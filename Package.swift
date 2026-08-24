@@ -119,6 +119,11 @@ let package = Package(
             path: "Examples/Reactor"
         ),
         .executableTarget(
+            name: "VersionCompatibilityExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/VersionCompatibility"
+        ),
+        .executableTarget(
             name: "TelemetryHookExample",
             dependencies: ["AxiamSDK"],
             path: "Examples/TelemetryHook"
