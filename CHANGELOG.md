@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-alpha43] - 2026-08-24
+
 ### Added
+
+- Adopt Swift 6 language mode via a version-specific manifest (#43)
 
 - **Swift 6 language mode, via a version-specific manifest.** The package now
   ships `Package@swift-6.0.swift` alongside `Package.swift`. SwiftPM selects by
@@ -57,6 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A "Supported Swift versions" section in the README.**
 
 ### Changed
+
+- Migrate the test suite to Swift 6 language mode
 
 - **The test harness is migrated to Swift 6 language mode.** 48 strict-concurrency
   sites across 19 files, all of them fixture plumbing rather than anything the
