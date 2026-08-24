@@ -21,11 +21,17 @@
 //      reaches the caller as `.network` and NOT as a credential failure — so
 //      falling back to `login` is correct and safe.
 //   3. `.auth` means the envelope did not open. That is the whole credential
-//      check, and it is NOT a case to retry over `login`: retrying would hand
-//      the plaintext to an endpoint that has just failed to prove it holds the
-//      record. RFC 9807's AKE authenticates the server during the handshake,
-//      so opening `KE2` IS the server's proof — there is no separate `M2` step
-//      the old SRP §23.3 rule 6 had to mandate in capitals.
+//      check — RFC 9807's AKE authenticates the server during the handshake, so
+//      opening `KE2` IS the server's proof, and there is no separate `M2` step
+//      the old SRP §23.3 rule 6 had to mandate in capitals. Do NOT retry it over
+//      `login` by hand: §23.4 rule 7 decides that on the `mode` the
+//      `login/start` response carries, and `loginOpaque` has already acted on
+//      it. Under `optional` — the mid-migration state, where an account that has
+//      not set a password since OPAQUE was enabled simply has no record yet — it
+//      has already retried and returned that call's outcome. Under `required`,
+//      and under a server too old to send `mode` at all, it has not, and a
+//      hand-rolled retry would put the plaintext on the wire for a request the
+//      server refuses anyway.
 //   4. A tenant with `opaque_mode: required` answers `/auth/login` with
 //      `403 opaque_required`, which is `.authz`. A user whose password is
 //      perfectly good must never be told it is invalid.
@@ -146,9 +152,12 @@ do {
     }
 } catch AxiamError.auth {
     // The envelope did not open: a wrong password, an account that does not exist,
-    // or a server that does not hold the record — indistinguishable by design.
-    // Nothing was sent to `login/finish` (§23.4 rule 7), and this must NOT be
-    // retried over `login`.
+    // an account with no registration record, or a server that does not hold the
+    // record — indistinguishable by design. Nothing was sent to `login/finish`
+    // (§23.4 rule 7), and this must NOT be retried over `login` here: under
+    // `optional` the SDK has already done so and this error IS that retry's
+    // outcome, and under `required` the retry is refused before any credential is
+    // examined.
     FileHandle.standardError.write(Data("invalid credentials\n".utf8))
     try? await client.shutdown()
     exit(1)

@@ -712,7 +712,7 @@ This SDK never caches them across exchanges and never defaults them locally:
 | §23.4 rule 2 | costs come from the server per exchange — a credential enrolled under one cost keeps working after a tenant raises its policy, so a client that guessed would derive a different randomized password and report "invalid password" for a correct one |
 | §23.4 rule 3 | an unrecognised `ksf` is **refused**, never substituted — substituting produces a well-formed randomized password no AXIAM server agrees with |
 | §23.4 rule 5 | a cost field that does not apply to the named function is **absent, not zero** — which is why `KsfParams`' cost properties are `Int?` |
-| §23.4 rule 7 | nothing is sent to `login/finish` once the envelope fails to open |
+| §23.4 rule 7 | nothing is sent to `login/finish` once the envelope fails to open, and what happens next is decided by the `mode` the response carries — see below |
 
 Costs are additionally range-checked here, so a refusal names the field:
 
@@ -744,7 +744,7 @@ the record. Mutual authentication is no longer something a client can forget.
 | mode | `login` | `loginOpaque` |
 |---|---|---|
 | `disabled` (default) | works | `.network` — `*/start` answers `404` |
-| `optional` | works | works |
+| `optional` | works | works, and falls back to `login` for an account that has no record yet (§23.4 rule 7) |
 | `required` | `.authz` (`opaque_required`) | works |
 
 Neither is `.auth`:
@@ -758,9 +758,33 @@ Neither is `.auth`:
   exists to prevent.
 
 `.auth` from `loginOpaque` means the envelope did not open: a wrong password, an account that does
-not exist, or a server that does not hold the record — indistinguishable by design, and the whole
-credential check now that both halves of mutual authentication live in it. **Do not retry it over
-`login`**: that hands the plaintext to an endpoint that has just failed to prove itself.
+not exist, an account with no registration record, or a server that does not hold the record —
+indistinguishable by design, and the whole credential check now that both halves of mutual
+authentication live in it. **Do not retry it over `login` by hand**: where a retry is right,
+`loginOpaque` has already done it, and where it is not, it is refused anyway.
+
+### When `KE2` does not open, `mode` decides (§23.4 rule 7, contract 1.29)
+
+The `login/start` response carries the tenant's `opaque_mode` as a `mode` field, and rule 7
+branches on it and on nothing else:
+
+| `mode` in `login/start` | what `loginOpaque` does when `KE2` fails to open |
+|---|---|
+| `optional` | **retries over `login`** with the same credentials and returns that call's outcome — its success on success, its error on failure |
+| `required` | `.auth`, the exchange is over, nothing is retried |
+| absent (a server older than the field), or a value this SDK does not recognise | the same as `required` — fail closed |
+
+The `optional` retry is not a convenience. `optional` is the state a tenant lives in for the whole
+migration: every account has no OPAQUE record the moment an operator enables it, and acquires one
+only when its password is next set. An SDK that reported the failed exchange would lock out every
+user of the tenant, and enabling `optional` would be indistinguishable from enabling `required`
+with nobody enrolled.
+
+`mode` is **not** downgrade protection, and this SDK does not treat it as such: a hostile server
+that wanted the plaintext could answer `404` and get a caller's fallback whatever it puts here.
+What closes that is `required` **server-side**, which refuses `/auth/login` for every principal
+before examining any credential. A `.network` failure — a refused key-stretching function, a
+malformed response — never triggers the retry either: it is not a credential check.
 
 `required` refuses **every** principal in the tenant, not only the enrolled ones. Splitting the
 response on whether an account has a record would turn `/auth/login` into an enumeration oracle
