@@ -12,10 +12,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Swift 6 language mode, via a version-specific manifest.** The package now
   ships `Package@swift-6.0.swift` alongside `Package.swift`. SwiftPM selects by
   toolchain: 5.9/5.10 get the 5.9 manifest as before, and 6.0+ get the new one,
-  which sets `.swiftLanguageMode(.v6)` on every target this package owns. The
-  SDK's sources are therefore compiled under full strict-concurrency checking —
-  as errors — wherever a Swift 6 toolchain is present, **without** raising the
-  floor for consumers still on 5.9.
+  which sets `.swiftLanguageMode(.v6)` on the library and every example. Their
+  sources are therefore compiled under full strict-concurrency checking — as
+  errors — wherever a Swift 6 toolchain is present, **without** raising the floor
+  for consumers still on 5.9.
+
+  `Sources/` and `Examples/` compile clean under Swift 6 with **zero**
+  diagnostics. The **test target is deliberately left in Swift 5 mode**: the
+  harness has 48 strict-concurrency errors across 19 files, all of them fixture
+  plumbing (`NSLock` inside async test doubles, `[String: Any]` JSON fixtures
+  captured in `@Sendable` handler closures, fixtures held as statics) and none of
+  them anything the shipped SDK does. Scoping the mode to the targets that ship
+  makes the data-race-safety guarantee one about the artifact consumers get,
+  proven on every build, rather than one gated behind a test-harness rewrite.
+  That migration is tracked separately.
 
   The two obvious alternatives do not work. `-Xswiftc -swift-version 6` applies
   to the whole dependency graph including swift-nio and async-http-client, and

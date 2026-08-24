@@ -35,12 +35,21 @@ public enum SupportedVersions {
     /// platforms but has no Linux image yet.
     public static let newestTestedSwift = "6.3"
 
-    /// Whether this SDK's own sources were compiled in Swift 6 language mode.
+    /// Whether **this library** was compiled in Swift 6 language mode.
     ///
     /// `true` when built by a 6.0+ toolchain, which selects `Package@swift-6.0.swift` and
-    /// its per-target `.swiftLanguageMode(.v6)`. Reported rather than assumed, because the
+    /// its per-target language-mode setting. Reported rather than assumed, because the
     /// difference is invisible from the outside and decides whether the concurrency
-    /// guarantees below were checked or merely intended.
+    /// guarantees were checked or merely intended.
+    ///
+    /// This reads the *language mode*, not the toolchain: `#if swift(>=6.0)` tests the
+    /// former and `#if compiler(>=6.0)` the latter, and they genuinely differ in this
+    /// package. On a 6.x toolchain the library and the examples are built in Swift 6
+    /// mode while the test target is deliberately still built in Swift 5 mode — the
+    /// library and examples compile clean under full strict-concurrency checking and the
+    /// test harness does not, so scoping the mode to the targets that actually ship is
+    /// what makes the guarantee about the artifact you get rather than about a rewrite of
+    /// the test suite.
     public static var isSwiftSixLanguageMode: Bool {
         #if swift(>=6.0)
         return true

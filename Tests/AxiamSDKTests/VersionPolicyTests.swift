@@ -128,22 +128,65 @@ final class VersionPolicyTests: XCTestCase {
         )
     }
 
-    /// The 6.0 manifest actually turns on Swift 6 language mode, on every target.
+    /// Every SHIPPING target in the 6.0 manifest turns on Swift 6 language mode.
     ///
-    /// A target that lost its `swiftSettings` would compile in Swift 5 mode on a Swift 6
-    /// toolchain — silently, and reporting green.
-    func testEveryTargetInTheSixManifestUsesSwiftSixLanguageMode() throws {
+    /// Exactly one target is excluded, and only one: the test target. The library and
+    /// all the examples compile clean under Swift 6; the test harness does not, in 48
+    /// places that are all `NSLock` in async test doubles, `[String: Any]` fixtures
+    /// captured in `@Sendable` handler closures, and fixtures held as statics.
+    ///
+    /// Pinning the count both ways matters. Too few settings and a shipping target has
+    /// silently dropped to Swift 5 mode on a Swift 6 toolchain — green, and testing
+    /// nothing it was added to test. Too many and someone has put the mode back on the
+    /// test target without doing the migration, which turns the whole leg red for
+    /// reasons unrelated to the SDK.
+    func testEveryShippingTargetUsesSwiftSixLanguageMode() throws {
         let manifest = try read("Package@swift-6.0.swift")
+
         let targetCount = manifest.components(separatedBy: ".target(").count - 1
             + manifest.components(separatedBy: ".testTarget(").count - 1
             + manifest.components(separatedBy: ".executableTarget(").count - 1
         let settingsCount = manifest.components(separatedBy: ".swiftLanguageMode(.v6)").count - 1
 
-        XCTAssertGreaterThan(targetCount, 0, "the 6.0 manifest declares no targets")
+        XCTAssertGreaterThan(targetCount, 1, "the 6.0 manifest declares no targets")
         XCTAssertEqual(
-            settingsCount, targetCount,
-            "\(targetCount) targets but \(settingsCount) .swiftLanguageMode(.v6) settings — "
-                + "a target without it compiles in Swift 5 mode on a Swift 6 toolchain"
+            settingsCount, targetCount - 1,
+            "\(targetCount) targets and \(settingsCount) language-mode settings — expected "
+                + "every target except the test one to carry it"
+        )
+    }
+
+    /// The excluded target is the test target, and nothing else.
+    ///
+    /// The count above would be equally satisfied by putting the mode on the test
+    /// target and dropping it from the library, which is the exact inversion of what
+    /// this package wants.
+    func testTheTargetWithoutSwiftSixModeIsTheTestTarget() throws {
+        let manifest = try read("Package@swift-6.0.swift")
+
+        guard let testStart = manifest.range(of: ".testTarget("),
+              let nextTarget = manifest.range(
+                  of: ".executableTarget(", range: testStart.upperBound..<manifest.endIndex)
+        else {
+            return XCTFail("could not locate the test target stanza in the 6.0 manifest")
+        }
+
+        let testStanza = manifest[testStart.lowerBound..<nextTarget.lowerBound]
+        XCTAssertFalse(
+            testStanza.contains(".swiftLanguageMode(.v6)"),
+            "the test target carries the Swift 6 language mode, but the suite has not been "
+                + "migrated for it — expect ~48 strict-concurrency errors"
+        )
+
+        // The library target is the first `.target(` in the file, and it must have it.
+        guard let libStart = manifest.range(of: ".target(\n            name: \"AxiamSDK\"") else {
+            return XCTFail("could not locate the AxiamSDK library target")
+        }
+        let libStanza = manifest[libStart.lowerBound..<testStart.lowerBound]
+        XCTAssertTrue(
+            libStanza.contains(".swiftLanguageMode(.v6)"),
+            "the AxiamSDK library target has lost the Swift 6 language mode — the one target "
+                + "that most needs it, since it is what consumers actually get"
         )
     }
 
@@ -190,20 +233,32 @@ final class VersionPolicyTests: XCTestCase {
         )
     }
 
-    /// The compiler running this suite agrees with the manifest that was selected.
+    /// On a Swift 6 toolchain, the LIBRARY really was compiled in Swift 6 language mode.
     ///
-    /// Closes the loop from the inside: `#if swift(>=6.0)` reflects the toolchain actually
-    /// in use, not a file anyone can edit.
-    func testRunningCompilerMatchesTheSelectedManifest() throws {
-        #if swift(>=6.0)
-        // On a 6.x toolchain SwiftPM must have chosen the version-specific manifest, so
-        // this code was compiled in Swift 6 language mode.
-        XCTAssertGreaterThanOrEqual(
-            Int(SupportedVersions.newestTestedSwift.split(separator: ".").first.map(String.init) ?? "0") ?? 0,
-            6,
-            "running a Swift 6 toolchain that SupportedVersions does not acknowledge"
+    /// This is the assertion that catches a silent fallback, and it works because the two
+    /// directives mean different things: `#if compiler(>=6.0)` tests the **toolchain**,
+    /// `#if swift(>=6.0)` tests the **language mode**. They deliberately disagree inside
+    /// this file — on the 6.3 leg the toolchain is 6.x while this test target is still
+    /// compiled in Swift 5 mode, so only the compiler check is true here.
+    ///
+    /// ``SupportedVersions/isSwiftSixLanguageMode`` is evaluated in the *library*, which
+    /// does get the mode. So reading it from here crosses the boundary and reports what
+    /// the shipping target actually got — something no amount of reading the manifest can
+    /// establish, since the manifest could be right and the setting still not applied.
+    func testLibraryIsCompiledInSwiftSixModeOnASixToolchain() throws {
+        #if compiler(>=6.0)
+        XCTAssertTrue(
+            SupportedVersions.isSwiftSixLanguageMode,
+            "a Swift 6 toolchain is in use, but the library reports Swift 5 language mode — "
+                + "Package@swift-6.0.swift was not selected, or its swiftSettings did not "
+                + "reach the library target"
         )
         #else
+        XCTAssertFalse(
+            SupportedVersions.isSwiftSixLanguageMode,
+            "the library reports Swift 6 language mode on a Swift 5 toolchain, which should "
+                + "not be reachable"
+        )
         // A 5.x toolchain must be at or above the declared floor, or resolution would have
         // failed before reaching a test.
         XCTAssertEqual(

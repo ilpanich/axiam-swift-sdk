@@ -105,9 +105,24 @@ automatically:
 | 5.9, 5.10 | `Package.swift` | Swift 5 |
 | 6.0+ | `Package@swift-6.0.swift` | **Swift 6** |
 
-That is what lets the SDK keep a 5.9 floor while compiling its own targets under
-**full strict-concurrency checking** wherever a 6.x toolchain is present — data-race
-safety enforced as errors, not deferred as warnings.
+That is what lets the SDK keep a 5.9 floor while compiling under **full
+strict-concurrency checking** wherever a 6.x toolchain is present — data-race safety
+enforced as errors, not deferred as warnings.
+
+**The library and every example are in Swift 6 language mode; the test target is
+not.** That split is deliberate and is worth stating plainly rather than burying:
+`Sources/` and `Examples/` compile clean under Swift 6 with zero diagnostics, and the
+test harness does not — 48 sites across 19 files, every one of them fixture plumbing
+(`NSLock` inside async test doubles, `[String: Any]` JSON fixtures captured in
+`@Sendable` handler closures, fixtures held as static properties). None of it is
+something the shipped SDK does.
+
+Scoping the mode to the targets that actually ship makes "this SDK is data-race-safe
+under full checking" a claim about **the artifact you get**, proven on every build,
+instead of one blocked behind a rewrite of the test harness. Migrating the suite is
+real work with no product-behaviour change and belongs in its own commit.
+`VersionPolicyTests` pins the arrangement in both directions, so neither the library
+losing the mode nor the test target silently gaining it can pass unnoticed.
 
 The alternatives were worse and are worth naming, because both look reasonable
 until you try them. `swift build -Xswiftc -swift-version -Xswiftc 6` applies to
