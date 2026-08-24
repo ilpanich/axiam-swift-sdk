@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'AxiamSDK'
-  s.version          = '1.0.0-alpha40'
+  s.version          = '1.0.0-alpha41'
   s.summary          = 'Official Swift SDK for AXIAM identity & authorization.'
   s.description      = <<-DESC
     AxiamSDK is the Swift client for AXIAM (Access eXtended Identity and Authorization

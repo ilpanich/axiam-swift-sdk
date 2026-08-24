@@ -5,6 +5,17 @@ All notable changes to the AXIAM Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha41] - 2026-08-24
+
+### Added
+
+- Branch on login/start's `mode` when KE2 fails to open (§23.4 rule 7)
+
+### Changed
+
+- Re-vendor openapi.json for the vault_pki CA custodian (axiam#368)
+- Re-vendor CONTRACT.md at 1.29 and openapi.json at 1.0.0-alpha40
+
 ## [1.0.0-alpha40] - 2026-08-23
 
 ### Changed
