@@ -30,8 +30,17 @@ struct TestResponse: Sendable {
     }
 
     static func json(_ status: Int, _ object: [String: Any], headers: [(String, String)] = []) -> TestResponse {
-        let data = (try? JSONSerialization.data(withJSONObject: object)) ?? Data()
-        return TestResponse(status: status, headers: headers, body: data)
+        TestResponse(status: status, headers: headers, body: jsonBody(object))
+    }
+
+    /// Serialize a JSON fixture ahead of time.
+    ///
+    /// `TestRouter` is `@Sendable`, so a router closure cannot capture a `[String: Any]`
+    /// fixture — `Any` defeats `Sendable` checking. Serializing at the point the fixture is
+    /// built turns it into `Data`, which *is* `Sendable`, and the closure captures that.
+    /// The bytes are what the response was always going to carry, so nothing is lost.
+    static func jsonBody(_ object: [String: Any]) -> Data {
+        (try? JSONSerialization.data(withJSONObject: object)) ?? Data()
     }
 }
 
@@ -107,7 +116,13 @@ final class TestHTTPServer: @unchecked Sendable {
     }
 }
 
-private final class TestServerHandler: ChannelInboundHandler {
+/// `@unchecked Sendable` with a stated invariant, which is the standard NIO one: the only
+/// mutable state here is `head`/`bodyData`, and both are touched exclusively from
+/// `channelRead(context:data:)`, which NIO guarantees to call on this channel's event loop
+/// and never concurrently with itself. `router` is `@Sendable` and `state` is internally
+/// locked, so neither adds a race. There is nothing here to make *checked* `Sendable`:
+/// a `ChannelInboundHandler` accumulating a request body is mutable by definition.
+private final class TestServerHandler: ChannelInboundHandler, @unchecked Sendable {
     typealias InboundIn = HTTPServerRequestPart
     typealias OutboundOut = HTTPServerResponsePart
 
@@ -175,8 +190,13 @@ private final class TestServerHandler: ChannelInboundHandler {
         buffer.writeBytes(response.body)
         context.write(wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
 
+        // Capture the `Channel`, not the `ChannelHandlerContext`: a context is valid only
+        // on the event loop and inside the pipeline, and is not `Sendable`. `Channel` is,
+        // and closing it is what this callback wanted — the connection, not the handler's
+        // position in the pipeline.
+        let channel = context.channel
         context.writeAndFlush(wrapOutboundOut(.end(nil))).whenComplete { _ in
-            context.close(promise: nil)
+            channel.close(promise: nil)
         }
     }
 }

@@ -10,7 +10,14 @@ import Foundation
 /// the all-or-nothing assertion rule 7 adds on top of them — a validation failure must discard
 /// the access and refresh tokens from the same response, not just the ID token.
 final class OidcTests: XCTestCase {
-    let signer = TestSigner()
+    // The harness below is static, and deliberately so. Every router this file builds is a
+    // `@Sendable` closure, which cannot capture an `XCTestCase` — `self` is not `Sendable`
+    // and never will be. Hanging the fixtures off the type instead of the instance removes
+    // the capture at the source, rather than smuggling `self` across with an unsafe
+    // annotation. `TestSigner` is a `Sendable` value type, so one shared signer is safe;
+    // each test still serves that signer's JWKS from its own server, so nothing is coupled
+    // between tests beyond the key material itself.
+    private static let signer = TestSigner()
 
     private static let tenantUUID = "22222222-2222-2222-2222-222222222222"
     private static let clientID = "invoices-client"
@@ -20,7 +27,7 @@ final class OidcTests: XCTestCase {
     // MARK: - Harness
 
     /// The discovery document, with every endpoint absolute and pointing back at the test server.
-    private func discoveryJSON(base: String) -> [String: Any] {
+    private static func discoveryJSON(base: String) -> [String: Any] {
         [
             "issuer": Self.issuer,
             "authorization_endpoint": "\(base)/oauth2/authorize",
@@ -34,7 +41,7 @@ final class OidcTests: XCTestCase {
     }
 
     /// Claims for a valid ID token. Individual tests break exactly one field.
-    private func idClaims(
+    private static func idClaims(
         issuer: String = OidcTests.issuer,
         audience: Any = OidcTests.clientID,
         exp: Double? = nil,
@@ -62,8 +69,8 @@ final class OidcTests: XCTestCase {
         tokenBody: @escaping @Sendable (String) -> [String: Any],
         extra: (@Sendable (TestRequest, TestServerState) -> TestResponse?)? = nil
     ) -> TestRouter {
-        let signer = self.signer
-        let discovery = discoveryJSON
+        let signer = OidcTests.signer
+        let discovery: @Sendable (String) -> [String: Any] = { OidcTests.discoveryJSON(base: $0) }
         return { request, state in
             if let extra, let response = extra(request, state) { return response }
             if request.uri.hasSuffix("/oauth2/jwks") {
@@ -104,7 +111,7 @@ final class OidcTests: XCTestCase {
     }
 
     /// A token response carrying a signed ID token built from `claims`.
-    private func tokenResponse(_ claims: [String: Any]) -> [String: Any] {
+    private static func tokenResponse(_ claims: [String: Any]) -> [String: Any] {
         [
             "access_token": "the-access-token",
             "token_type": "Bearer",
@@ -159,7 +166,7 @@ final class OidcTests: XCTestCase {
     // MARK: - §12.1 oidc_exchange (happy path + wire rules)
 
     func testExchangePostsFormEncodedWithTenantIdAsAQueryParameter() async throws {
-        let router = makeRouter(tokenBody: { _ in self.tokenResponse(self.idClaims()) })
+        let router = makeRouter(tokenBody: { _ in OidcTests.tokenResponse(OidcTests.idClaims()) })
         try await withOidcClient(router: router) { client, server in
             let tokens = try await client.oidcExchange(
                 code: "the-code", redirectURI: "https://app.test/cb",
@@ -182,7 +189,7 @@ final class OidcTests: XCTestCase {
     }
 
     func testASlugOnlyClientCannotReachTheTokenEndpointAndSendsNothing() async throws {
-        let router = makeRouter(tokenBody: { _ in self.tokenResponse(self.idClaims()) })
+        let router = makeRouter(tokenBody: { _ in OidcTests.tokenResponse(OidcTests.idClaims()) })
         try await withOidcClient(tenantID: nil, router: router) { client, server in
             do {
                 _ = try await client.oidcExchange(
@@ -201,10 +208,10 @@ final class OidcTests: XCTestCase {
 
     /// Rule 1: `alg` is pinned to EdDSA before any key lookup. `none` is rejected outright.
     func testRule1AlgNoneIsRejected() async throws {
-        let claims = idClaims()
         let router = makeRouter(tokenBody: { _ in
-            var body = self.tokenResponse(claims)
-            body["id_token"] = self.signer.makeAlgNoneJWT(claims: claims)
+            let claims = OidcTests.idClaims()
+            var body = OidcTests.tokenResponse(claims)
+            body["id_token"] = OidcTests.signer.makeAlgNoneJWT(claims: claims)
             return body
         })
         try await assertExchangeRejects(router: router)
@@ -212,10 +219,11 @@ final class OidcTests: XCTestCase {
 
     /// Rule 2: an unknown `kid` is rejected after the single re-fetch.
     func testRule2UnknownKidIsRejected() async throws {
-        let claims = idClaims()
         let router = makeRouter(tokenBody: { _ in
-            var body = self.tokenResponse(claims)
-            body["id_token"] = self.signer.makeJWT(claims: claims, kidOverride: "a-kid-nobody-published")
+            let claims = OidcTests.idClaims()
+            var body = OidcTests.tokenResponse(claims)
+            body["id_token"] = OidcTests.signer.makeJWT(
+                claims: claims, kidOverride: "a-kid-nobody-published")
             return body
         })
         try await assertExchangeRejects(router: router)
@@ -225,7 +233,7 @@ final class OidcTests: XCTestCase {
     /// trailing-slash tolerance, which is why this test appends exactly one.
     func testRule3IssuerMismatchIsRejected() async throws {
         let router = makeRouter(tokenBody: { _ in
-            self.tokenResponse(self.idClaims(issuer: OidcTests.issuer + "/"))
+            OidcTests.tokenResponse(OidcTests.idClaims(issuer: OidcTests.issuer + "/"))
         })
         try await assertExchangeRejects(router: router, expecting: "invalid_issuer")
     }
@@ -233,7 +241,7 @@ final class OidcTests: XCTestCase {
     /// Rule 4: `aud` must contain this client's `client_id`.
     func testRule4AudienceMismatchIsRejected() async throws {
         let router = makeRouter(tokenBody: { _ in
-            self.tokenResponse(self.idClaims(audience: "some-other-client"))
+            OidcTests.tokenResponse(OidcTests.idClaims(audience: "some-other-client"))
         })
         try await assertExchangeRejects(router: router, expecting: "invalid_audience")
     }
@@ -241,7 +249,7 @@ final class OidcTests: XCTestCase {
     /// Rule 4, second half: multiple audiences require an `azp` naming this client.
     func testRule4MultipleAudiencesWithoutAzpIsRejected() async throws {
         let router = makeRouter(tokenBody: { _ in
-            self.tokenResponse(self.idClaims(audience: [OidcTests.clientID, "another-client"]))
+            OidcTests.tokenResponse(OidcTests.idClaims(audience: [OidcTests.clientID, "another-client"]))
         })
         try await assertExchangeRejects(router: router, expecting: "invalid_audience")
     }
@@ -249,7 +257,7 @@ final class OidcTests: XCTestCase {
     /// Rule 5: an expired token. Every rule-5 failure reports the one code `token_expired`.
     func testRule5ExpiredTokenIsRejected() async throws {
         let router = makeRouter(tokenBody: { _ in
-            self.tokenResponse(self.idClaims(exp: Date().addingTimeInterval(-3600).timeIntervalSince1970))
+            OidcTests.tokenResponse(OidcTests.idClaims(exp: Date().addingTimeInterval(-3600).timeIntervalSince1970))
         })
         try await assertExchangeRejects(router: router, expecting: "token_expired")
     }
@@ -258,9 +266,9 @@ final class OidcTests: XCTestCase {
     /// `token_expired`, not a decode error with some other code.
     func testRule5AbsentExpIsAlsoTokenExpired() async throws {
         let router = makeRouter(tokenBody: { _ in
-            var claims = self.idClaims()
+            var claims = OidcTests.idClaims()
             claims.removeValue(forKey: "exp")
-            return self.tokenResponse(claims)
+            return OidcTests.tokenResponse(claims)
         })
         try await assertExchangeRejects(router: router, expecting: "token_expired")
     }
@@ -268,7 +276,7 @@ final class OidcTests: XCTestCase {
     /// Rule 6: the nonce must match the one `oidcBegin` produced.
     func testRule6NonceMismatchIsRejected() async throws {
         let router = makeRouter(tokenBody: { _ in
-            self.tokenResponse(self.idClaims(nonce: "a-different-nonce"))
+            OidcTests.tokenResponse(OidcTests.idClaims(nonce: "a-different-nonce"))
         })
         try await assertExchangeRejects(router: router, expecting: "nonce_mismatch")
     }
@@ -277,7 +285,7 @@ final class OidcTests: XCTestCase {
     /// `openid`, so the server always issues one.
     func testRule6AbsentNonceIsRejected() async throws {
         let router = makeRouter(tokenBody: { _ in
-            self.tokenResponse(self.idClaims(nonce: nil))
+            OidcTests.tokenResponse(OidcTests.idClaims(nonce: nil))
         })
         try await assertExchangeRejects(router: router, expecting: "nonce_mismatch")
     }
@@ -286,7 +294,7 @@ final class OidcTests: XCTestCase {
     /// reach the caller — there is no partial success and no "skip validation" option.
     func testRule7AValidationFailureDiscardsTheWholeTokenSet() async throws {
         let router = makeRouter(tokenBody: { _ in
-            self.tokenResponse(self.idClaims(nonce: "wrong"))
+            OidcTests.tokenResponse(OidcTests.idClaims(nonce: "wrong"))
         })
         try await withOidcClient(router: router) { client, _ in
             do {
@@ -306,7 +314,7 @@ final class OidcTests: XCTestCase {
     /// with no nonce is accepted there while the same one is rejected by `oidcExchange` above.
     func testRefreshSkipsTheNonceRule() async throws {
         let router = makeRouter(tokenBody: { _ in
-            self.tokenResponse(self.idClaims(nonce: nil))
+            OidcTests.tokenResponse(OidcTests.idClaims(nonce: nil))
         })
         try await withOidcClient(router: router) { client, _ in
             let tokens = try await client.oidcRefresh(refreshToken: Sensitive("the-refresh-token"))
@@ -515,8 +523,8 @@ final class OidcTests: XCTestCase {
     /// DeviceGrant.swift, and they are the ones a server misconfiguration
     /// actually hits.
     private func routerWithPartialDiscovery(keep: [String]) -> TestRouter {
-        let signer = self.signer
-        let full = discoveryJSON
+        let signer = OidcTests.signer
+        let full: @Sendable (String) -> [String: Any] = { OidcTests.discoveryJSON(base: $0) }
         return { request, state in
             if request.uri.hasSuffix("/oauth2/jwks") { return .json(200, signer.jwksJSON()) }
             if request.uri.contains("/.well-known/openid-configuration") {

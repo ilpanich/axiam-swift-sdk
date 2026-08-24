@@ -62,3 +62,23 @@ extension XCTestCase {
         server.stop()
     }
 }
+
+extension NSLock {
+    /// Run `body` while holding the lock, and return its result.
+    ///
+    /// Swift 6 makes `NSLock.lock()`/`unlock()` unavailable from asynchronous contexts: a lock
+    /// held across a suspension point can starve or deadlock the cooperative thread pool. A
+    /// *synchronous* closure cannot contain a suspension point, so a critical section written
+    /// this way is safe by construction rather than by inspection — which is the property the
+    /// async test doubles in this suite already maintained by hand, unlocking before every
+    /// `await`. This states it in the type system instead.
+    ///
+    /// Deliberately not named `withLock`: Foundation ships one, and shadowing it would hide
+    /// which implementation a call site gets.
+    @inline(__always)
+    func locked<T>(_ body: () throws -> T) rethrows -> T {
+        lock()
+        defer { unlock() }
+        return try body()
+    }
+}

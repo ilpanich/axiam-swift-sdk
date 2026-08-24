@@ -17,7 +17,13 @@ final class DpopProofTests: XCTestCase {
 
     private var store = InMemoryDpopJtiStore()
     private var key = Curve25519.Signing.PrivateKey()
-    private static var jtiSeq = 0
+
+    /// Makes each proof's `jti` distinct. Per instance, not per class: XCTest builds a
+    /// fresh instance per test method and `store` is rebuilt alongside it in `setUp`, so
+    /// replay detection was always scoped to one test — a `static var` gave this counter a
+    /// wider lifetime than the state it disambiguates, and made it shared mutable global
+    /// state Swift 6 rejects outright.
+    private var jtiSeq = 0
 
     override func setUp() {
         super.setUp()
@@ -41,12 +47,12 @@ final class DpopProofTests: XCTestCase {
     }
 
     private func claims(_ overrides: [String: Any?] = [:]) -> [String: Any] {
-        Self.jtiSeq += 1
+        jtiSeq += 1
         var c: [String: Any] = [
             "htm": method,
             "htu": uri,
             "iat": Int(Date().timeIntervalSince1970),
-            "jti": "jti-\(Self.jtiSeq)",
+            "jti": "jti-\(jtiSeq)",
             "ath": DpopVerifier.accessTokenHash(token),
         ]
         for (k, v) in overrides {

@@ -109,27 +109,36 @@ That is what lets the SDK keep a 5.9 floor while compiling under **full
 strict-concurrency checking** wherever a 6.x toolchain is present — data-race safety
 enforced as errors, not deferred as warnings.
 
-**The library and every example are in Swift 6 language mode; the test target is
-not.** That split is deliberate and is worth stating plainly rather than burying:
-`Sources/` and `Examples/` compile clean under Swift 6 with zero diagnostics, and the
-test harness does not — 48 sites across 19 files, every one of them fixture plumbing
-(`NSLock` inside async test doubles, `[String: Any]` JSON fixtures captured in
-`@Sendable` handler closures, fixtures held as static properties). None of it is
-something the shipped SDK does.
+**Every target is in Swift 6 language mode** — the library, all fourteen examples,
+and the test suite — and all of them compile with zero diagnostics. "This SDK is
+data-race-safe under full checking" is therefore a claim about the artifact you get
+*and* about the harness that proves it, checked on every build.
 
-Scoping the mode to the targets that actually ship makes "this SDK is data-race-safe
-under full checking" a claim about **the artifact you get**, proven on every build,
-instead of one blocked behind a rewrite of the test harness.
+The test target was the last holdout: 48 strict-concurrency errors across 19 files,
+all of them fixture plumbing rather than anything the shipped SDK does. What cleared
+them, since the same four patterns come up in any suite being migrated:
+
+| Pattern | Fix |
+|---|---|
+| `NSLock.lock()`/`unlock()` inside `async` test doubles | `NSLock.locked(_:)`, a synchronous-closure critical section. A non-`async` closure cannot contain a suspension point, so "the lock is never held across an `await`" becomes true by construction instead of by inspection. |
+| `[String: Any]` JSON fixtures captured by `@Sendable` router closures | Serialized to `Data` where the fixture is built (`TestResponse.jsonBody`). `Data` is `Sendable`; the bytes are what the response was always going to carry. |
+| `TestSigner` captured by those same closures | Stores its Ed25519 seed as `Data` rather than a `Curve25519.Signing.PrivateKey`, which swift-crypto does not make `Sendable`. The fixture is now genuinely `Sendable`. |
+| `self` captured in 11 `OidcTests` routers | The harness is `static`. A `@Sendable` closure can never capture an `XCTestCase`, and no annotation makes that safe. |
+
+Nothing was migrated with `nonisolated(unsafe)`. The two remaining `@unchecked
+Sendable` conformances in the harness are NIO handler state guarded by the event
+loop, and each states its invariant at the declaration.
 
 > **Opting a target out has to be explicit.** Under `swift-tools-version: 6.0`,
 > Swift 6 is the *default* language mode for every target — omitting
-> `.swiftLanguageMode` does not opt a target out, it leaves it at the default. The
-> test target therefore declares `.swiftLanguageMode(.v5)` outright. (Which makes
-> the `.v6` on the other targets redundant; they keep it so a reader does not have
-> to know this rule to know what mode a target is in.) Migrating the suite is
-real work with no product-behaviour change and belongs in its own commit.
-`VersionPolicyTests` pins the arrangement in both directions, so neither the library
-losing the mode nor the test target silently gaining it can pass unnoticed.
+> `.swiftLanguageMode` does not opt a target out, it leaves it at the default, and
+> *deleting* the setting from a target is therefore not how you revert one. Only an
+> explicit `.swiftLanguageMode(.v5)` opts out, and no target declares one.
+
+`VersionPolicyTests` pins the arrangement in both directions: it fails if any target
+loses the mode, if any target is pinned back to `.v5`, and — reading the compiler
+rather than the manifest, via `#if swift(>=6.0)` — if the suite itself is somehow
+compiled in Swift 5 mode anyway.
 
 The alternatives were worse and are worth naming, because both look reasonable
 until you try them. `swift build -Xswiftc -swift-version -Xswiftc 6` applies to

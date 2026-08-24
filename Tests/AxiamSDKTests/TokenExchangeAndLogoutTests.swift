@@ -19,6 +19,7 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
         tokenBody: [String: Any] = [:]
     ) -> TestRouter {
         let signer = self.signer
+        let encodedTokenBody = TestResponse.jsonBody(tokenBody)
         return { request, state in
             if request.uri.hasSuffix("/oauth2/jwks") { return .json(200, signer.jwksJSON()) }
             if request.uri.contains("/.well-known/openid-configuration") {
@@ -33,7 +34,7 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
             }
             if request.uri.contains("/oauth2/token") {
                 state.increment("token")
-                return .json(tokenStatus, tokenBody)
+                return TestResponse(status: tokenStatus, body: encodedTokenBody)
             }
             return .json(404, [:])
         }

@@ -17,19 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   errors — wherever a Swift 6 toolchain is present, **without** raising the floor
   for consumers still on 5.9.
 
-  `Sources/` and `Examples/` compile clean under Swift 6 with **zero**
-  diagnostics. The **test target is deliberately left in Swift 5 mode**: the
-  harness has 48 strict-concurrency errors across 19 files, all of them fixture
-  plumbing (`NSLock` inside async test doubles, `[String: Any]` JSON fixtures
-  captured in `@Sendable` handler closures, fixtures held as statics) and none of
-  them anything the shipped SDK does. Scoping the mode to the targets that ship
-  makes the data-race-safety guarantee one about the artifact consumers get,
-  proven on every build, rather than one gated behind a test-harness rewrite.
-  That migration is tracked separately.
+  **Every target** is in Swift 6 language mode — the library, all fourteen
+  examples, and the test suite — and every one of them compiles with **zero**
+  diagnostics. No target declares `.swiftLanguageMode(.v5)`.
 
-  The opt-out is spelled `.swiftLanguageMode(.v5)` rather than by omission:
-  under `swift-tools-version: 6.0` Swift 6 is the **default** language mode for
-  every target, so leaving the setting off does not opt a target out.
+  Note that omission is not an opt-out: under `swift-tools-version: 6.0`, Swift 6
+  is the **default** language mode for every target, so deleting the setting from
+  a target does not revert it. Only an explicit `.v5` does.
 
   The two obvious alternatives do not work. `-Xswiftc -swift-version 6` applies
   to the whole dependency graph including swift-nio and async-http-client, and
@@ -49,15 +43,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`VersionPolicyTests`** — asserts the constants against both manifests and the
   CI matrix, that the 6.0 manifest really declares tools-version 6.0 (the
   filename selects it, but only the declared version unlocks the language mode),
-  that every target in it carries the language-mode setting, that the newest CI
-  leg is a 6.x toolchain so the manifest is exercised at all, and that **both
-  manifests declare the same targets**. SwiftPM has no include mechanism, so
-  that duplication is unavoidable and nothing but a test can hold it together.
+  that every target in it carries the language-mode setting and none is pinned
+  back to `.v5`, that the suite itself really was compiled in Swift 6 mode
+  (`#if swift(>=6.0)` reads the compiler, where the other assertions only read
+  the manifest), that the newest CI leg is a 6.x toolchain so the manifest is
+  exercised at all, and that **both manifests declare the same targets**. SwiftPM
+  has no include mechanism, so that duplication is unavoidable and nothing but a
+  test can hold it together.
 
 - **`Examples/VersionCompatibility`** — reports the compiling toolchain and
   whether Swift 6 language mode is in effect.
 
 - **A "Supported Swift versions" section in the README.**
+
+### Changed
+
+- **The test harness is migrated to Swift 6 language mode.** 48 strict-concurrency
+  sites across 19 files, all of them fixture plumbing rather than anything the
+  shipped SDK does. No assertion was weakened, skipped or removed to get there,
+  and no site was migrated with `nonisolated(unsafe)`; the test count is
+  unchanged apart from one assertion added. Four patterns cover all of it:
+
+  - **`NSLock` in `async` test doubles** (`MockTransport`, `ScriptedTransport`,
+    `RefreshProbeTransport`, and the doubles inside `OpaqueLoginTests` and
+    `UmaTests`) now go through `NSLock.locked(_:)`, a synchronous-closure critical
+    section that returns a snapshot. Swift 6 makes bare `lock()`/`unlock()`
+    unavailable from asynchronous contexts because a lock held across a suspension
+    point can deadlock the cooperative pool; these doubles already unlocked before
+    every `await`, and a non-`async` closure makes that structural rather than a
+    property you have to read the function to confirm.
+  - **`[String: Any]` JSON fixtures captured by `@Sendable` router closures** are
+    serialized to `Data` at the point the fixture is built, via the new
+    `TestResponse.jsonBody(_:)`. `Data` is `Sendable`; the bytes are what the
+    response was always going to carry.
+  - **`TestSigner`** stores its Ed25519 seed as `Data` instead of a
+    `Curve25519.Signing.PrivateKey`, which swift-crypto does not make `Sendable`,
+    and is now genuinely `Sendable`. This alone cleared eight capture sites.
+  - **`OidcTests`'s router harness is `static`.** A `@Sendable` closure cannot
+    capture an `XCTestCase` and no annotation makes it safe to; moving the
+    fixtures off the instance removes the capture rather than suppressing it.
+
+  Three fixtures held as statics were also reworked: the WebAuthn challenge
+  dictionaries are computed rather than stored (no shared state at all),
+  `ReactorTests` keeps the §22.13 vector *bytes* in the static and parses per
+  instance, and `DpopProofTests`'s `jti` counter is now per-instance — which is
+  the lifetime it always wanted, since the store it disambiguates is rebuilt in
+  `setUp`.
 
 ### Fixed
 

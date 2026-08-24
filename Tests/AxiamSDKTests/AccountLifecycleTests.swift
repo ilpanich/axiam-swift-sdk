@@ -301,8 +301,9 @@ final class AccountLifecycleTests: XCTestCase {
             "server_public_key": "c2VydmVyLXBr",
             "vendorSpecific": "must-survive",
         ]
+        let encoded = TestResponse.jsonBody(["opaque": opaque])
         try await withClient(router: { _, _ in
-            .json(200, ["opaque": opaque])
+            TestResponse(status: 200, body: encoded)
         }) { client, _ in
             let context = try await client.passwordResetContext(token: Sensitive(Self.resetToken))
 

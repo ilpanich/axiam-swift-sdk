@@ -60,19 +60,23 @@ final class RefreshProbeTransport: HTTPTransport, @unchecked Sendable {
         let path = spec.url.path
 
         if path.hasSuffix("/auth/login") {
-            lock.lock(); counts["login", default: 0] += 1; lock.unlock()
+            lock.locked { counts["login", default: 0] += 1 }
             return json(200, TestKit.loginSuccessBody(), cookie: "login")
         }
 
         if path.hasSuffix("/auth/refresh") {
-            lock.lock()
-            counts["refresh", default: 0] += 1
-            let generation = counts["refresh", default: 0]
-            let shouldPark = parkFirstRefresh && generation == 1 && !released
-            let waiter = startedWaiter
-            startedWaiter = nil
-            refreshStarted = true
-            lock.unlock()
+            // Snapshot everything this call needs, then leave the lock before resuming a
+            // continuation or suspending: the parking `await` below must never run under it.
+            let (generation, shouldPark, waiter) = lock.locked {
+                () -> (Int, Bool, CheckedContinuation<Void, Never>?) in
+                counts["refresh", default: 0] += 1
+                let generation = counts["refresh", default: 0]
+                let shouldPark = parkFirstRefresh && generation == 1 && !released
+                let waiter = startedWaiter
+                startedWaiter = nil
+                refreshStarted = true
+                return (generation, shouldPark, waiter)
+            }
             waiter?.resume()
 
             if shouldPark {
@@ -95,7 +99,7 @@ final class RefreshProbeTransport: HTTPTransport, @unchecked Sendable {
         }
 
         if path.contains("/authz/check") {
-            lock.lock(); counts["check", default: 0] += 1; lock.unlock()
+            lock.locked { counts["check", default: 0] += 1 }
             return json(200, ["allowed": true])
         }
 

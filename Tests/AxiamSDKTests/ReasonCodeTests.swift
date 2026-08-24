@@ -15,8 +15,9 @@ final class ReasonCodeTests: XCTestCase {
         returning body: [String: Any],
         _ assertions: (AccessResult) async throws -> Void
     ) async throws {
+        let encoded = TestResponse.jsonBody(body)
         try await withClient(router: { _, _ in
-            .json(200, body)
+            TestResponse(status: 200, body: encoded)
         }) { client, _ in
             try await assertions(try await client.checkAccess("read", resource: "res-1"))
         }

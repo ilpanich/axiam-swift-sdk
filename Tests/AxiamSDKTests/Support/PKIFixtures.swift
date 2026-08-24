@@ -12,12 +12,25 @@ enum TestBase64URL {
 
 /// Builds signed EdDSA JWTs and matching JWKS documents entirely in-process with swift-crypto,
 /// so JWKS/guard tests need no external PKI.
-struct TestSigner {
-    let privateKey: Curve25519.Signing.PrivateKey
+struct TestSigner: Sendable {
+    /// The Ed25519 seed, held as raw bytes rather than as a
+    /// `Curve25519.Signing.PrivateKey`.
+    ///
+    /// swift-crypto's key types are not `Sendable`, and a signer is captured by
+    /// the `@Sendable` router closures that nearly every JWKS/guard test builds.
+    /// Storing the seed — a `Data` value — makes `TestSigner` genuinely
+    /// `Sendable` rather than `@unchecked`, at the cost of rebuilding the key
+    /// object per signature, which is immaterial at test scale.
+    private let seed: Data
     let kid: String
 
+    private var privateKey: Curve25519.Signing.PrivateKey {
+        // Round-tripping a seed this type produced itself cannot fail.
+        try! Curve25519.Signing.PrivateKey(rawRepresentation: seed)
+    }
+
     init(kid: String = "test-key-1") {
-        self.privateKey = Curve25519.Signing.PrivateKey()
+        self.seed = Curve25519.Signing.PrivateKey().rawRepresentation
         self.kid = kid
     }
 

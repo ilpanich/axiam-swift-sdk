@@ -567,14 +567,14 @@ final class UmaTransport: HTTPTransport, @unchecked Sendable {
         var headerMap: [String: String] = [:]
         for (name, value) in spec.headers { headerMap[name.lowercased()] = value }
 
-        lock.lock()
-        records.append((
-            path: spec.url.absoluteString, method: spec.method.rawValue,
-            headers: headerMap, body: spec.body))
-        let rreg = rregResponse
-        let perm = permResponse
-        let token = tokenResponse
-        lock.unlock()
+        // Record the request and snapshot the scripted answers in one synchronous critical
+        // section; everything after it runs with no lock held.
+        let (rreg, perm, token) = lock.locked { () -> (Reply?, Reply?, Reply?) in
+            records.append((
+                path: spec.url.absoluteString, method: spec.method.rawValue,
+                headers: headerMap, body: spec.body))
+            return (rregResponse, permResponse, tokenResponse)
+        }
 
         let path = spec.url.path
         if path.hasSuffix("/.well-known/uma2-configuration") {

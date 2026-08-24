@@ -18,9 +18,16 @@ final class WebauthnTests: XCTestCase {
     private static let accessToken = "access-token-fixture-do-not-log"
     private static let refreshToken = "refresh-token-fixture-do-not-log"
 
+    // The three challenge fixtures below are computed rather than stored. A stored
+    // `static let` of type `[String: Any]` is nonisolated global state that Swift 6
+    // cannot prove safe — `Any` could be a reference type — and these are read from
+    // the `@Sendable` router closures each test builds. Rebuilding the literal per
+    // access removes the shared state entirely, which is a real fix rather than a
+    // `nonisolated(unsafe)` assertion that it is fine.
+
     /// Deliberately "unusual but valid": every optional field populated, so the
     /// pass-through assertion has something to catch an over-eager implementation dropping.
-    private static let creationChallenge: [String: Any] = [
+    private static var creationChallenge: [String: Any] {[
         "publicKey": [
             "challenge": "Y2hhbGxlbmdlLWJ5dGVz",
             "rp": ["id": "axiam.test", "name": "AXIAM Test"],
@@ -42,25 +49,25 @@ final class WebauthnTests: XCTestCase {
             "attestation": "direct",
             "extensions": ["credProps": true],
         ],
-    ]
+    ]}
 
-    private static let minimalCreationChallenge: [String: Any] = [
+    private static var minimalCreationChallenge: [String: Any] {[
         "publicKey": [
             "challenge": "bWluaW1hbA",
             "rp": ["name": "AXIAM Test"],
             "user": ["id": "dQ", "name": "bob", "displayName": "Bob"],
             "pubKeyCredParams": [["type": "public-key", "alg": -7]],
         ],
-    ]
+    ]}
 
-    private static let discoverableChallenge: [String: Any] = [
+    private static var discoverableChallenge: [String: Any] {[
         "publicKey": [
             "challenge": "ZGlzY292ZXJhYmxl",
             "rpId": "axiam.test",
             "allowCredentials": [String](),
             "userVerification": "required",
         ],
-    ]
+    ]}
 
     /// Carries an unknown key the SDK must forward rather than strip.
     private static let registrationResponse = """

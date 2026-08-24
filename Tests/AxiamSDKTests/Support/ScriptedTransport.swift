@@ -34,14 +34,15 @@ final class ScriptedTransport: HTTPTransport, @unchecked Sendable {
     }
 
     func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval) async throws -> HTTPResponseData {
-        lock.lock()
-        let index = min(requestCount, statuses.count - 1)
-        let status = statuses.isEmpty ? 200 : statuses[index]
-        requestCount += 1
-        paths.append(spec.url.path)
-        let currentBody = body
-        let hint = retryAfter
-        lock.unlock()
+        // One synchronous critical section producing a snapshot: nothing below this point
+        // reads mutable state, so no lock is held across the `throw`/return path.
+        let (status, currentBody, hint) = lock.locked { () -> (Int?, [String: Any], String?) in
+            let index = min(requestCount, statuses.count - 1)
+            let status = statuses.isEmpty ? 200 : statuses[index]
+            requestCount += 1
+            paths.append(spec.url.path)
+            return (status, body, retryAfter)
+        }
 
         guard let status else {
             throw AxiamError.network(NetworkError("connection refused"))
@@ -54,8 +55,7 @@ final class ScriptedTransport: HTTPTransport, @unchecked Sendable {
     }
 
     func shutdown() async throws {
-        lock.lock(); defer { lock.unlock() }
-        shutdownCount += 1
+        lock.locked { shutdownCount += 1 }
     }
 }
 

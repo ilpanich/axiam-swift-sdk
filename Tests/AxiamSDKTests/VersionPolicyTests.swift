@@ -128,19 +128,18 @@ final class VersionPolicyTests: XCTestCase {
         )
     }
 
-    /// Every SHIPPING target in the 6.0 manifest turns on Swift 6 language mode.
+    /// EVERY target in the 6.0 manifest turns on Swift 6 language mode — no exceptions.
     ///
-    /// Exactly one target is excluded, and only one: the test target. The library and
-    /// all the examples compile clean under Swift 6; the test harness does not, in 48
-    /// places that are all `NSLock` in async test doubles, `[String: Any]` fixtures
-    /// captured in `@Sendable` handler closures, and fixtures held as statics.
+    /// There used to be one: the test target sat at `.v5` while the library and the
+    /// fourteen examples were at `.v6`, because the suite did not compile under strict
+    /// concurrency in 48 places. Those are migrated, so the exception is gone and this
+    /// asserts the whole manifest rather than "all but one".
     ///
-    /// Pinning the count both ways matters. Too few settings and a shipping target has
-    /// silently dropped to Swift 5 mode on a Swift 6 toolchain — green, and testing
-    /// nothing it was added to test. Too many and someone has put the mode back on the
-    /// test target without doing the migration, which turns the whole leg red for
-    /// reasons unrelated to the SDK.
-    func testEveryShippingTargetUsesSwiftSixLanguageMode() throws {
+    /// Pinning the count matters in both directions. Too few settings and some target has
+    /// silently dropped to Swift 5 mode on a Swift 6 toolchain — green, and testing nothing
+    /// it was added to test. Too many is not possible with an equality check, which is the
+    /// point of writing it as one.
+    func testEveryTargetUsesSwiftSixLanguageMode() throws {
         let manifest = try read("Package@swift-6.0.swift")
 
         let targetCount = manifest.components(separatedBy: ".target(").count - 1
@@ -150,18 +149,28 @@ final class VersionPolicyTests: XCTestCase {
 
         XCTAssertGreaterThan(targetCount, 1, "the 6.0 manifest declares no targets")
         XCTAssertEqual(
-            settingsCount, targetCount - 1,
-            "\(targetCount) targets and \(settingsCount) language-mode settings — expected "
-                + "every target except the test one to carry it"
+            settingsCount, targetCount,
+            "\(targetCount) targets and \(settingsCount) language-mode settings — every "
+                + "target must carry `.swiftLanguageMode(.v6)`"
+        )
+        XCTAssertFalse(
+            manifest.contains(".swiftLanguageMode(.v5)"),
+            "a target has been pinned back to Swift 5 language mode. If the suite stopped "
+                + "compiling under Swift 6, fix the site rather than the mode — the whole "
+                + "package is migrated and dropping one target hides the regression"
         )
     }
 
-    /// The excluded target is the test target, and nothing else.
+    /// The two targets it would be easiest to get wrong — the library and the test
+    /// target — each carry the mode by name.
     ///
-    /// The count above would be equally satisfied by putting the mode on the test
-    /// target and dropping it from the library, which is the exact inversion of what
-    /// this package wants.
-    func testTheTargetWithoutSwiftSixModeIsTheTestTarget() throws {
+    /// The count above is satisfied by any arrangement that totals correctly, so it
+    /// would not notice the mode moving off the library and onto a second copy
+    /// somewhere else. These two are named explicitly: the library because it is what
+    /// consumers actually get, and the test target because it is the one that was
+    /// exempt and is the one a future migration failure would be tempted to exempt
+    /// again.
+    func testTheLibraryAndTestTargetsBothCarrySwiftSixMode() throws {
         let manifest = try read("Package@swift-6.0.swift")
 
         guard let testStart = manifest.range(of: ".testTarget("),
@@ -172,24 +181,12 @@ final class VersionPolicyTests: XCTestCase {
         }
 
         let testStanza = manifest[testStart.lowerBound..<nextTarget.lowerBound]
-        XCTAssertFalse(
-            testStanza.contains(".swiftLanguageMode(.v6)"),
-            "the test target carries the Swift 6 language mode, but the suite has not been "
-                + "migrated for it — expect ~48 strict-concurrency errors"
-        )
-
-        // Absence is NOT an opt-out, and this is the assertion that says so.
-        //
-        // Under swift-tools-version 6.0, Swift 6 is the DEFAULT language mode for every
-        // target. Simply omitting the setting leaves the target at that default, which
-        // is the opposite of what deleting it looks like it does. This cost a CI round
-        // to learn: the test target was still compiled in Swift 6 mode, and still
-        // failing, after its `.v6` setting had been removed.
         XCTAssertTrue(
-            testStanza.contains(".swiftLanguageMode(.v5)"),
-            "the test target does not explicitly declare Swift 5 language mode. Under "
-                + "tools-version 6.0 that means it gets Swift 6 by default, and the suite "
-                + "has not been migrated for it — opting out has to be explicit"
+            testStanza.contains(".swiftLanguageMode(.v6)"),
+            "the test target has lost the Swift 6 language mode. Note that DELETING the "
+                + "setting is not what reverting looks like: under tools-version 6.0, Swift 6 "
+                + "is the DEFAULT, so an absent setting still means `.v6`. Only an explicit "
+                + "`.v5` opts out, and this suite no longer needs one"
         )
 
         // The library target is the first `.target(` in the file, and it must have it.
@@ -251,9 +248,10 @@ final class VersionPolicyTests: XCTestCase {
     ///
     /// This is the assertion that catches a silent fallback, and it works because the two
     /// directives mean different things: `#if compiler(>=6.0)` tests the **toolchain**,
-    /// `#if swift(>=6.0)` tests the **language mode**. They deliberately disagree inside
-    /// this file — on the 6.3 leg the toolchain is 6.x while this test target is still
-    /// compiled in Swift 5 mode, so only the compiler check is true here.
+    /// `#if swift(>=6.0)` tests the **language mode**. They used to disagree inside this
+    /// file, back when this target was pinned to Swift 5 mode on a 6.x toolchain. Now that
+    /// the suite is migrated they agree here — which is itself asserted, by
+    /// ``testTheSuiteItselfIsCompiledInSwiftSixMode()`` below.
     ///
     /// ``SupportedVersions/isSwiftSixLanguageMode`` is evaluated in the *library*, which
     /// does get the mode. So reading it from here crosses the boundary and reports what
@@ -279,6 +277,28 @@ final class VersionPolicyTests: XCTestCase {
             SupportedVersions.minimumSwiftToolsVersion.split(separator: ".").first.map(String.init),
             "5",
             "running a Swift 5 toolchain but the declared floor is not 5.x"
+        )
+        #endif
+    }
+
+    /// On a Swift 6 toolchain, THIS TARGET really was compiled in Swift 6 language mode.
+    ///
+    /// The manifest assertions above read a file; this one reads the compiler. Reverting
+    /// the test target to `.v5` — or deleting the whole 6.0 manifest — leaves those string
+    /// checks passing or vacuous while the suite quietly drops back to Swift 5 semantics
+    /// and stops enforcing anything it was migrated to enforce. `#if swift(>=6.0)` is the
+    /// only thing that can tell the difference from in here.
+    func testTheSuiteItselfIsCompiledInSwiftSixMode() throws {
+        #if compiler(>=6.0)
+        var languageModeIsSix = false
+        #if swift(>=6.0)
+        languageModeIsSix = true
+        #endif
+        XCTAssertTrue(
+            languageModeIsSix,
+            "a Swift 6 toolchain is in use, but this test target was compiled in Swift 5 "
+                + "language mode — Package@swift-6.0.swift was not selected, or the test "
+                + "target has been pinned back to .v5"
         )
         #endif
     }
