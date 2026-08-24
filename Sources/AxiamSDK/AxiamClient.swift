@@ -78,7 +78,12 @@ public actor AxiamClient {
     /// config's TLS settings (§6/§6.1).
     ///
     /// - Throws: from ``AxiamConfig/makeTLSConfiguration()`` when PEM material is invalid.
-    public convenience init(config: AxiamConfig) throws {
+    ///
+    /// Not marked `convenience`: actors have no convenience initializers. Every actor
+    /// initializer is designated and may delegate with `self.init`, so the keyword was
+    /// never meaningful here — Swift 5 accepted it with a warning ("this is an error in
+    /// Swift 6") and Swift 6 rejects it outright. Removing it compiles under both.
+    public init(config: AxiamConfig) throws {
         let tls = try config.makeTLSConfiguration()
         self.init(config: config, transport: AsyncHTTPClientTransport(tls: tls))
     }

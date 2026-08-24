@@ -96,15 +96,15 @@ enum OpaqueLibrary {
     static func setForTests(_ stub: OpaqueNative?) {
         lock.lock()
         defer { lock.unlock() }
-        library = stub
-        attempted = true
+        memo.library = stub
+        memo.attempted = true
     }
 
     /// Forgets the memoized load. Test-only.
     static func resetForTests() {
         lock.lock()
         defer { lock.unlock() }
-        library = nil
-        attempted = false
+        memo.library = nil
+        memo.attempted = false
     }
 }
