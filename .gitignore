@@ -72,3 +72,6 @@ coverage.lcov
 *.profdata
 *.profraw
 .DS_Store
+
+# Python bytecode from Scripts/gen_management.py
+__pycache__/

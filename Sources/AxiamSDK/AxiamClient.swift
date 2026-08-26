@@ -979,6 +979,76 @@ extension AxiamClient {
     }
 }
 
+// MARK: - Internal seams for the §27 management surface
+//
+// §27.8 is explicit that the generated layer "MUST sit on the SDK's existing request path"
+// and "MUST NOT open its own connection, build its own client, or re-implement any of §3
+// (CSRF), §4 (cookie jar), §5 (tenant/org headers), §6 (TLS), §9 (single-flight refresh),
+// §16 (retry) or §19 (telemetry)". These three seams are how it reaches that path — the
+// same named-surface approach the §24/§25/§26 seams above take, rather than widening the
+// private members, so what the management layer can touch stays enumerable.
+
+extension AxiamClient {
+    /// One request on this client's own request path, with a query string.
+    ///
+    /// `rawSend` joins its path with `appendingPathComponent`, which percent-escapes a `?`
+    /// INTO the path; the management surface has 20 paginated routes and several filtered
+    /// ones, so it needs the `URLComponents` form. Everything else is `rawSend`'s: the §5
+    /// tenant header, the §4 cookie jar in both directions, and the §3 CSRF token on
+    /// state-changing methods.
+    func managementRawSend(
+        method: HTTPRequestMethod,
+        path: String,
+        query: [(String, String)],
+        body: Data?
+    ) async throws -> HTTPResponseData {
+        let base = config.baseURL.appendingPathComponent(path)
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            throw AxiamError.network(NetworkError("could not build a request URL for \(path)"))
+        }
+        if !query.isEmpty {
+            components.queryItems = query.map { URLQueryItem(name: $0.0, value: $0.1) }
+        }
+        guard let url = components.url else {
+            throw AxiamError.network(NetworkError("could not build a request URL for \(path)"))
+        }
+
+        var headers: [(String, String)] = [
+            ("X-Tenant-ID", config.tenantHeaderValue),
+            ("Accept", "application/json"),
+        ]
+        if body != nil {
+            headers.append(("Content-Type", "application/json"))
+        }
+        if let cookieHeader = cookieJar.cookieHeader(for: url) {
+            headers.append(("Cookie", cookieHeader))
+        }
+        if method.isStateChanging, let csrfToken {
+            headers.append(("X-CSRF-Token", csrfToken))
+        }
+
+        let spec = HTTPRequestSpec(method: method, url: url, headers: headers, body: body)
+        let response = try await transport.execute(spec, timeout: config.requestTimeout)
+
+        let setCookies = response.allHeaders("set-cookie")
+        if !setCookies.isEmpty {
+            cookieJar.store(setCookieLines: setCookies, requestURL: url)
+        }
+        if let csrf = response.firstHeader("x-csrf-token") {
+            csrfToken = csrf
+        }
+        return response
+    }
+
+    /// Whether this client holds a session — §27.4 rule 1's precondition, and the guard on
+    /// the §9 refresh-then-retry-once path.
+    func managementHasSession() -> Bool { hasSession }
+
+    /// The §9 single-flight refresh. Reached rather than reimplemented: a management layer
+    /// with its own refresh would put 146 endpoints outside this client's one guard.
+    func managementRefreshOnce() async throws { try await refreshOnce() }
+}
+
 // MARK: - Internal test seams
 
 extension AxiamClient {

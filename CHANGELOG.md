@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **CONTRACT.md §27 — the management API.** 146 operations across 24 namespaces, reached
+  through namespace handles that sit directly on the client (`client.serviceAccounts
+  .rotateSecret(saID:)`), which is the form §27.3's Swift row specifies. The same handles
+  are also reachable behind one accessor, `client.management` (§27.2 rule 4); the two are
+  equivalent, and the suite asserts it per namespace by comparing the method and path each
+  actually puts on the wire.
+
+  The models, the 24 handles and one call per operation are **generated** by
+  `Scripts/gen_management.py` from the vendored `management-registry.json` and
+  `openapi.json`; the output is committed, so `swift build` still needs no code-generation
+  step and no Python. A new `management-drift-check` CI job re-runs the generator with
+  `--check` and fails on drift — without that gate a re-vendor adding an operation would
+  leave the SDK shipping a surface that disagrees with the contract while every test still
+  passed, because the generated tests come from the same stale copy.
+
+  The generated layer sits on the **existing** request path (§27.8): every operation
+  inherits §3 CSRF, the §4 cookie jar, §5's tenant header, §6's TLS floor, §9's
+  single-flight refresh, §16's retry policy and §19's telemetry. The suite drives the stub
+  at the bottom of a real client, so an operation that opened its own request path fails
+  the tests rather than passing them.
+
+  Hand-written on top: `Page`/`PageRequest` (§27.4 rule 4 — `total` is the server's count
+  and is never derived from the page in hand; auto-paging stops on an empty page, not a
+  short one), `CallScope` with `inOrg(_:)` / `forTenant(_:)` returning a **new** handle
+  (§27.4 rule 3), and `ManagementJSON` for the schema properties the spec leaves free-form.
+
+  Three shape decisions worth naming, all forced by the language:
+
+  - **Explicit `Codable` rather than synthesis.** Every model carries hand-written
+    `CodingKeys`, `init(from:)` and `encode(to:)`. §27.4 rule 5 makes "absent, not null"
+    normative for a sparse update, and `encodeIfPresent` says that where relying on
+    synthesis says it only by convention.
+  - **`Sensitive<T>` stays un-`Codable`.** Six §27.5 fields are request-side and have to
+    reach the wire; rather than weaken the type for everything, the generated
+    `encode(to:)` calls `.expose()` on exactly those six, generated from the registry's
+    `sensitive_request_fields`.
+  - **Handles are `Sendable` structs over the client actor**, and the accessors are
+    `nonisolated`, so `try await client.roles.list()` needs the one `await` §27.3's Swift
+    row shows rather than two.
+
+- **§27.4 rule 7's error sub-types.** `AuthzError.managementFailure` (`.notFound` for 404,
+  `.conflict` for 409) and `NetworkError.isValidation` (400/422). Swift's §2 taxonomy is an
+  enum over three structs and a struct cannot be subclassed, so the sub-types are carried
+  as discriminators on the existing types — the same accommodation this SDK already makes
+  for `OAuthProtocolError` on `AuthError`. Both are additive: a `catch AxiamError.authz`
+  written before §27 existed still catches a 404 and a 409, which is the property rule 7 is
+  asking for. `ValidationError` is excluded from §16 retry, so a body the server has
+  already rejected is not sent three times.
+
+- **§27.6/§27.7 declarative manifests.** `client.manifest` gives a `ManifestApi` with
+  `plan`, `apply`, `validate` and `ordered`. `Manifest { … }` is §27.7's Swift row — a
+  `@resultBuilder` DSL — with the entity factories under `Declare` rather than as bare
+  `Role(…)` / `Resource(…)` functions, because those four names are all generated model
+  types in this module and a free function sharing a name with a type is a resolution
+  puzzle at every call site. The lowering is identical, which is what §27.7 requires.
+  Ordering is derived from kind and `dependsOn` and is stable across runs; nesting a
+  resource derives the parent link; omission is never deletion, and `ChangeAction` has no
+  `delete` case at all.
+
+- Three worked examples: `Examples/ManagementBasics`, `Examples/ManagementManifest`, and
+  `Examples/DeviceMtlsProvisioning` — the last provisioning an IoT device end to end
+  (service account, device certificate from the tenant signing CA, certificate binding,
+  mTLS trust anchor) and then configuring a second client with that certificate so the
+  device authorizes as itself over §6.1 mTLS.
+
+
 ## [1.0.0-alpha44] - 2026-08-25
 
 ### Changed

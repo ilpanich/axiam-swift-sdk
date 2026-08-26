@@ -53,6 +53,36 @@ jobs:
       - name: Test (with coverage)
         run: swift test --enable-code-coverage
 
+  management-drift-check:
+    name: §27 management surface drift-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The §27 surface — 114 model structs, 22 enums, 24 namespace handles over 146
+      # operations and a generated conformance suite, ~17k lines — is produced by
+      # Scripts/gen_management.py from the VENDORED management-registry.json and
+      # openapi.json, and the output is committed so `swift build` needs no code-generation
+      # step and no Python.
+      #
+      # Committed generated code is only trustworthy if something checks it is current.
+      # The registry is maintained in ilpanich/axiam and re-vendored here; without this gate
+      # a re-vendor that adds an operation would leave the SDK shipping a surface that
+      # disagrees with the contract it claims to implement — and every test would still
+      # pass, because the generated tests come from the same stale copy. §27.8 requires
+      # exactly this check.
+      #
+      # Deliberately installs nothing: the generator imports only the standard library, and
+      # the runner ships a python3 new enough to run it. Adding setup-python here would make
+      # a contract gate depend on an action's availability for no gain.
+      #
+      # Runs OUTSIDE the swift container, unlike build-test: the swift:jammy images are
+      # minimal and this needs a python3, not a swiftc.
+      - name: Verify the committed §27 surface matches the vendored contract
+        run: |
+          python3 --version
+          python3 Scripts/gen_management.py --check
+
   tls-bypass-gate:
     name: TLS-bypass lint gate (§6)
     runs-on: ubuntu-latest

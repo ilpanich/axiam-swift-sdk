@@ -123,6 +123,26 @@ let package = Package(
             dependencies: ["AxiamSDK"],
             path: "Examples/VersionCompatibility"
         ),
+        // CONTRACT.md §27: the management API. ManagementBasics covers the imperative
+        // surface and the §27.4 rules that are easy to get wrong; ManagementManifest covers
+        // the §27.6/§27.7 declarative layer built with the @resultBuilder DSL;
+        // DeviceMtlsProvisioning is the flow the certificate namespaces exist for —
+        // provision an IoT device end to end, then let it authenticate over §6.1 mTLS.
+        .executableTarget(
+            name: "ManagementBasicsExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/ManagementBasics"
+        ),
+        .executableTarget(
+            name: "ManagementManifestExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/ManagementManifest"
+        ),
+        .executableTarget(
+            name: "DeviceMtlsProvisioningExample",
+            dependencies: ["AxiamSDK"],
+            path: "Examples/DeviceMtlsProvisioning"
+        ),
         .executableTarget(
             name: "TelemetryHookExample",
             dependencies: ["AxiamSDK"],
