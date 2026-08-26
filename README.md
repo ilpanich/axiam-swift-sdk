@@ -13,8 +13,8 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
 > **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23,
-> §24, §25 and §26 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, and
-> the §23 OPAQUE login path — which needs `libaxiam_opaque_ffi` installed, see below).**
+> §24, §25, §26 and §27 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes,
+> and the §23 OPAQUE login path — which needs `libaxiam_opaque_ffi` installed, see below).**
 >
 > §22 is §22.1–§22.8 and §22.14 over a **caller-supplied transport**: this SDK vendors no AMQP
 > client, and you conform `ReactorTransport` over whichever one you already trust (§22.11).
@@ -53,6 +53,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §24 WebAuthn / passkeys | ✅ implemented (contract 1.28) — the six relying-party operations and §24.6a's JSON bridge on **every** target, plus §24.6b's linked-API ceremony helpers on iOS 16+ and macOS 13+. The Linux build keeps the RP layer and the bridge; `webauthnCeremonySupported` answers `false` there rather than throwing |
 | §25 account lifecycle & MFA enrolment | ✅ implemented (contract 1.28) — voluntary and forced TOTP enrolment, email verification, and the password-reset triple |
 | §26 Pushed Authorization Requests (RFC 9126) | ✅ implemented (contract 1.28) — required for a FAPI 2.0 client, which cannot authorize any other way (§21.1) |
+| §27 management API | ✅ implemented — 146 operations across 24 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL |
 | §20 UMA 2.0 Protection API + ticket grant | ✅ implemented, and it landed *before* §12 rather than waiting for it: UMA carries its own discovery document (`/.well-known/uma2-configuration`), the Protection API is ordinary bearer-authenticated REST, and the ticket grant returns an opaque RPT with no `id_token` to validate. That §20 could ship alone is part of what showed the §12 deferral was cutting across the wrong seam — see contract §12.6 |
 
 ## Installation
@@ -1231,6 +1232,168 @@ runs the committed **§22.13 reference vectors** in both directions, generated b
 the server's own sign path and vendored at
 `Tests/AxiamSDKTests/Support/reactor_v2_reference_vectors.json`. Worked example,
 including a transport skeleton: [`Examples/Reactor`](Examples/Reactor/main.swift).
+
+## Management API (§27)
+
+146 operations across 24 namespaces, reached through namespace handles that sit directly on
+the client — the form §27.3's Swift row specifies (property, camelCase, `async`):
+
+```swift
+let page = try await client.roles.list()
+print("\(page.count) on this page, \(page.total) in the tenant")
+
+let role = try await client.roles.create(body: CreateRoleRequest(
+    description: "Read and write documents", isGlobal: false, name: "editor"))
+
+let secret = try await client.serviceAccounts.rotateSecret(saID: account.id)
+```
+
+The same 24 handles are also reachable behind one accessor (§27.2 rule 4), which reads better
+where a call site is already dense with §1 operations:
+
+```swift
+let same = try await client.management.roles.list()
+```
+
+The two forms are **equivalent** — rule 4 requires it, the direct accessors and the aggregate
+build the same handle from the same initializer, and the suite asserts it by comparing the
+method and path each actually puts on the wire.
+
+Everything below the handles is **generated** by
+[`Scripts/gen_management.py`](Scripts/gen_management.py) from the vendored
+`management-registry.json` and `openapi.json`, and the output is committed, so `swift build`
+needs no code-generation step and no Python. CI re-runs the generator with `--check` and fails
+on any drift — which is what makes committed generated code trustworthy rather than merely
+convenient.
+
+**It sits on the SDK's existing request path** (§27.8), not beside it. Every operation
+inherits §3 CSRF, the §4 cookie jar, §5's tenant header, §6's TLS floor, §9's single-flight
+refresh, §16's retry policy and §19's telemetry by construction. The suite drives the stub at
+the bottom of a *real* client, so an operation that opened its own request path would reach
+nothing and fail the tests rather than passing them.
+
+### The four rules worth knowing before you write against it
+
+**Paging does not lie (§27.4 rule 4).** `Page.total` is the server's count across every page;
+`Page.count` is how many are in your hand. They are separate properties and neither is derived
+from the other, because deriving one from the other is how a management tool silently reports
+the first fifty of four hundred rows. Auto-paging stops on an **empty** page, never a short one
+— a server may return fewer rows than asked for and still have more:
+
+```swift
+var request = PageRequest()
+while true {
+    let batch = try await client.roles.list(page: request)
+    if batch.isEmpty { break }        // NOT `batch.count < request.limit`
+    process(batch.items)
+    request = batch.nextRequest
+}
+```
+
+A bare JSON array response is not a page and is never modelled as one; those operations return
+an `Array`.
+
+**Re-scoping returns a new handle (§27.4 rule 3).** `inOrg(_:)` and `forTenant(_:)` hand back a
+fresh handle rather than repointing the one you called them on. On a read surface that mistake
+reads the wrong tenant; on this one it *writes* to it.
+
+**Sparse means absent, not null (§27.4 rule 5).** An update model's optional properties are
+omitted from the body when unset, so a field you did not touch keeps whatever the server holds.
+Replacement models require every field — `CreateRoleRequest` has no defaults at all — so the two
+cannot be confused by accident.
+
+**The error map is not where you would guess (§27.4 rule 7).** Swift's §2 taxonomy is an enum
+over three *structs*, and a struct cannot be subclassed, so the sub-types rule 7 names are
+carried as a discriminator on the existing struct — the same accommodation this SDK already
+makes for `OAuthProtocolError` on `AuthError`:
+
+| Status | Case | Discriminator | Why there |
+|--------|------|---------------|-----------|
+| 404 | `.authz` | `managementFailure == .notFound` | AXIAM answers 404 for an object in another tenant *precisely so* a probing caller cannot tell "does not exist" from "exists, not yours". Classifying it as an authorization outcome keeps the SDK from re-drawing a line the server deliberately refused to draw. |
+| 409 | `.authz` | `managementFailure == .conflict` | §2 already mapped 409 there; rule 7 keeps that mapping rather than moving it. |
+| 400, 422 | `.network` | `isValidation == true` | Inherited from §2's own 400 row. §16 retries network failures, so this one is explicitly excluded from retry — a body the server has already rejected does not get sent three times. |
+
+The property rule 7 is actually asking for survives the rendering: a `catch AxiamError.authz`
+written before §27 existed still catches a 404 and a 409.
+
+### One-time secrets (§27.5)
+
+`ServiceAccountCreatedResponse.clientSecret`, `RotateSecretResponse`,
+`GeneratedCertificate.privateKeyPEM` and eleven others are `Sensitive<T>`. They render as
+`[SENSITIVE]` in every stringification sink and still reach the wire. Getting the bytes out is
+deliberate and narrow — `.expose()`, at the one point of use.
+
+`Sensitive` is deliberately **not** `Codable`, so that serializing a value can never emit the
+secret it protects. Six §27.5 fields are request-side and have to send one anyway; rather than
+weaken the type for everything, the generated `encode(to:)` calls `.expose()` on exactly those
+six, at exactly the point the contract puts the secret on the wire. Every such call site comes
+from the registry's `sensitive_request_fields`, so the set is a property of the surface rather
+than a list somebody maintains.
+
+The server returns these once and stores nothing, so if you do not persist one when it goes
+past, nobody can recover it — and the corresponding `get` returns the non-secret projection
+with no indication that anything is missing.
+
+### Declarative manifests (§27.6/§27.7)
+
+The imperative surface is fine for one change and a poor way to describe a *tenant*. A manifest
+is re-runnable by construction:
+
+```swift
+let manifest = Manifest {
+    Declare.resource("root", name: "documents", type: "folder") {
+        Declare.resource("drafts", name: "drafts", type: "folder")
+    }
+    Declare.permission("read", name: "documents:read", action: "documents:read")
+    Declare.role("editor", description: "Edits documents", dependsOn: "read")
+    Declare.group("editors", description: "The editors", dependsOn: "editor")
+}
+
+let plan = try await client.manifest.plan(manifest)   // reads only; safe against production
+if !plan.isConverged {
+    let report = try await client.manifest.apply(manifest)
+    report.describe.forEach { print($0) }
+}
+```
+
+That is §27.7's Swift row — a `@resultBuilder` DSL — with one deliberate divergence from the
+shape its example sketches. The factories live under `Declare` rather than being bare
+`Role(…)` / `Resource(…)` functions because `Role`, `Permission`, `Resource` and `Group` are all
+names of **generated model types** in this module, and a free function sharing a name with a
+type is a resolution puzzle at every call site rather than a DSL. The namespace costs seven
+characters and the lowering is identical, which is what §27.7 actually requires: whatever the
+surface syntax, it lowers to the same `Manifest` value and goes through the same `plan`/`apply`.
+The builder supports `if` and `for` like any other result builder.
+
+Four properties, all load-bearing:
+
+- **`plan` writes nothing.** Safe in CI, safe on a schedule, safe against a live tenant.
+- **`apply` stops at the first failure and does not roll back.** The `ApplyReport` names what
+  landed, what failed and what was never attempted, so a partial apply is a state you resume
+  from. An automatic rollback would fire a second wave of writes at the moment the server is
+  telling you something is wrong.
+- **Ordering is derived, not declared** — by kind, then dependency, then key. The final
+  tie-break on key is what makes a plan stable across runs, and therefore readable as a diff.
+  Nesting a resource inside another derives the parent link, which is the one thing nesting is
+  for here.
+- **Omission is never deletion.** `ChangeAction` has no `delete` case at all, so an incomplete
+  manifest cannot become a destructive one.
+
+Incoherence is refused *before the first request*: a duplicate key, a `dependsOn` naming
+nothing, or a dependency cycle throws `ManifestError` from `validate(_:)`, which `plan` calls
+itself. Discovering that halfway through, with no rollback, is strictly worse.
+
+### Worked examples
+
+- [`Examples/ManagementBasics`](Examples/ManagementBasics/main.swift) — paging, per-call scope,
+  a sparse update, and the three error sub-types.
+- [`Examples/ManagementManifest`](Examples/ManagementManifest/main.swift) — plan and apply over
+  a manifest built with the DSL.
+- [`Examples/DeviceMtlsProvisioning`](Examples/DeviceMtlsProvisioning/main.swift) — the flow the
+  certificate namespaces exist for, end to end: create a service account, issue a device
+  certificate from the tenant signing CA, bind it, mark the CA an mTLS trust anchor, then
+  configure a second client with that certificate and let the device authorize as itself over
+  §6.1 mTLS. This is the one place a §27.5 one-time secret has to be caught as it goes past.
 
 ## Development
 
