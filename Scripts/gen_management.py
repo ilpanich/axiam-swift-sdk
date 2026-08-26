@@ -1277,7 +1277,39 @@ def emit_tests() -> str:
         out.append("    }")
         out.append("")
 
-    # ---- Pass 3: every enum maps both ways ----
+    # ---- Pass 3: every memberwise initializer assigns what it was given ----
+    inits = 0
+    for name, rendered, fields in modelled():
+        example = example_for(name)
+        if not isinstance(example, dict) or not example or not fields:
+            continue
+        inits += 1
+        out.append(f"    func test{rendered}MemberwiseInitializerAssignsEveryProperty() throws {{")
+        out.append(f"        let json = {swift_string(json.dumps(example, sort_keys=True))}")
+        out.append(f"        let decoded = try JSONDecoder().decode({rendered}.self, "
+                   "from: Data(json.utf8))")
+        out.append("")
+        out.extend(comment(
+            "Every property handed straight back through the memberwise initializer. Two "
+            "same-typed properties assigned to each other's stored property is a defect a "
+            "decode-only test cannot see -- the JSON round trip above would pass, because "
+            "it never constructs one by hand.", "        "))
+        out.append(f"        let rebuilt = {rendered}(")
+        args = [f"{f['name']}: decoded.{f['name']}" for f in fields]
+        for i, arg in enumerate(args):
+            out.append(f"            {arg}" + ("," if i < len(args) - 1 else ")"))
+        out.append("")
+        out.append("        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(")
+        out.append("            with: try JSONEncoder().encode(decoded)) as? [String: Any])")
+        out.append("        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(")
+        out.append("            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])")
+        out.append("        XCTAssertEqual(")
+        out.append("            NSDictionary(dictionary: fromRebuilt),")
+        out.append("            NSDictionary(dictionary: fromDecoded))")
+        out.append("    }")
+        out.append("")
+
+    # ---- Pass 4: every enum maps both ways ----
     enums = 0
     for name in schema_closure():
         rendered = pascal(name)
@@ -1308,7 +1340,8 @@ def emit_tests() -> str:
         out.append("")
 
     out.extend(comment(
-        f"§27.9: this file covers {ops} operations, {models} models and {enums} enums.\n\n"
+        f"§27.9: this file covers {ops} operations, {models} models ({inits} of them also "
+        f"through their memberwise initializer) and {enums} enums.\n\n"
         "The counts above are literals THIS generator wrote, so comparing them to each "
         "other would be a tautology a bad regeneration still satisfies. They are compared "
         "against the vendored registry instead, read at run time: if the registry gains an "

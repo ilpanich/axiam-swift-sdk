@@ -4707,6 +4707,2844 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
+    func testAddMemberRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(AddMemberRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = AddMemberRequest(
+            userID: decoded.userID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testApiProviderConfigMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"api_url\": \"example\"}"
+        let decoded = try JSONDecoder().decode(ApiProviderConfig.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ApiProviderConfig(
+            apiURL: decoded.apiURL)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testAssignRoleToGroupRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(AssignRoleToGroupRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = AssignRoleToGroupRequest(
+            groupID: decoded.groupID,
+            resourceID: decoded.resourceID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testAssignRoleToUserRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(AssignRoleToUserRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = AssignRoleToUserRequest(
+            resourceID: decoded.resourceID,
+            userID: decoded.userID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testAuditLogEntryMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(AuditLogEntry.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = AuditLogEntry(
+            action: decoded.action,
+            actorID: decoded.actorID,
+            actorType: decoded.actorType,
+            id: decoded.id,
+            ipAddress: decoded.ipAddress,
+            metadata: decoded.metadata,
+            outcome: decoded.outcome,
+            resourceID: decoded.resourceID,
+            tenantID: decoded.tenantID,
+            timestamp: decoded.timestamp)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testBindCertificateMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"certificate_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(BindCertificate.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = BindCertificate(
+            certificateID: decoded.certificateID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCaCertificateMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"key_custody\": \"example\", \"key_locator\": \"example\", \"mtls_trust_anchor\": true, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(CaCertificate.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CaCertificate(
+            chainPEM: decoded.chainPEM,
+            createdAt: decoded.createdAt,
+            fingerprint: decoded.fingerprint,
+            id: decoded.id,
+            keyAlgorithm: decoded.keyAlgorithm,
+            keyCustody: decoded.keyCustody,
+            keyLocator: decoded.keyLocator,
+            mtlsTrustAnchor: decoded.mtlsTrustAnchor,
+            notAfter: decoded.notAfter,
+            notBefore: decoded.notBefore,
+            organizationID: decoded.organizationID,
+            parentCAID: decoded.parentCAID,
+            publicCertPEM: decoded.publicCertPEM,
+            status: decoded.status,
+            subject: decoded.subject,
+            tenantID: decoded.tenantID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCertificateMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(Certificate.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = Certificate(
+            certType: decoded.certType,
+            createdAt: decoded.createdAt,
+            fingerprint: decoded.fingerprint,
+            id: decoded.id,
+            issuerCAID: decoded.issuerCAID,
+            keyAlgorithm: decoded.keyAlgorithm,
+            metadata: decoded.metadata,
+            notAfter: decoded.notAfter,
+            notBefore: decoded.notBefore,
+            publicCertPEM: decoded.publicCertPEM,
+            status: decoded.status,
+            subject: decoded.subject,
+            tenantID: decoded.tenantID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCertificatePolicyMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}"
+        let decoded = try JSONDecoder().decode(CertificatePolicy.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CertificatePolicy(
+            defaultCertValidityDays: decoded.defaultCertValidityDays,
+            maxCertValidityDays: decoded.maxCertValidityDays)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testComplianceReportEntryMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"aaguid\": \"11111111-1111-4111-8111-111111111111\", \"authenticator_name\": \"example\", \"compliant\": true, \"credential_id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"reason\": \"example\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(ComplianceReportEntry.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ComplianceReportEntry(
+            aaguid: decoded.aaguid,
+            authenticatorName: decoded.authenticatorName,
+            compliant: decoded.compliant,
+            credentialID: decoded.credentialID,
+            name: decoded.name,
+            reason: decoded.reason,
+            userID: decoded.userID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateCaCertificateRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"intermediate_subject\": \"example\", \"intermediate_validity_days\": 1, \"issue_from_root\": true, \"key_algorithm\": \"Rsa4096\", \"subject\": \"example\", \"validity_days\": 1}"
+        let decoded = try JSONDecoder().decode(CreateCaCertificateRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateCaCertificateRequest(
+            intermediateSubject: decoded.intermediateSubject,
+            intermediateValidityDays: decoded.intermediateValidityDays,
+            issueFromRoot: decoded.issueFromRoot,
+            keyAlgorithm: decoded.keyAlgorithm,
+            subject: decoded.subject,
+            validityDays: decoded.validityDays)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateCertificateRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"validity_days\": 1}"
+        let decoded = try JSONDecoder().decode(CreateCertificateRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateCertificateRequest(
+            certType: decoded.certType,
+            issuerCAID: decoded.issuerCAID,
+            keyAlgorithm: decoded.keyAlgorithm,
+            metadata: decoded.metadata,
+            subject: decoded.subject,
+            validityDays: decoded.validityDays)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateFederationConfigRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"allowed_algorithms\": [\"example\"], \"attribute_map\": {}, \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}}"
+        let decoded = try JSONDecoder().decode(CreateFederationConfigRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateFederationConfigRequest(
+            allowedAlgorithms: decoded.allowedAlgorithms,
+            attributeMap: decoded.attributeMap,
+            clientID: decoded.clientID,
+            clientSecret: decoded.clientSecret,
+            idpSigningCertPEM: decoded.idpSigningCertPEM,
+            metadataURL: decoded.metadataURL,
+            `protocol`: decoded.`protocol`,
+            provider: decoded.provider,
+            tokenExchange: decoded.tokenExchange)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateGroupRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"description\": \"example\", \"metadata\": {}, \"name\": \"example\"}"
+        let decoded = try JSONDecoder().decode(CreateGroupRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateGroupRequest(
+            description: decoded.description,
+            metadata: decoded.metadata,
+            name: decoded.name)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateIntermediateCaRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"key_algorithm\": \"Rsa4096\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"subject\": \"example\", \"validity_days\": 1}"
+        let decoded = try JSONDecoder().decode(CreateIntermediateCaRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateIntermediateCaRequest(
+            keyAlgorithm: decoded.keyAlgorithm,
+            parentCAID: decoded.parentCAID,
+            subject: decoded.subject,
+            validityDays: decoded.validityDays)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateNotificationRuleRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"description\": \"example\", \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"]}"
+        let decoded = try JSONDecoder().decode(CreateNotificationRuleRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateNotificationRuleRequest(
+            description: decoded.description,
+            events: decoded.events,
+            name: decoded.name,
+            recipientEmails: decoded.recipientEmails)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateOAuth2ClientRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"backchannel_logout_uri\": \"example\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}"
+        let decoded = try JSONDecoder().decode(CreateOAuth2ClientRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateOAuth2ClientRequest(
+            backchannelLogoutURI: decoded.backchannelLogoutURI,
+            dpopBoundAccessTokens: decoded.dpopBoundAccessTokens,
+            dpopRequireNonce: decoded.dpopRequireNonce,
+            grantTypes: decoded.grantTypes,
+            jwks: decoded.jwks,
+            jwksURI: decoded.jwksURI,
+            name: decoded.name,
+            postLogoutRedirectUris: decoded.postLogoutRedirectUris,
+            profile: decoded.profile,
+            redirectUris: decoded.redirectUris,
+            requirePar: decoded.requirePar,
+            scopes: decoded.scopes,
+            selfSignedTLSClientAuthThumbprints: decoded.selfSignedTLSClientAuthThumbprints,
+            tlsClientAuthSanDNS: decoded.tlsClientAuthSanDNS,
+            tlsClientAuthSanURI: decoded.tlsClientAuthSanURI,
+            tlsClientAuthSubjectDn: decoded.tlsClientAuthSubjectDn,
+            tlsClientCertificateBoundAccessTokens: decoded.tlsClientCertificateBoundAccessTokens,
+            tokenEndpointAuthMethod: decoded.tokenEndpointAuthMethod)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreatePermissionRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"action\": \"example\", \"description\": \"example\"}"
+        let decoded = try JSONDecoder().decode(CreatePermissionRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreatePermissionRequest(
+            action: decoded.action,
+            description: decoded.description)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreatePgpKeyRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"algorithm\": \"Rsa4096\", \"email\": \"example\", \"name\": \"example\", \"purpose\": \"AuditSigning\"}"
+        let decoded = try JSONDecoder().decode(CreatePgpKeyRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreatePgpKeyRequest(
+            algorithm: decoded.algorithm,
+            email: decoded.email,
+            name: decoded.name,
+            purpose: decoded.purpose)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateReactorRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"description\": \"example\", \"enabled\": true, \"events\": [\"example\"], \"failure_policy\": \"fail_closed\", \"mode\": \"intercept\", \"name\": \"example\", \"priority\": 1, \"timeout_ms\": 1}"
+        let decoded = try JSONDecoder().decode(CreateReactorRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateReactorRequest(
+            description: decoded.description,
+            enabled: decoded.enabled,
+            events: decoded.events,
+            failurePolicy: decoded.failurePolicy,
+            mode: decoded.mode,
+            name: decoded.name,
+            priority: decoded.priority,
+            timeoutMs: decoded.timeoutMs)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateResourceRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"metadata\": {}, \"name\": \"example\", \"parent_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_type\": \"example\"}"
+        let decoded = try JSONDecoder().decode(CreateResourceRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateResourceRequest(
+            metadata: decoded.metadata,
+            name: decoded.name,
+            parentID: decoded.parentID,
+            resourceType: decoded.resourceType)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateRoleRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"description\": \"example\", \"is_global\": true, \"name\": \"example\"}"
+        let decoded = try JSONDecoder().decode(CreateRoleRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateRoleRequest(
+            description: decoded.description,
+            isGlobal: decoded.isGlobal,
+            name: decoded.name)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateScimTokenRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"expires_in_days\": 1, \"name\": \"example\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(CreateScimTokenRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateScimTokenRequest(
+            expiresInDays: decoded.expiresInDays,
+            name: decoded.name,
+            userID: decoded.userID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateScimTokenResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"expires_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_used_at\": \"2026-08-26T00:00:00Z\", \"name\": \"example\", \"provisioning_token\": \"example\", \"revoked_at\": \"2026-08-26T00:00:00Z\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(CreateScimTokenResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateScimTokenResponse(
+            createdAt: decoded.createdAt,
+            createdBy: decoded.createdBy,
+            expiresAt: decoded.expiresAt,
+            id: decoded.id,
+            lastUsedAt: decoded.lastUsedAt,
+            name: decoded.name,
+            revokedAt: decoded.revokedAt,
+            status: decoded.status,
+            tenantID: decoded.tenantID,
+            userID: decoded.userID,
+            provisioningToken: decoded.provisioningToken)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateScopeRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"description\": \"example\", \"name\": \"example\"}"
+        let decoded = try JSONDecoder().decode(CreateScopeRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateScopeRequest(
+            description: decoded.description,
+            name: decoded.name)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateServiceAccountRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"description\": \"example\", \"name\": \"example\"}"
+        let decoded = try JSONDecoder().decode(CreateServiceAccountRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateServiceAccountRequest(
+            description: decoded.description,
+            name: decoded.name)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateTenantRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"metadata\": {}, \"name\": \"example\", \"slug\": \"example\"}"
+        let decoded = try JSONDecoder().decode(CreateTenantRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateTenantRequest(
+            metadata: decoded.metadata,
+            name: decoded.name,
+            slug: decoded.slug)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateUserRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"email\": \"example\", \"metadata\": {}, \"opaque\": {\"opaque_session\": \"example\", \"registration_record\": \"example\"}, \"password\": \"example\", \"username\": \"example\"}"
+        let decoded = try JSONDecoder().decode(CreateUserRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateUserRequest(
+            email: decoded.email,
+            metadata: decoded.metadata,
+            opaque: decoded.opaque,
+            password: decoded.password,
+            username: decoded.username)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateWebhookRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"events\": [\"example\"], \"retry_policy\": {\"backoff_multiplier\": 1.5, \"initial_delay_secs\": 1, \"max_retries\": 1}, \"secret\": \"example\", \"url\": \"example\"}"
+        let decoded = try JSONDecoder().decode(CreateWebhookRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateWebhookRequest(
+            events: decoded.events,
+            retryPolicy: decoded.retryPolicy,
+            secret: decoded.secret,
+            url: decoded.url)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testEmailConfigMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"from_email\": \"example\", \"from_name\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"provider\": {\"host\": \"example\", \"kind\": \"smtp\", \"port\": 1, \"starttls\": true, \"username\": \"example\"}, \"reply_to\": \"example\", \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(EmailConfig.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = EmailConfig(
+            createdAt: decoded.createdAt,
+            enabled: decoded.enabled,
+            fromEmail: decoded.fromEmail,
+            fromName: decoded.fromName,
+            id: decoded.id,
+            provider: decoded.provider,
+            replyTo: decoded.replyTo,
+            scope: decoded.scope,
+            scopeID: decoded.scopeID,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testEmailConfigOverrideMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"enabled\": true, \"from_email\": \"example\", \"from_name\": \"example\", \"provider\": {\"host\": \"example\", \"kind\": \"smtp\", \"port\": 1, \"starttls\": true, \"username\": \"example\"}, \"reply_to\": \"example\"}"
+        let decoded = try JSONDecoder().decode(EmailConfigOverride.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = EmailConfigOverride(
+            enabled: decoded.enabled,
+            fromEmail: decoded.fromEmail,
+            fromName: decoded.fromName,
+            provider: decoded.provider,
+            replyTo: decoded.replyTo)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testEmailTestResultMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"message_id\": \"example\", \"provider\": \"example\", \"to\": \"example\"}"
+        let decoded = try JSONDecoder().decode(EmailTestResult.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = EmailTestResult(
+            messageID: decoded.messageID,
+            provider: decoded.provider,
+            to: decoded.to)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testEmailVerificationPolicyMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}"
+        let decoded = try JSONDecoder().decode(EmailVerificationPolicy.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = EmailVerificationPolicy(
+            emailVerificationGracePeriodHours: decoded.emailVerificationGracePeriodHours,
+            emailVerificationRequired: decoded.emailVerificationRequired)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testEncryptRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"data_base64\": \"example\"}"
+        let decoded = try JSONDecoder().decode(EncryptRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = EncryptRequest(
+            dataBase64: decoded.dataBase64)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testEncryptedExportMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"ciphertext_armored\": \"example\", \"recipient_key_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(EncryptedExport.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = EncryptedExport(
+            ciphertextArmored: decoded.ciphertextArmored,
+            recipientKeyID: decoded.recipientKeyID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testFederationConfigResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"attribute_map\": {}, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(FederationConfigResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = FederationConfigResponse(
+            attributeMap: decoded.attributeMap,
+            clientID: decoded.clientID,
+            createdAt: decoded.createdAt,
+            enabled: decoded.enabled,
+            id: decoded.id,
+            metadataURL: decoded.metadataURL,
+            `protocol`: decoded.`protocol`,
+            provider: decoded.provider,
+            tenantID: decoded.tenantID,
+            tokenExchange: decoded.tokenExchange,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testFederationLinkResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"external_email\": \"example\", \"external_subject\": \"example\", \"federation_config_id\": \"11111111-1111-4111-8111-111111111111\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(FederationLinkResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = FederationLinkResponse(
+            createdAt: decoded.createdAt,
+            externalEmail: decoded.externalEmail,
+            externalSubject: decoded.externalSubject,
+            federationConfigID: decoded.federationConfigID,
+            id: decoded.id,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt,
+            userID: decoded.userID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testGeneratedCaCertificateMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"key_custody\": \"example\", \"key_locator\": \"example\", \"mtls_trust_anchor\": true, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"private_key_pem\": \"example\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(GeneratedCaCertificate.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = GeneratedCaCertificate(
+            chainPEM: decoded.chainPEM,
+            createdAt: decoded.createdAt,
+            fingerprint: decoded.fingerprint,
+            id: decoded.id,
+            keyAlgorithm: decoded.keyAlgorithm,
+            keyCustody: decoded.keyCustody,
+            keyLocator: decoded.keyLocator,
+            mtlsTrustAnchor: decoded.mtlsTrustAnchor,
+            notAfter: decoded.notAfter,
+            notBefore: decoded.notBefore,
+            organizationID: decoded.organizationID,
+            parentCAID: decoded.parentCAID,
+            publicCertPEM: decoded.publicCertPEM,
+            status: decoded.status,
+            subject: decoded.subject,
+            tenantID: decoded.tenantID,
+            privateKeyPEM: decoded.privateKeyPEM)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testGeneratedCertificateMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"cert_type\": \"User\", \"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"private_key_pem\": \"example\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(GeneratedCertificate.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = GeneratedCertificate(
+            certType: decoded.certType,
+            createdAt: decoded.createdAt,
+            fingerprint: decoded.fingerprint,
+            id: decoded.id,
+            issuerCAID: decoded.issuerCAID,
+            keyAlgorithm: decoded.keyAlgorithm,
+            metadata: decoded.metadata,
+            notAfter: decoded.notAfter,
+            notBefore: decoded.notBefore,
+            publicCertPEM: decoded.publicCertPEM,
+            status: decoded.status,
+            subject: decoded.subject,
+            tenantID: decoded.tenantID,
+            chainPEM: decoded.chainPEM,
+            privateKeyPEM: decoded.privateKeyPEM)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testGeneratedPgpKeyMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"algorithm\": \"Rsa4096\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"private_key_armored\": \"example\", \"public_key_armored\": \"example\", \"purpose\": \"AuditSigning\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(GeneratedPgpKey.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = GeneratedPgpKey(
+            algorithm: decoded.algorithm,
+            createdAt: decoded.createdAt,
+            fingerprint: decoded.fingerprint,
+            id: decoded.id,
+            name: decoded.name,
+            publicKeyArmored: decoded.publicKeyArmored,
+            purpose: decoded.purpose,
+            status: decoded.status,
+            tenantID: decoded.tenantID,
+            privateKeyArmored: decoded.privateKeyArmored)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testGrantPermissionRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"effect\": \"allow\", \"permission_id\": \"11111111-1111-4111-8111-111111111111\", \"scope_ids\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let decoded = try JSONDecoder().decode(GrantPermissionRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = GrantPermissionRequest(
+            effect: decoded.effect,
+            permissionID: decoded.permissionID,
+            scopeIds: decoded.scopeIds)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testGrantedScopeMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(GrantedScope.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = GrantedScope(
+            id: decoded.id,
+            name: decoded.name,
+            resourceID: decoded.resourceID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testGroupMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(Group.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = Group(
+            createdAt: decoded.createdAt,
+            description: decoded.description,
+            id: decoded.id,
+            metadata: decoded.metadata,
+            name: decoded.name,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testHealthResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"status\": \"example\"}"
+        let decoded = try JSONDecoder().decode(HealthResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = HealthResponse(
+            status: decoded.status)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testImportCaCertificateRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"private_key_pem\": \"example\", \"public_cert_pem\": \"example\"}"
+        let decoded = try JSONDecoder().decode(ImportCaCertificateRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ImportCaCertificateRequest(
+            privateKeyPEM: decoded.privateKeyPEM,
+            publicCertPEM: decoded.publicCertPEM)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testLockoutPolicyMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}"
+        let decoded = try JSONDecoder().decode(LockoutPolicy.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = LockoutPolicy(
+            lockoutBackoffMultiplier: decoded.lockoutBackoffMultiplier,
+            lockoutDurationSecs: decoded.lockoutDurationSecs,
+            maxFailedLoginAttempts: decoded.maxFailedLoginAttempts,
+            maxLockoutDurationSecs: decoded.maxLockoutDurationSecs)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testMdsRefreshOutcomeMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"entry_count\": 1, \"no\": 1, \"outcome\": \"initial\"}"
+        let decoded = try JSONDecoder().decode(MdsRefreshOutcome.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = MdsRefreshOutcome(
+            outcome: decoded.outcome,
+            raw: decoded.raw)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testMdsStatusResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"entry_count\": 1, \"last_refreshed_at\": \"2026-08-26T00:00:00Z\", \"next_update\": \"example\", \"no\": 1, \"stale\": true}"
+        let decoded = try JSONDecoder().decode(MdsStatusResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = MdsStatusResponse(
+            entryCount: decoded.entryCount,
+            lastRefreshedAt: decoded.lastRefreshedAt,
+            nextUpdate: decoded.nextUpdate,
+            no: decoded.no,
+            stale: decoded.stale)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testMfaMethodResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"example\", \"last_used_at\": \"example\", \"method_id\": \"example\", \"method_type\": \"Totp\", \"name\": \"example\"}"
+        let decoded = try JSONDecoder().decode(MfaMethodResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = MfaMethodResponse(
+            createdAt: decoded.createdAt,
+            lastUsedAt: decoded.lastUsedAt,
+            methodID: decoded.methodID,
+            methodType: decoded.methodType,
+            name: decoded.name)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testMfaPolicyMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}"
+        let decoded = try JSONDecoder().decode(MfaPolicy.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = MfaPolicy(
+            mfaChallengeLifetimeSecs: decoded.mfaChallengeLifetimeSecs,
+            mfaEnforced: decoded.mfaEnforced)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testMigrateCustodyResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"key_custody\": \"example\", \"key_locator\": \"example\", \"previous_custody\": \"example\"}"
+        let decoded = try JSONDecoder().decode(MigrateCustodyResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = MigrateCustodyResponse(
+            caCertificateID: decoded.caCertificateID,
+            keyCustody: decoded.keyCustody,
+            keyLocator: decoded.keyLocator,
+            previousCustody: decoded.previousCustody)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testMtlsTrustAnchorResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true}"
+        let decoded = try JSONDecoder().decode(MtlsTrustAnchorResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = MtlsTrustAnchorResponse(
+            caCertificateID: decoded.caCertificateID,
+            message: decoded.message,
+            mtlsTrustAnchor: decoded.mtlsTrustAnchor,
+            restartRequired: decoded.restartRequired)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testNotificationPolicyMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"admin_notifications_enabled\": true}"
+        let decoded = try JSONDecoder().decode(NotificationPolicy.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = NotificationPolicy(
+            adminNotificationsEnabled: decoded.adminNotificationsEnabled)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testNotificationRuleResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(NotificationRuleResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = NotificationRuleResponse(
+            createdAt: decoded.createdAt,
+            description: decoded.description,
+            enabled: decoded.enabled,
+            events: decoded.events,
+            id: decoded.id,
+            name: decoded.name,
+            recipientEmails: decoded.recipientEmails,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testOAuth2ClientCreatedResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"client_id\": \"example\", \"client_secret\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"redirect_uris\": [\"example\"], \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(OAuth2ClientCreatedResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = OAuth2ClientCreatedResponse(
+            clientID: decoded.clientID,
+            clientSecret: decoded.clientSecret,
+            createdAt: decoded.createdAt,
+            grantTypes: decoded.grantTypes,
+            id: decoded.id,
+            name: decoded.name,
+            redirectUris: decoded.redirectUris,
+            scopes: decoded.scopes,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testOAuth2ClientResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(OAuth2ClientResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = OAuth2ClientResponse(
+            clientID: decoded.clientID,
+            createdAt: decoded.createdAt,
+            dpopBoundAccessTokens: decoded.dpopBoundAccessTokens,
+            dpopRequireNonce: decoded.dpopRequireNonce,
+            grantTypes: decoded.grantTypes,
+            id: decoded.id,
+            jwks: decoded.jwks,
+            jwksURI: decoded.jwksURI,
+            name: decoded.name,
+            profile: decoded.profile,
+            redirectUris: decoded.redirectUris,
+            requirePar: decoded.requirePar,
+            scopes: decoded.scopes,
+            selfSignedTLSClientAuthThumbprints: decoded.selfSignedTLSClientAuthThumbprints,
+            tenantID: decoded.tenantID,
+            tlsClientAuthSanDNS: decoded.tlsClientAuthSanDNS,
+            tlsClientAuthSanURI: decoded.tlsClientAuthSanURI,
+            tlsClientAuthSubjectDn: decoded.tlsClientAuthSubjectDn,
+            tlsClientCertificateBoundAccessTokens: decoded.tlsClientCertificateBoundAccessTokens,
+            tokenEndpointAuthMethod: decoded.tokenEndpointAuthMethod,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testOidcAuthorizeRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"config_id\": \"11111111-1111-4111-8111-111111111111\", \"nonce\": \"example\", \"redirect_uri\": \"example\", \"state\": \"example\"}"
+        let decoded = try JSONDecoder().decode(OidcAuthorizeRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = OidcAuthorizeRequest(
+            configID: decoded.configID,
+            nonce: decoded.nonce,
+            redirectURI: decoded.redirectURI,
+            state: decoded.state)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testOidcAuthorizeResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"url\": \"example\"}"
+        let decoded = try JSONDecoder().decode(OidcAuthorizeResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = OidcAuthorizeResponse(
+            url: decoded.url)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testOidcCallbackRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"code\": \"example\", \"config_id\": \"11111111-1111-4111-8111-111111111111\", \"nonce\": \"example\", \"redirect_uri\": \"example\", \"state\": \"example\"}"
+        let decoded = try JSONDecoder().decode(OidcCallbackRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = OidcCallbackRequest(
+            code: decoded.code,
+            configID: decoded.configID,
+            nonce: decoded.nonce,
+            redirectURI: decoded.redirectURI,
+            state: decoded.state)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testOidcCallbackResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"federation_link_id\": \"11111111-1111-4111-8111-111111111111\", \"newly_provisioned\": true, \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(OidcCallbackResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = OidcCallbackResponse(
+            federationLinkID: decoded.federationLinkID,
+            newlyProvisioned: decoded.newlyProvisioned,
+            userID: decoded.userID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testManagementOpaqueEnrollmentMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"opaque_session\": \"example\", \"registration_record\": \"example\"}"
+        let decoded = try JSONDecoder().decode(ManagementOpaqueEnrollment.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ManagementOpaqueEnrollment(
+            opaqueSession: decoded.opaqueSession,
+            registrationRecord: decoded.registrationRecord)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testOpaquePolicyMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}"
+        let decoded = try JSONDecoder().decode(OpaquePolicy.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = OpaquePolicy(
+            opaqueKsf: decoded.opaqueKsf,
+            opaqueMode: decoded.opaqueMode,
+            opaqueSuite: decoded.opaqueSuite)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testOrganizationMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"slug\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(Organization.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = Organization(
+            createdAt: decoded.createdAt,
+            id: decoded.id,
+            metadata: decoded.metadata,
+            name: decoded.name,
+            slug: decoded.slug,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testPasswordPolicyMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}"
+        let decoded = try JSONDecoder().decode(PasswordPolicy.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = PasswordPolicy(
+            hibpCheckEnabled: decoded.hibpCheckEnabled,
+            minLength: decoded.minLength,
+            passwordHistoryCount: decoded.passwordHistoryCount,
+            requireDigits: decoded.requireDigits,
+            requireLowercase: decoded.requireLowercase,
+            requireSymbols: decoded.requireSymbols,
+            requireUppercase: decoded.requireUppercase)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testPermissionMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"action\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(Permission.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = Permission(
+            action: decoded.action,
+            createdAt: decoded.createdAt,
+            description: decoded.description,
+            id: decoded.id,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testPgpKeyMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"algorithm\": \"Rsa4096\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"public_key_armored\": \"example\", \"purpose\": \"AuditSigning\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(PgpKey.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = PgpKey(
+            algorithm: decoded.algorithm,
+            createdAt: decoded.createdAt,
+            fingerprint: decoded.fingerprint,
+            id: decoded.id,
+            name: decoded.name,
+            publicKeyArmored: decoded.publicKeyArmored,
+            purpose: decoded.purpose,
+            status: decoded.status,
+            tenantID: decoded.tenantID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testPolicyResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"allowed_aaguids\": [\"11111111-1111-4111-8111-111111111111\"], \"block_revoked_status\": true, \"blocked_aaguids\": [\"11111111-1111-4111-8111-111111111111\"], \"effective_unknown_aaguid\": \"allow\", \"min_certification\": \"L1\", \"mode\": \"none\", \"require_fido_certified\": true, \"unknown_aaguid\": \"allow\"}"
+        let decoded = try JSONDecoder().decode(PolicyResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = PolicyResponse(
+            allowedAaguids: decoded.allowedAaguids,
+            blockRevokedStatus: decoded.blockRevokedStatus,
+            blockedAaguids: decoded.blockedAaguids,
+            minCertification: decoded.minCertification,
+            mode: decoded.mode,
+            requireFidoCertified: decoded.requireFidoCertified,
+            unknownAaguid: decoded.unknownAaguid,
+            effectiveUnknownAaguid: decoded.effectiveUnknownAaguid)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testPrivacyPolicyMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"deletion_grace_period_days\": 1}"
+        let decoded = try JSONDecoder().decode(PrivacyPolicy.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = PrivacyPolicy(
+            deletionGracePeriodDays: decoded.deletionGracePeriodDays)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testProviderConfigMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"host\": \"example\", \"kind\": \"smtp\", \"port\": 1, \"starttls\": true, \"username\": \"example\"}"
+        let decoded = try JSONDecoder().decode(ProviderConfig.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ProviderConfig(
+            kind: decoded.kind,
+            raw: decoded.raw)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testReactorEventDescriptorMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"default_failure_policy\": \"fail_closed\", \"description\": \"example\", \"interceptable\": true, \"mutable\": true, \"mutable_fields\": [\"example\"], \"name\": \"example\"}"
+        let decoded = try JSONDecoder().decode(ReactorEventDescriptor.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ReactorEventDescriptor(
+            defaultFailurePolicy: decoded.defaultFailurePolicy,
+            description: decoded.description,
+            interceptable: decoded.interceptable,
+            mutable: decoded.mutable,
+            mutableFields: decoded.mutableFields,
+            name: decoded.name)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testReactorResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"example\"], \"failure_policy\": \"fail_closed\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_seen_at\": \"2026-08-26T00:00:00Z\", \"mode\": \"intercept\", \"name\": \"example\", \"priority\": 1, \"recent_timeout_count\": 1, \"recent_veto_count\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timeout_ms\": 1, \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(ReactorResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ReactorResponse(
+            createdAt: decoded.createdAt,
+            description: decoded.description,
+            enabled: decoded.enabled,
+            events: decoded.events,
+            failurePolicy: decoded.failurePolicy,
+            id: decoded.id,
+            lastSeenAt: decoded.lastSeenAt,
+            mode: decoded.mode,
+            name: decoded.name,
+            priority: decoded.priority,
+            recentTimeoutCount: decoded.recentTimeoutCount,
+            recentVetoCount: decoded.recentVetoCount,
+            tenantID: decoded.tenantID,
+            timeoutMs: decoded.timeoutMs,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testReadyResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"database\": \"example\", \"status\": \"example\"}"
+        let decoded = try JSONDecoder().decode(ReadyResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ReadyResponse(
+            database: decoded.database,
+            status: decoded.status)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testResolvedPermissionGrantMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"effect\": \"allow\", \"permission\": {\"action\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"scope_ids\": [\"11111111-1111-4111-8111-111111111111\"], \"scopes\": [{\"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}]}"
+        let decoded = try JSONDecoder().decode(ResolvedPermissionGrant.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ResolvedPermissionGrant(
+            effect: decoded.effect,
+            permission: decoded.permission,
+            scopeIds: decoded.scopeIds,
+            scopes: decoded.scopes)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testResourceMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"parent_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_type\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"uma_registered_by\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(Resource.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = Resource(
+            createdAt: decoded.createdAt,
+            id: decoded.id,
+            metadata: decoded.metadata,
+            name: decoded.name,
+            parentID: decoded.parentID,
+            resourceType: decoded.resourceType,
+            tenantID: decoded.tenantID,
+            umaRegisteredBy: decoded.umaRegisteredBy,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testRetryPolicyMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"backoff_multiplier\": 1.5, \"initial_delay_secs\": 1, \"max_retries\": 1}"
+        let decoded = try JSONDecoder().decode(RetryPolicy.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = RetryPolicy(
+            backoffMultiplier: decoded.backoffMultiplier,
+            initialDelaySecs: decoded.initialDelaySecs,
+            maxRetries: decoded.maxRetries)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testRoleMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(Role.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = Role(
+            createdAt: decoded.createdAt,
+            description: decoded.description,
+            id: decoded.id,
+            isGlobal: decoded.isGlobal,
+            name: decoded.name,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testRoleAssignmentMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}"
+        let decoded = try JSONDecoder().decode(RoleAssignment.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = RoleAssignment(
+            resourceID: decoded.resourceID,
+            role: decoded.role)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testRoleGroupAssignmentMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(RoleGroupAssignment.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = RoleGroupAssignment(
+            group: decoded.group,
+            resourceID: decoded.resourceID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testRoleUserAssignmentMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}"
+        let decoded = try JSONDecoder().decode(RoleUserAssignment.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = RoleUserAssignment(
+            resourceID: decoded.resourceID,
+            user: decoded.user)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testRotateSecretResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"client_secret\": \"example\"}"
+        let decoded = try JSONDecoder().decode(RotateSecretResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = RotateSecretResponse(
+            clientSecret: decoded.clientSecret)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testScimTokenResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"expires_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_used_at\": \"2026-08-26T00:00:00Z\", \"name\": \"example\", \"revoked_at\": \"2026-08-26T00:00:00Z\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(ScimTokenResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ScimTokenResponse(
+            createdAt: decoded.createdAt,
+            createdBy: decoded.createdBy,
+            expiresAt: decoded.expiresAt,
+            id: decoded.id,
+            lastUsedAt: decoded.lastUsedAt,
+            name: decoded.name,
+            revokedAt: decoded.revokedAt,
+            status: decoded.status,
+            tenantID: decoded.tenantID,
+            userID: decoded.userID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testScopeMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(Scope.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = Scope(
+            createdAt: decoded.createdAt,
+            description: decoded.description,
+            id: decoded.id,
+            name: decoded.name,
+            resourceID: decoded.resourceID,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSecuritySettingsMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(SecuritySettings.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SecuritySettings(
+            certificate: decoded.certificate,
+            createdAt: decoded.createdAt,
+            email: decoded.email,
+            id: decoded.id,
+            lockout: decoded.lockout,
+            mfa: decoded.mfa,
+            notification: decoded.notification,
+            opaque: decoded.opaque,
+            password: decoded.password,
+            privacy: decoded.privacy,
+            scope: decoded.scope,
+            scopeID: decoded.scopeID,
+            token: decoded.token,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testServiceAccountCreatedResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"client_id\": \"example\", \"client_secret\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(ServiceAccountCreatedResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ServiceAccountCreatedResponse(
+            clientID: decoded.clientID,
+            clientSecret: decoded.clientSecret,
+            createdAt: decoded.createdAt,
+            description: decoded.description,
+            id: decoded.id,
+            name: decoded.name,
+            status: decoded.status,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testServiceAccountResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(ServiceAccountResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ServiceAccountResponse(
+            clientID: decoded.clientID,
+            createdAt: decoded.createdAt,
+            description: decoded.description,
+            id: decoded.id,
+            name: decoded.name,
+            status: decoded.status,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSetMtlsTrustAnchorMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"enabled\": true}"
+        let decoded = try JSONDecoder().decode(SetMtlsTrustAnchor.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SetMtlsTrustAnchor(
+            enabled: decoded.enabled)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSetOrgEmailConfigMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"enabled\": true, \"from_email\": \"example\", \"from_name\": \"example\", \"provider\": {\"host\": \"example\", \"kind\": \"smtp\", \"port\": 1, \"starttls\": true, \"username\": \"example\"}, \"reply_to\": \"example\"}"
+        let decoded = try JSONDecoder().decode(SetOrgEmailConfig.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SetOrgEmailConfig(
+            enabled: decoded.enabled,
+            fromEmail: decoded.fromEmail,
+            fromName: decoded.fromName,
+            provider: decoded.provider,
+            replyTo: decoded.replyTo)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSetOrgSettingsMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"default_cert_validity_days\": 1, \"deletion_grace_period_days\": 1, \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}"
+        let decoded = try JSONDecoder().decode(SetOrgSettings.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SetOrgSettings(
+            accessTokenLifetimeSecs: decoded.accessTokenLifetimeSecs,
+            adminNotificationsEnabled: decoded.adminNotificationsEnabled,
+            defaultCertValidityDays: decoded.defaultCertValidityDays,
+            deletionGracePeriodDays: decoded.deletionGracePeriodDays,
+            emailVerificationGracePeriodHours: decoded.emailVerificationGracePeriodHours,
+            emailVerificationRequired: decoded.emailVerificationRequired,
+            hibpCheckEnabled: decoded.hibpCheckEnabled,
+            lockoutBackoffMultiplier: decoded.lockoutBackoffMultiplier,
+            lockoutDurationSecs: decoded.lockoutDurationSecs,
+            maxCertValidityDays: decoded.maxCertValidityDays,
+            maxFailedLoginAttempts: decoded.maxFailedLoginAttempts,
+            maxLockoutDurationSecs: decoded.maxLockoutDurationSecs,
+            mfaChallengeLifetimeSecs: decoded.mfaChallengeLifetimeSecs,
+            mfaEnforced: decoded.mfaEnforced,
+            minLength: decoded.minLength,
+            opaqueKsf: decoded.opaqueKsf,
+            opaqueMode: decoded.opaqueMode,
+            opaqueSuite: decoded.opaqueSuite,
+            passwordHistoryCount: decoded.passwordHistoryCount,
+            refreshTokenLifetimeSecs: decoded.refreshTokenLifetimeSecs,
+            requireDigits: decoded.requireDigits,
+            requireLowercase: decoded.requireLowercase,
+            requireSymbols: decoded.requireSymbols,
+            requireUppercase: decoded.requireUppercase)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSignAuditBatchRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"entry_ids\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let decoded = try JSONDecoder().decode(SignAuditBatchRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SignAuditBatchRequest(
+            entryIds: decoded.entryIds)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSignIntermediateCsrRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"csr_pem\": \"example\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}"
+        let decoded = try JSONDecoder().decode(SignIntermediateCsrRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SignIntermediateCsrRequest(
+            csrPEM: decoded.csrPEM,
+            parentCAID: decoded.parentCAID,
+            validityDays: decoded.validityDays)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSignedAuditBatchMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"batch_id\": \"11111111-1111-4111-8111-111111111111\", \"entry_ids\": [\"11111111-1111-4111-8111-111111111111\"], \"signature_armored\": \"example\", \"signed_at\": \"2026-08-26T00:00:00Z\", \"signing_key_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(SignedAuditBatch.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SignedAuditBatch(
+            batchID: decoded.batchID,
+            entryIds: decoded.entryIds,
+            signatureArmored: decoded.signatureArmored,
+            signedAt: decoded.signedAt,
+            signingKeyID: decoded.signingKeyID,
+            tenantID: decoded.tenantID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSmtpConfigMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"host\": \"example\", \"port\": 1, \"starttls\": true, \"username\": \"example\"}"
+        let decoded = try JSONDecoder().decode(SmtpConfig.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SmtpConfig(
+            host: decoded.host,
+            port: decoded.port,
+            starttls: decoded.starttls,
+            username: decoded.username)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testTenantMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(Tenant.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = Tenant(
+            createdAt: decoded.createdAt,
+            id: decoded.id,
+            metadata: decoded.metadata,
+            name: decoded.name,
+            organizationID: decoded.organizationID,
+            slug: decoded.slug,
+            status: decoded.status,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testTenantSettingsOverrideMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"default_cert_validity_days\": 1, \"deletion_grace_period_days\": 1, \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}"
+        let decoded = try JSONDecoder().decode(TenantSettingsOverride.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = TenantSettingsOverride(
+            accessTokenLifetimeSecs: decoded.accessTokenLifetimeSecs,
+            adminNotificationsEnabled: decoded.adminNotificationsEnabled,
+            defaultCertValidityDays: decoded.defaultCertValidityDays,
+            deletionGracePeriodDays: decoded.deletionGracePeriodDays,
+            emailVerificationGracePeriodHours: decoded.emailVerificationGracePeriodHours,
+            emailVerificationRequired: decoded.emailVerificationRequired,
+            hibpCheckEnabled: decoded.hibpCheckEnabled,
+            lockoutBackoffMultiplier: decoded.lockoutBackoffMultiplier,
+            lockoutDurationSecs: decoded.lockoutDurationSecs,
+            maxCertValidityDays: decoded.maxCertValidityDays,
+            maxFailedLoginAttempts: decoded.maxFailedLoginAttempts,
+            maxLockoutDurationSecs: decoded.maxLockoutDurationSecs,
+            mfaChallengeLifetimeSecs: decoded.mfaChallengeLifetimeSecs,
+            mfaEnforced: decoded.mfaEnforced,
+            minLength: decoded.minLength,
+            opaqueKsf: decoded.opaqueKsf,
+            opaqueMode: decoded.opaqueMode,
+            opaqueSuite: decoded.opaqueSuite,
+            passwordHistoryCount: decoded.passwordHistoryCount,
+            refreshTokenLifetimeSecs: decoded.refreshTokenLifetimeSecs,
+            requireDigits: decoded.requireDigits,
+            requireLowercase: decoded.requireLowercase,
+            requireSymbols: decoded.requireSymbols,
+            requireUppercase: decoded.requireUppercase)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testTokenExchangeTrustRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}"
+        let decoded = try JSONDecoder().decode(TokenExchangeTrustRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = TokenExchangeTrustRequest(
+            acceptedAudiences: decoded.acceptedAudiences,
+            enabled: decoded.enabled,
+            maxLifetimeSecs: decoded.maxLifetimeSecs,
+            maxTokenAgeSecs: decoded.maxTokenAgeSecs,
+            scopeMap: decoded.scopeMap,
+            subjectMapping: decoded.subjectMapping)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testTokenExchangeTrustResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}"
+        let decoded = try JSONDecoder().decode(TokenExchangeTrustResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = TokenExchangeTrustResponse(
+            acceptedAudiences: decoded.acceptedAudiences,
+            enabled: decoded.enabled,
+            maxLifetimeSecs: decoded.maxLifetimeSecs,
+            maxTokenAgeSecs: decoded.maxTokenAgeSecs,
+            scopeMap: decoded.scopeMap,
+            subjectMapping: decoded.subjectMapping)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testTokenPolicyMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}"
+        let decoded = try JSONDecoder().decode(TokenPolicy.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = TokenPolicy(
+            accessTokenLifetimeSecs: decoded.accessTokenLifetimeSecs,
+            refreshTokenLifetimeSecs: decoded.refreshTokenLifetimeSecs)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateFederationConfigRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"allowed_algorithms\": [\"example\"], \"attribute_map\": {}, \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}}"
+        let decoded = try JSONDecoder().decode(UpdateFederationConfigRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateFederationConfigRequest(
+            allowedAlgorithms: decoded.allowedAlgorithms,
+            attributeMap: decoded.attributeMap,
+            clientID: decoded.clientID,
+            clientSecret: decoded.clientSecret,
+            enabled: decoded.enabled,
+            idpSigningCertPEM: decoded.idpSigningCertPEM,
+            metadataURL: decoded.metadataURL,
+            provider: decoded.provider,
+            tokenExchange: decoded.tokenExchange)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateGroupMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"description\": \"example\", \"metadata\": {}, \"name\": \"example\"}"
+        let decoded = try JSONDecoder().decode(UpdateGroup.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateGroup(
+            description: decoded.description,
+            metadata: decoded.metadata,
+            name: decoded.name)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateNotificationRuleRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"]}"
+        let decoded = try JSONDecoder().decode(UpdateNotificationRuleRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateNotificationRuleRequest(
+            description: decoded.description,
+            enabled: decoded.enabled,
+            events: decoded.events,
+            name: decoded.name,
+            recipientEmails: decoded.recipientEmails)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateOAuth2ClientRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"backchannel_logout_uri\": \"example\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}"
+        let decoded = try JSONDecoder().decode(UpdateOAuth2ClientRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateOAuth2ClientRequest(
+            backchannelLogoutURI: decoded.backchannelLogoutURI,
+            dpopBoundAccessTokens: decoded.dpopBoundAccessTokens,
+            dpopRequireNonce: decoded.dpopRequireNonce,
+            grantTypes: decoded.grantTypes,
+            jwks: decoded.jwks,
+            jwksURI: decoded.jwksURI,
+            name: decoded.name,
+            postLogoutRedirectUris: decoded.postLogoutRedirectUris,
+            profile: decoded.profile,
+            redirectUris: decoded.redirectUris,
+            requirePar: decoded.requirePar,
+            scopes: decoded.scopes,
+            selfSignedTLSClientAuthThumbprints: decoded.selfSignedTLSClientAuthThumbprints,
+            tlsClientAuthSanDNS: decoded.tlsClientAuthSanDNS,
+            tlsClientAuthSanURI: decoded.tlsClientAuthSanURI,
+            tlsClientAuthSubjectDn: decoded.tlsClientAuthSubjectDn,
+            tlsClientCertificateBoundAccessTokens: decoded.tlsClientCertificateBoundAccessTokens,
+            tokenEndpointAuthMethod: decoded.tokenEndpointAuthMethod)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateOrganizationRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"metadata\": {}, \"name\": \"example\", \"slug\": \"example\"}"
+        let decoded = try JSONDecoder().decode(UpdateOrganizationRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateOrganizationRequest(
+            metadata: decoded.metadata,
+            name: decoded.name,
+            slug: decoded.slug)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdatePermissionRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"action\": \"example\", \"description\": \"example\"}"
+        let decoded = try JSONDecoder().decode(UpdatePermissionRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdatePermissionRequest(
+            action: decoded.action,
+            description: decoded.description)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateReactorRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"description\": \"example\", \"enabled\": true, \"events\": [\"example\"], \"failure_policy\": \"fail_closed\", \"mode\": \"intercept\", \"name\": \"example\", \"priority\": 1, \"timeout_ms\": 1}"
+        let decoded = try JSONDecoder().decode(UpdateReactorRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateReactorRequest(
+            description: decoded.description,
+            enabled: decoded.enabled,
+            events: decoded.events,
+            failurePolicy: decoded.failurePolicy,
+            mode: decoded.mode,
+            name: decoded.name,
+            priority: decoded.priority,
+            timeoutMs: decoded.timeoutMs)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateResourceRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"metadata\": {}, \"name\": \"example\", \"parent_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_type\": \"example\"}"
+        let decoded = try JSONDecoder().decode(UpdateResourceRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateResourceRequest(
+            metadata: decoded.metadata,
+            name: decoded.name,
+            parentID: decoded.parentID,
+            resourceType: decoded.resourceType)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateRoleMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"description\": \"example\", \"is_global\": true, \"name\": \"example\"}"
+        let decoded = try JSONDecoder().decode(UpdateRole.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateRole(
+            description: decoded.description,
+            isGlobal: decoded.isGlobal,
+            name: decoded.name)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateScopeRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"description\": \"example\", \"name\": \"example\"}"
+        let decoded = try JSONDecoder().decode(UpdateScopeRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateScopeRequest(
+            description: decoded.description,
+            name: decoded.name)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateServiceAccountMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"description\": \"example\", \"name\": \"example\", \"status\": \"Active\"}"
+        let decoded = try JSONDecoder().decode(UpdateServiceAccount.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateServiceAccount(
+            description: decoded.description,
+            name: decoded.name,
+            status: decoded.status)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateTenantMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"metadata\": {}, \"name\": \"example\", \"slug\": \"example\", \"status\": \"Active\"}"
+        let decoded = try JSONDecoder().decode(UpdateTenant.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateTenant(
+            metadata: decoded.metadata,
+            name: decoded.name,
+            slug: decoded.slug,
+            status: decoded.status)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateUserRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"email\": \"example\", \"metadata\": {}, \"status\": \"Active\", \"username\": \"example\"}"
+        let decoded = try JSONDecoder().decode(UpdateUserRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateUserRequest(
+            email: decoded.email,
+            metadata: decoded.metadata,
+            status: decoded.status,
+            username: decoded.username)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateWebhookRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"enabled\": true, \"events\": [\"example\"], \"retry_policy\": {\"backoff_multiplier\": 1.5, \"initial_delay_secs\": 1, \"max_retries\": 1}, \"secret\": \"example\", \"url\": \"example\"}"
+        let decoded = try JSONDecoder().decode(UpdateWebhookRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateWebhookRequest(
+            enabled: decoded.enabled,
+            events: decoded.events,
+            retryPolicy: decoded.retryPolicy,
+            secret: decoded.secret,
+            url: decoded.url)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUserResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}"
+        let decoded = try JSONDecoder().decode(UserResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UserResponse(
+            createdAt: decoded.createdAt,
+            email: decoded.email,
+            emailVerified: decoded.emailVerified,
+            failedLoginAttempts: decoded.failedLoginAttempts,
+            id: decoded.id,
+            isLocked: decoded.isLocked,
+            lockedUntil: decoded.lockedUntil,
+            metadata: decoded.metadata,
+            mfaEnabled: decoded.mfaEnabled,
+            status: decoded.status,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt,
+            username: decoded.username)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testWebauthnAttestationPolicyMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"allowed_aaguids\": [\"11111111-1111-4111-8111-111111111111\"], \"block_revoked_status\": true, \"blocked_aaguids\": [\"11111111-1111-4111-8111-111111111111\"], \"min_certification\": \"L1\", \"mode\": \"none\", \"require_fido_certified\": true, \"unknown_aaguid\": \"allow\"}"
+        let decoded = try JSONDecoder().decode(WebauthnAttestationPolicy.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = WebauthnAttestationPolicy(
+            allowedAaguids: decoded.allowedAaguids,
+            blockRevokedStatus: decoded.blockRevokedStatus,
+            blockedAaguids: decoded.blockedAaguids,
+            minCertification: decoded.minCertification,
+            mode: decoded.mode,
+            requireFidoCertified: decoded.requireFidoCertified,
+            unknownAaguid: decoded.unknownAaguid)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testWebhookResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"events\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"retry_policy\": {\"backoff_multiplier\": 1.5, \"initial_delay_secs\": 1, \"max_retries\": 1}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"url\": \"example\"}"
+        let decoded = try JSONDecoder().decode(WebhookResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = WebhookResponse(
+            createdAt: decoded.createdAt,
+            enabled: decoded.enabled,
+            events: decoded.events,
+            id: decoded.id,
+            retryPolicy: decoded.retryPolicy,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt,
+            url: decoded.url)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
     func testActorTypeMapsEveryValueBothWays() throws {
         XCTAssertEqual(ActorType.allCases.count, 3)
         XCTAssertEqual(ActorType.user.rawValue, "User")
@@ -5101,7 +7939,8 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
-    // §27.9: this file covers 146 operations, 114 models and 22 enums.
+    // §27.9: this file covers 146 operations, 114 models (114 of them also through their
+    // memberwise initializer) and 22 enums.
     //
     // The counts above are literals THIS generator wrote, so comparing them to each other would
     // be a tautology a bad regeneration still satisfies. They are compared against the vendored

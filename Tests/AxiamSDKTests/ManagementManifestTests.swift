@@ -447,4 +447,127 @@ final class ManagementManifestTests: XCTestCase {
             }
         }
     }
+    // MARK: - drift on every kind, so every update branch is exercised
+
+    /// A resource, role and group all present but with a drifted description.
+    ///
+    /// The resource is the interesting one: it has NO description on the server, so it must
+    /// come back `unchanged` while the other two update. A per-kind switch that compared
+    /// them all the same way would produce a manifest that never converges.
+    func testDriftIsRepairedPerKindAndTheResourceIsLeftAlone() async throws {
+        let manifest = Manifest {
+            Declare.resource("root", name: "documents",
+                             description: "described only in the manifest", type: "folder")
+            Declare.role("editor", description: "Edits documents")
+            Declare.group("editors", description: "The editors")
+        }
+        let staleRolePage = """
+            {"items": [{"created_at": "2026-08-26T00:00:00Z", "description": "stale", \
+            "id": "\(ManagementFixture.tenantID)", "is_global": false, "name": "editor", \
+            "tenant_id": "\(ManagementFixture.tenantID)", \
+            "updated_at": "2026-08-26T00:00:00Z"}], "total": 1}
+            """
+        let staleGroupPage = """
+            {"items": [{"created_at": "2026-08-26T00:00:00Z", "description": "stale", \
+            "id": "\(ManagementFixture.tenantID)", "metadata": {}, "name": "editors", \
+            "tenant_id": "\(ManagementFixture.tenantID)", \
+            "updated_at": "2026-08-26T00:00:00Z"}], "total": 1}
+            """
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.resourcePage),
+            (status: 200, body: staleRolePage),
+            (status: 200, body: staleGroupPage),
+            (status: 200, body: Self.roleObject),
+            (status: 200, body: Self.groupObject),
+        ])
+
+        let report = try await client.manifest.apply(manifest)
+
+        XCTAssertTrue(report.isComplete, report.failure)
+        XCTAssertEqual(report.applied.map(\.entity.kind), [.role, .group])
+        XCTAssertTrue(report.applied.allSatisfy { $0.action == .update })
+
+        // Two updates, both sparse and both in place.
+        let writes = transport.requests.filter { $0.method != "GET" }
+        XCTAssertEqual(writes.count, 2)
+        for write in writes {
+            XCTAssertEqual(Set(try XCTUnwrap(write.jsonBody).keys), ["description"])
+            XCTAssertTrue(
+                write.path.hasSuffix("/\(ManagementFixture.tenantID)"), write.path)
+        }
+    }
+
+    /// A resource the tenant does not have is created with its declared type.
+    func testAResourceIsCreatedWithItsDeclaredType() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.emptyPage),
+            (status: 201, body: Self.resourceObject),
+        ])
+        let manifest = Manifest {
+            Declare.resource("root", name: "documents", type: "workspace")
+        }
+
+        let report = try await client.manifest.apply(manifest)
+
+        XCTAssertTrue(report.isComplete, report.failure)
+        let body = try XCTUnwrap(transport.last?.jsonBody)
+        XCTAssertEqual(body["name"] as? String, "documents")
+        XCTAssertEqual(body["resource_type"] as? String, "workspace")
+    }
+
+    /// A resource declared with no type gets the default rather than an empty string.
+    func testAResourceWithNoDeclaredTypeGetsTheDefault() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.emptyPage),
+            (status: 201, body: Self.resourceObject),
+        ])
+        let manifest = Manifest(entities: [
+            // Built by hand rather than through `Declare.resource`, whose own default would
+            // hide the one this test is about.
+            ManifestEntity(kind: .resource, key: "root", name: "documents"),
+        ])
+
+        _ = try await client.manifest.apply(manifest)
+
+        // An empty `resource_type` is a 422 from the server, and a manifest that omitted the
+        // field is a manifest that did not care — "folder" is what it means.
+        XCTAssertEqual(
+            try XCTUnwrap(transport.last?.jsonBody)["resource_type"] as? String, "folder")
+    }
+
+    /// A role's `isGlobal` reaches the create body.
+    func testARoleCarriesItsGlobalFlag() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.emptyPage),
+            (status: 201, body: Self.roleObject),
+        ])
+        let manifest = Manifest {
+            Declare.role("admin", description: "Everything", isGlobal: true)
+        }
+
+        _ = try await client.manifest.apply(manifest)
+
+        let body = try XCTUnwrap(transport.last?.jsonBody)
+        XCTAssertEqual(body["is_global"] as? Bool, true)
+        XCTAssertEqual(Set(body.keys), ["description", "is_global", "name"])
+    }
+
+    /// A permission is matched by its ACTION, everything else by name.
+    func testAPermissionIsMatchedByActionNotByName() async throws {
+        let (client, _) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.permissionPage),
+        ])
+        // The manifest's `name` deliberately differs from the server object's; only the
+        // action matches. A matcher keyed on `name` would plan a create and then collide.
+        let manifest = Manifest {
+            Declare.permission(
+                "read", name: "a name the server does not use",
+                description: "Read documents", action: "documents:read")
+        }
+
+        let plan = try await client.manifest.plan(manifest)
+
+        XCTAssertTrue(plan.isConverged, "\(plan.changes.map(\.describe))")
+    }
+
 }
