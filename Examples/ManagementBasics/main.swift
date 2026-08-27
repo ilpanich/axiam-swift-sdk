@@ -83,6 +83,65 @@ do {
     let alsoRoles = try await client.management.roles.list()
     print("same call, other spelling: \(alsoRoles.total) roles")
 
+    // ---- 1b. Searching a list (§27.4 rule 4) ---------------------------
+    //
+    // The term rides on the PAGE REQUEST, not as an extra argument on each of the twenty
+    // generated `list` methods. That is what lets the walk below carry it: a per-method
+    // argument has nowhere to live between one request and the next, and a walk that
+    // filtered only its first request would return the matches followed by the unfiltered
+    // tail.
+    //
+    // The server does the matching, case-insensitively, against the identifying fields of
+    // whatever is being listed — a name, plus the record id, so a UUID pasted out of a log
+    // line finds its row. `total` then counts MATCHES, not rows.
+    let matches = try await client.roles.list(page: PageRequest(search: "editor"))
+    print("matching roles: \(matches.count) on this page, \(matches.total) in total")
+
+    // Passing the term to the FIRST request is enough — `nextRequest` carries it, so every
+    // request of the walk asks the same question.
+    var filtered = PageRequest(search: "editor")
+    var matched = 0
+    while true {
+        let batch = try await client.roles.list(page: filtered)
+        if batch.isEmpty { break }
+        matched += batch.count
+        filtered = batch.nextRequest
+    }
+    print("walked \(matched) matching roles")
+
+    // An empty or whitespace-only term is the SAME request as none: no `search` parameter
+    // is sent at all. A search box that fires on every keystroke sends one the moment it is
+    // cleared, and "rows containing the empty string" is a different question from "all
+    // rows".
+    let unfiltered = try await client.roles.list(page: PageRequest(search: "   "))
+    print("after clearing the box: \(unfiltered.total) roles")
+
+    // ---- 1c. Open enums and the list-only projection (§27.11) ----------
+    //
+    // Rule 1: a value this SDK's copy of the spec does not list decodes to `.unknown`
+    // rather than throwing. Throwing would fail the WHOLE response, so one field of one
+    // tenant would take down the page it was on — including the tenants you did ask for.
+    // `.unknown` is never confused with a known case, so a `switch` needs an arm for it.
+    for tenant in try await client.tenants.list() {
+        let what: String
+        switch tenant.kind {
+        case .some(.organization): what = "the organization's own scope"
+        case .some(.standard), .none: what = "an ordinary tenant"
+        case .some(.unknown): what = "a kind this SDK predates — upgrade to name it"
+        }
+        print("  \(tenant.slug): \(what)")
+    }
+
+    // Rule 4: `boundServiceAccountID` is a PROJECTION, not a property of the certificate.
+    // The server resolves it for a whole page in one query, so `list` populates it and
+    // `get` leaves it nil. Nil there means "this read does not carry it", not "there is
+    // nothing bound" — and this SDK does not go and fetch it, because a `get` that silently
+    // costs two round trips is what §27.4 rule 3 forbids elsewhere.
+    for certificate in try await client.certificates.list() {
+        print("  \(certificate.subject) -> "
+            + (certificate.boundServiceAccountID ?? "not bound to a service account"))
+    }
+
     // ---- 2. Per-call scope (§27.4 rule 3) -----------------------------
     //
     // `forTenant` returns a NEW handle rather than repointing this one. On a management

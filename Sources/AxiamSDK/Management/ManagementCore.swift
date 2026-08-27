@@ -19,19 +19,57 @@ public struct PageRequest: Sendable, Equatable {
     public let offset: Int
     /// How many to ask for. Clamped to at least 1.
     public let limit: Int
+    /// A free-text filter applied by the SERVER, before `offset`/`limit`, or `nil` for none.
+    ///
+    /// Matched case-insensitively against the identifying fields of whatever is being
+    /// listed — a name or username, plus the record id, so a UUID out of a log line can be
+    /// pasted in as-is. Which fields exactly is the server's business; `Page.total` then
+    /// counts MATCHES rather than rows, which is what lets a pager built on it show a page
+    /// count belonging to the result set it is paging.
+    ///
+    /// It lives here, beside `offset` and `limit`, rather than as an extra argument on each
+    /// of the twenty generated `list` methods (§27.4 rule 4). That is what makes `next()`
+    /// carry it, and so what makes a manual walk filter the WHOLE walk: one that sent the
+    /// term on its first request and dropped it on the second would return the matches
+    /// followed by the unfiltered tail, which reads as a server bug from the caller's side.
+    ///
+    /// Stored as the caller gave it; `queryPairs` is where it is normalised.
+    public let search: String?
 
-    public init(offset: Int = 0, limit: Int = 50) {
+    public init(offset: Int = 0, limit: Int = 50, search: String? = nil) {
         self.offset = max(offset, 0)
         self.limit = max(limit, 1)
+        self.search = search
     }
 
-    /// The page after this one — same size, advanced by exactly `limit`.
+    /// The page after this one — same size and same term, advanced by exactly `limit`.
     ///
     /// By the REQUESTED limit, not by how many items came back: rule 4 stops auto-paging on
     /// an EMPTY page, not a short one, and advancing by a short count would re-request rows
     /// the caller has already seen.
     public func next() -> PageRequest {
-        PageRequest(offset: offset + limit, limit: limit)
+        PageRequest(offset: offset + limit, limit: limit, search: search)
+    }
+
+    /// This request with `search` replaced — a COPY, leaving this one as it was.
+    public func matching(_ term: String?) -> PageRequest {
+        PageRequest(offset: offset, limit: limit, search: term)
+    }
+
+    /// The term as it goes on the wire, or `nil` when there is nothing to send.
+    ///
+    /// Trims, then treats a blank result as absent — the same normalisation the server
+    /// applies, and §27.4 rule 4 makes absent and blank the SAME request: a search box that
+    /// fires on every keystroke sends one the moment it is cleared, and "rows containing the
+    /// empty string" is a different question from "all rows".
+    ///
+    /// The server's LENGTH cap is deliberately not re-implemented: a client-side truncation
+    /// the server would not have made is a silently different query, and the caller has no
+    /// way to see it happen.
+    static func normalize(_ term: String?) -> String? {
+        guard let trimmed = term?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else { return nil }
+        return trimmed
     }
 
     /// This request as `(name, value)` query pairs, for the URL builder.
@@ -41,7 +79,11 @@ public struct PageRequest: Sendable, Equatable {
     /// Foundation build annotated `URLQueryItem`. CI compiles one leg in Swift 6 language
     /// mode, where getting that wrong is an error rather than a warning.
     var queryPairs: [(String, String)] {
-        [("offset", String(offset)), ("limit", String(limit))]
+        var pairs = [("offset", String(offset)), ("limit", String(limit))]
+        if let term = PageRequest.normalize(search) {
+            pairs.append(("search", term))
+        }
+        return pairs
     }
 }
 
@@ -74,6 +116,10 @@ public struct Page<Item: Sendable>: Sendable {
     public var count: Int { items.count }
 
     /// The request that would fetch the page after this one.
+    ///
+    /// Carries this page's `search` term forward with it (§27.4 rule 4) — that is
+    /// `PageRequest.next()`'s job, so a walk written against `nextRequest` filters every
+    /// request of the walk rather than only its first.
     public var nextRequest: PageRequest { request.next() }
 }
 

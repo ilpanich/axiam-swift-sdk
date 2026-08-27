@@ -191,6 +191,179 @@ final class ManagementSemanticsTests: XCTestCase {
         XCTAssertTrue(scopes.isEmpty)
     }
 
+    // MARK: - §27.4 rule 4: search
+
+    func testASearchTermReachesTheQueryString() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.rolePage),
+        ])
+
+        _ = try await client.roles.list(page: PageRequest(search: "ada"))
+
+        // Asserted on the request URI, not on the argument: a term the SDK accepts and
+        // never sends is exactly the failure this test exists for — every caller-side
+        // assertion still passes while the server returns the unfiltered set.
+        XCTAssertEqual(transport.last?.query, "offset=0&limit=50&search=ada")
+    }
+
+    func testNoSearchTermSendsNoSearchKey() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.rolePage),
+        ])
+
+        _ = try await client.roles.list(page: PageRequest(offset: 0, limit: 25))
+
+        // The exact query string, not "does not contain search=". `?search=` is a filter
+        // matching nothing, which is a different request from not filtering.
+        XCTAssertEqual(transport.last?.query, "offset=0&limit=25")
+    }
+
+    func testABlankSearchTermIsTheSameRequestAsNone() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.rolePage),
+            (status: 200, body: Self.rolePage),
+            (status: 200, body: Self.rolePage),
+        ])
+
+        // A search box that fires on every keystroke sends one the moment it is cleared,
+        // and "rows containing the empty string" is a different question from "all rows".
+        for blank in ["", "   ", "\t\n"] {
+            _ = try await client.roles.list(page: PageRequest(offset: 0, limit: 25,
+                                                              search: blank))
+            XCTAssertEqual(transport.last?.query, "offset=0&limit=25",
+                           "a blank term must send no search key")
+        }
+    }
+
+    func testASearchTermIsTrimmedButNotShortened() async throws {
+        let long = String(repeating: "a", count: 300)
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.rolePage),
+        ])
+
+        _ = try await client.roles.list(page: PageRequest(search: "  \(long)  "))
+
+        // The server caps the term's length; re-implementing that cap here would make a
+        // client-side truncation the server would not have made into a silently different
+        // query the caller cannot see.
+        XCTAssertEqual(transport.last?.query, "offset=0&limit=50&search=\(long)")
+    }
+
+    func testAWalkCarriesTheSearchTermOnEveryRequest() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.rolePage),
+            (status: 200, body: Self.rolePage),
+            (status: 200, body: Self.emptyPage),
+        ])
+
+        var request = PageRequest(offset: 0, limit: 50, search: "ada")
+        while true {
+            let page = try await client.roles.list(page: request)
+            if page.isEmpty { break }
+            request = page.nextRequest
+        }
+
+        // Asserted on EVERY recorded request, not on the count: a walk that filtered only
+        // its first request returns the matches followed by the unfiltered tail, which
+        // reads as a server bug from the caller's side.
+        XCTAssertEqual(transport.requests.map(\.query), [
+            "offset=0&limit=50&search=ada",
+            "offset=50&limit=50&search=ada",
+            "offset=100&limit=50&search=ada",
+        ])
+    }
+
+    func testTheTermRidesOnThePageRequestAndCopiesRatherThanMutates() async throws {
+        let original = PageRequest(offset: 10, limit: 25, search: "ada")
+
+        let other = original.matching("grace")
+
+        XCTAssertEqual(original.search, "ada")
+        XCTAssertEqual(other.search, "grace")
+        XCTAssertEqual(other.offset, 10)
+        XCTAssertEqual(other.limit, 25)
+        // `next()` keeps the raw term verbatim; normalisation happens on the wire.
+        XCTAssertEqual(original.next().search, "ada")
+        XCTAssertEqual(original.next().offset, 35)
+    }
+
+    // MARK: - §27.11: model additions
+
+    func testAnUnknownEnumValueDecodesInsteadOfFailingThePage() async throws {
+        // Two tenants, and only the second has a `kind` this SDK has never seen. A closed
+        // enum would throw while decoding it and take the first one — which the caller did
+        // ask for — down with it. That blast radius is what §27.11 rule 1 is about.
+        let ordinary = Self.tenantRow(slug: "ordinary", kind: "standard")
+        let future = Self.tenantRow(slug: "future", kind: "sandbox")
+        let page = "{\"items\": [\(ordinary), \(future)], \"total\": 2}"
+        let (client, _) = try await ManagementFixture.signedIn([(status: 200, body: page)])
+
+        let tenants = try await client.tenants.list()
+
+        XCTAssertEqual(tenants.count, 2)
+        XCTAssertEqual(tenants.items[0].kind, TenantKind.standard)
+        XCTAssertEqual(tenants.items[1].kind, TenantKind.unknown)
+    }
+
+    func testAnAbsentTenantKindDecodesAsNil() async throws {
+        let page = "{\"items\": [\(Self.tenantRow(slug: "legacy", kind: nil))], \"total\": 1}"
+        let (client, _) = try await ManagementFixture.signedIn([(status: 200, body: page)])
+
+        let tenants = try await client.tenants.list()
+
+        XCTAssertNil(tenants.items[0].kind)
+    }
+
+    func testTenantKindIsReadOnly() throws {
+        // §27.11 rule 2: an organization's scope tenant is reserved at organization
+        // creation and enforced by a unique index. A client able to set the field could
+        // ask for a second one, and the request would be refused at the database rather
+        // than at the type. Asserted on the ENCODED body, which is what reaches the server.
+        let created = try JSONEncoder().encode(
+            CreateTenantRequest(name: "acme", slug: "acme"))
+        let updated = try JSONEncoder().encode(UpdateTenant(name: "renamed"))
+
+        XCTAssertFalse(String(decoding: created, as: UTF8.self).contains("kind"))
+        XCTAssertFalse(String(decoding: updated, as: UTF8.self).contains("kind"))
+    }
+
+    func testTrustedAnchorsKeepsNilDistinctFromZero() throws {
+        // §27.11 rule 3: "the listener trusts no CAs" and "there was no listener to ask"
+        // are different operational states, and only one of them is a problem. Coalescing
+        // the first to 0 reports a healthy plaintext deployment as a broken TLS one.
+        let notReloaded = try JSONDecoder().decode(MtlsTrustAnchorResponse.self, from: Data("""
+            {"ca_certificate_id": "\(Self.uuid)", "message": "stored; applies at next start", \
+            "mtls_trust_anchor": true, "restart_required": true}
+            """.utf8))
+        let reloadedEmpty = try JSONDecoder().decode(MtlsTrustAnchorResponse.self, from: Data("""
+            {"ca_certificate_id": "\(Self.uuid)", "message": "reloaded", \
+            "mtls_trust_anchor": false, "restart_required": false, "trusted_anchors": 0}
+            """.utf8))
+
+        XCTAssertNil(notReloaded.trustedAnchors)
+        XCTAssertEqual(reloadedEmpty.trustedAnchors, 0)
+    }
+
+    func testTheCertificateProjectionIsListOnlyAndCostsNoSecondRequest() async throws {
+        let bound = ManagementFixture.otherOrg
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200,
+             body: "{\"items\": [\(Self.certificateRow(boundServiceAccountID: bound))], "
+                 + "\"total\": 1}"),
+            (status: 200, body: Self.certificateRow(boundServiceAccountID: nil)),
+        ])
+
+        let listed = try await client.certificates.list()
+        let fetched = try await client.certificates.get(id: Self.uuid)
+
+        XCTAssertEqual(listed.items[0].boundServiceAccountID, bound)
+        // §27.11 rule 4: null on `get` means "this read does not carry it", not "there is
+        // nothing bound" — and the SDK does not go and fetch it. A `get` that silently
+        // costs two round trips is what §27.4 rule 3 forbids for slug resolution.
+        XCTAssertNil(fetched.boundServiceAccountID)
+        XCTAssertEqual(transport.count, 2)
+    }
+
     // MARK: - §27.4 rule 5: sparse vs replacement bodies
 
     func testASparseUpdateSerializesExactlyTheFieldsItWasGiven() async throws {
@@ -446,5 +619,29 @@ final class ManagementSemanticsTests: XCTestCase {
 
         let properties = Mirror(reflecting: read).children.compactMap { $0.label }
         XCTAssertFalse(properties.contains("clientSecret"), "\(properties)")
+    }
+
+    /// A minimal `Tenant` row as the server would send it. `kind` is the bare wire value,
+    /// or `nil` to leave the property out entirely.
+    private static func tenantRow(slug: String, kind: String?) -> String {
+        let kindPair = kind.map { ", \"kind\": \"\($0)\"" } ?? ""
+        return """
+            {"created_at": "2026-08-26T00:00:00Z", "id": "\(uuid)", "metadata": {}, \
+            "name": "\(slug)", "organization_id": "\(ManagementFixture.orgID)", \
+            "slug": "\(slug)", "status": "Active", "updated_at": "2026-08-26T00:00:00Z"\(kindPair)}
+            """
+    }
+
+    /// A minimal `Certificate` row, with or without the list-only projection.
+    private static func certificateRow(boundServiceAccountID: String?) -> String {
+        let bound = boundServiceAccountID
+            .map { ", \"bound_service_account_id\": \"\($0)\"" } ?? ""
+        return """
+            {"cert_type": "Device", "created_at": "2026-08-26T00:00:00Z", \
+            "fingerprint": "aa:bb", "id": "\(uuid)", "issuer_ca_id": "\(uuid)", \
+            "key_algorithm": "Ed25519", "metadata": {}, "not_after": "2027-08-26T00:00:00Z", \
+            "not_before": "2026-08-26T00:00:00Z", "public_cert_pem": "-----BEGIN CERTIFICATE-----", \
+            "status": "Active", "subject": "CN=device-001", "tenant_id": "\(uuid)"\(bound)}
+            """
     }
 }

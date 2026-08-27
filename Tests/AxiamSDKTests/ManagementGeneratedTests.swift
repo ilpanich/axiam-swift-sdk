@@ -315,7 +315,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testTenantsListReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+            [(status: 200, body: "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
         _ = try await client.tenants.list()
 
         XCTAssertEqual(transport.count, 1)
@@ -325,7 +325,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testTenantsCreateReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
         _ = try await client.tenants.create(body: Self.fixtureCreateTenantRequest)
 
         XCTAssertEqual(transport.count, 1)
@@ -335,7 +335,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testTenantsGetReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
         _ = try await client.tenants.get(tenantID: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -345,7 +345,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testTenantsUpdateReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
         _ = try await client.tenants.update(tenantID: "11111111-1111-4111-8111-111111111111", body: Self.fixtureUpdateTenant)
 
         XCTAssertEqual(transport.count, 1)
@@ -1035,7 +1035,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testCaCertificatesSetMtlsTrustAnchorReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true}")])
+            [(status: 200, body: "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true, \"trusted_anchors\": 1}")])
         _ = try await client.caCertificates.setMtlsTrustAnchor(id: "11111111-1111-4111-8111-111111111111", body: Self.fixtureSetMtlsTrustAnchor)
 
         XCTAssertEqual(transport.count, 1)
@@ -3070,7 +3070,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testMtlsTrustAnchorResponseRoundTripsWithoutLosingAField() throws {
-        let json = "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true}"
+        let json = "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true, \"trusted_anchors\": 1}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4136,7 +4136,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testTenantRoundTripsWithoutLosingAField() throws {
-        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4894,7 +4894,8 @@ final class ManagementGeneratedTests: XCTestCase {
             publicCertPEM: decoded.publicCertPEM,
             status: decoded.status,
             subject: decoded.subject,
-            tenantID: decoded.tenantID)
+            tenantID: decoded.tenantID,
+            boundServiceAccountID: decoded.boundServiceAccountID)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -5955,7 +5956,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testMtlsTrustAnchorResponseMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true}"
+        let json = "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true, \"trusted_anchors\": 1}"
         let decoded = try JSONDecoder().decode(MtlsTrustAnchorResponse.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -5966,7 +5967,8 @@ final class ManagementGeneratedTests: XCTestCase {
             caCertificateID: decoded.caCertificateID,
             message: decoded.message,
             mtlsTrustAnchor: decoded.mtlsTrustAnchor,
-            restartRequired: decoded.restartRequired)
+            restartRequired: decoded.restartRequired,
+            trustedAnchors: decoded.trustedAnchors)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -6981,7 +6983,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testTenantMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
         let decoded = try JSONDecoder().decode(Tenant.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -6991,6 +6993,7 @@ final class ManagementGeneratedTests: XCTestCase {
         let rebuilt = Tenant(
             createdAt: decoded.createdAt,
             id: decoded.id,
+            kind: decoded.kind,
             metadata: decoded.metadata,
             name: decoded.name,
             organizationID: decoded.organizationID,
@@ -7546,7 +7549,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testActorTypeMapsEveryValueBothWays() throws {
-        XCTAssertEqual(ActorType.allCases.count, 3)
+        XCTAssertEqual(ActorType.allCases.count, 4)
         XCTAssertEqual(ActorType.user.rawValue, "User")
         XCTAssertEqual(ActorType(rawValue: "User"), ActorType.user)
         XCTAssertEqual(ActorType.serviceAccount.rawValue, "ServiceAccount")
@@ -7554,16 +7557,28 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(ActorType.system.rawValue, "System")
         XCTAssertEqual(ActorType(rawValue: "System"), ActorType.system)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(ActorType(rawValue: "__not_a_actor_type__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [ActorType].self,
+            from: Data("[\"__not_a_actor_type__\"]".utf8))
+        XCTAssertEqual(stranger, [ActorType.unknown])
+        XCTAssertNotEqual(ActorType.unknown, ActorType.user)
+        XCTAssertNotEqual(ActorType.unknown, ActorType.serviceAccount)
+        XCTAssertNotEqual(ActorType.unknown, ActorType.system)
+        XCTAssertEqual(ActorType.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([ActorType.user])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"User\"]")
     }
 
     func testAttestationModeMapsEveryValueBothWays() throws {
-        XCTAssertEqual(AttestationMode.allCases.count, 3)
+        XCTAssertEqual(AttestationMode.allCases.count, 4)
         XCTAssertEqual(AttestationMode.none.rawValue, "none")
         XCTAssertEqual(AttestationMode(rawValue: "none"), AttestationMode.none)
         XCTAssertEqual(AttestationMode.indirect.rawValue, "indirect")
@@ -7571,16 +7586,28 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(AttestationMode.directRequired.rawValue, "direct_required")
         XCTAssertEqual(AttestationMode(rawValue: "direct_required"), AttestationMode.directRequired)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(AttestationMode(rawValue: "__not_a_attestation_mode__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [AttestationMode].self,
+            from: Data("[\"__not_a_attestation_mode__\"]".utf8))
+        XCTAssertEqual(stranger, [AttestationMode.unknown])
+        XCTAssertNotEqual(AttestationMode.unknown, AttestationMode.none)
+        XCTAssertNotEqual(AttestationMode.unknown, AttestationMode.indirect)
+        XCTAssertNotEqual(AttestationMode.unknown, AttestationMode.directRequired)
+        XCTAssertEqual(AttestationMode.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([AttestationMode.none])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"none\"]")
     }
 
     func testAuditOutcomeMapsEveryValueBothWays() throws {
-        XCTAssertEqual(AuditOutcome.allCases.count, 3)
+        XCTAssertEqual(AuditOutcome.allCases.count, 4)
         XCTAssertEqual(AuditOutcome.success.rawValue, "Success")
         XCTAssertEqual(AuditOutcome(rawValue: "Success"), AuditOutcome.success)
         XCTAssertEqual(AuditOutcome.failure.rawValue, "Failure")
@@ -7588,16 +7615,28 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(AuditOutcome.denied.rawValue, "Denied")
         XCTAssertEqual(AuditOutcome(rawValue: "Denied"), AuditOutcome.denied)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(AuditOutcome(rawValue: "__not_a_audit_outcome__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [AuditOutcome].self,
+            from: Data("[\"__not_a_audit_outcome__\"]".utf8))
+        XCTAssertEqual(stranger, [AuditOutcome.unknown])
+        XCTAssertNotEqual(AuditOutcome.unknown, AuditOutcome.success)
+        XCTAssertNotEqual(AuditOutcome.unknown, AuditOutcome.failure)
+        XCTAssertNotEqual(AuditOutcome.unknown, AuditOutcome.denied)
+        XCTAssertEqual(AuditOutcome.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([AuditOutcome.success])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Success\"]")
     }
 
     func testCertificateStatusMapsEveryValueBothWays() throws {
-        XCTAssertEqual(CertificateStatus.allCases.count, 3)
+        XCTAssertEqual(CertificateStatus.allCases.count, 4)
         XCTAssertEqual(CertificateStatus.active.rawValue, "Active")
         XCTAssertEqual(CertificateStatus(rawValue: "Active"), CertificateStatus.active)
         XCTAssertEqual(CertificateStatus.revoked.rawValue, "Revoked")
@@ -7605,16 +7644,28 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(CertificateStatus.expired.rawValue, "Expired")
         XCTAssertEqual(CertificateStatus(rawValue: "Expired"), CertificateStatus.expired)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(CertificateStatus(rawValue: "__not_a_certificate_status__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [CertificateStatus].self,
+            from: Data("[\"__not_a_certificate_status__\"]".utf8))
+        XCTAssertEqual(stranger, [CertificateStatus.unknown])
+        XCTAssertNotEqual(CertificateStatus.unknown, CertificateStatus.active)
+        XCTAssertNotEqual(CertificateStatus.unknown, CertificateStatus.revoked)
+        XCTAssertNotEqual(CertificateStatus.unknown, CertificateStatus.expired)
+        XCTAssertEqual(CertificateStatus.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([CertificateStatus.active])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
     func testCertificateTypeMapsEveryValueBothWays() throws {
-        XCTAssertEqual(CertificateType.allCases.count, 3)
+        XCTAssertEqual(CertificateType.allCases.count, 4)
         XCTAssertEqual(CertificateType.user.rawValue, "User")
         XCTAssertEqual(CertificateType(rawValue: "User"), CertificateType.user)
         XCTAssertEqual(CertificateType.service.rawValue, "Service")
@@ -7622,16 +7673,28 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(CertificateType.device.rawValue, "Device")
         XCTAssertEqual(CertificateType(rawValue: "Device"), CertificateType.device)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(CertificateType(rawValue: "__not_a_certificate_type__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [CertificateType].self,
+            from: Data("[\"__not_a_certificate_type__\"]".utf8))
+        XCTAssertEqual(stranger, [CertificateType.unknown])
+        XCTAssertNotEqual(CertificateType.unknown, CertificateType.user)
+        XCTAssertNotEqual(CertificateType.unknown, CertificateType.service)
+        XCTAssertNotEqual(CertificateType.unknown, CertificateType.device)
+        XCTAssertEqual(CertificateType.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([CertificateType.user])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"User\"]")
     }
 
     func testCertificationLevelMapsEveryValueBothWays() throws {
-        XCTAssertEqual(CertificationLevel.allCases.count, 6)
+        XCTAssertEqual(CertificationLevel.allCases.count, 7)
         XCTAssertEqual(CertificationLevel.l1.rawValue, "L1")
         XCTAssertEqual(CertificationLevel(rawValue: "L1"), CertificationLevel.l1)
         XCTAssertEqual(CertificationLevel.l1Plus.rawValue, "L1Plus")
@@ -7645,16 +7708,31 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(CertificationLevel.l3Plus.rawValue, "L3Plus")
         XCTAssertEqual(CertificationLevel(rawValue: "L3Plus"), CertificationLevel.l3Plus)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(CertificationLevel(rawValue: "__not_a_certification_level__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [CertificationLevel].self,
+            from: Data("[\"__not_a_certification_level__\"]".utf8))
+        XCTAssertEqual(stranger, [CertificationLevel.unknown])
+        XCTAssertNotEqual(CertificationLevel.unknown, CertificationLevel.l1)
+        XCTAssertNotEqual(CertificationLevel.unknown, CertificationLevel.l1Plus)
+        XCTAssertNotEqual(CertificationLevel.unknown, CertificationLevel.l2)
+        XCTAssertNotEqual(CertificationLevel.unknown, CertificationLevel.l2Plus)
+        XCTAssertNotEqual(CertificationLevel.unknown, CertificationLevel.l3)
+        XCTAssertNotEqual(CertificationLevel.unknown, CertificationLevel.l3Plus)
+        XCTAssertEqual(CertificationLevel.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([CertificationLevel.l1])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"L1\"]")
     }
 
     func testClientAuthMethodMapsEveryValueBothWays() throws {
-        XCTAssertEqual(ClientAuthMethod.allCases.count, 4)
+        XCTAssertEqual(ClientAuthMethod.allCases.count, 5)
         XCTAssertEqual(ClientAuthMethod.clientSecretPost.rawValue, "client_secret_post")
         XCTAssertEqual(ClientAuthMethod(rawValue: "client_secret_post"), ClientAuthMethod.clientSecretPost)
         XCTAssertEqual(ClientAuthMethod.tlsClientAuth.rawValue, "tls_client_auth")
@@ -7664,61 +7742,107 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(ClientAuthMethod.privateKeyJWT.rawValue, "private_key_jwt")
         XCTAssertEqual(ClientAuthMethod(rawValue: "private_key_jwt"), ClientAuthMethod.privateKeyJWT)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(ClientAuthMethod(rawValue: "__not_a_client_auth_method__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [ClientAuthMethod].self,
+            from: Data("[\"__not_a_client_auth_method__\"]".utf8))
+        XCTAssertEqual(stranger, [ClientAuthMethod.unknown])
+        XCTAssertNotEqual(ClientAuthMethod.unknown, ClientAuthMethod.clientSecretPost)
+        XCTAssertNotEqual(ClientAuthMethod.unknown, ClientAuthMethod.tlsClientAuth)
+        XCTAssertNotEqual(ClientAuthMethod.unknown, ClientAuthMethod.selfSignedTLSClientAuth)
+        XCTAssertNotEqual(ClientAuthMethod.unknown, ClientAuthMethod.privateKeyJWT)
+        XCTAssertEqual(ClientAuthMethod.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([ClientAuthMethod.clientSecretPost])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"client_secret_post\"]")
     }
 
     func testClientProfileMapsEveryValueBothWays() throws {
-        XCTAssertEqual(ClientProfile.allCases.count, 2)
+        XCTAssertEqual(ClientProfile.allCases.count, 3)
         XCTAssertEqual(ClientProfile.standard.rawValue, "standard")
         XCTAssertEqual(ClientProfile(rawValue: "standard"), ClientProfile.standard)
         XCTAssertEqual(ClientProfile.fapi2.rawValue, "fapi2")
         XCTAssertEqual(ClientProfile(rawValue: "fapi2"), ClientProfile.fapi2)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(ClientProfile(rawValue: "__not_a_client_profile__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [ClientProfile].self,
+            from: Data("[\"__not_a_client_profile__\"]".utf8))
+        XCTAssertEqual(stranger, [ClientProfile.unknown])
+        XCTAssertNotEqual(ClientProfile.unknown, ClientProfile.standard)
+        XCTAssertNotEqual(ClientProfile.unknown, ClientProfile.fapi2)
+        XCTAssertEqual(ClientProfile.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([ClientProfile.standard])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"standard\"]")
     }
 
     func testFailurePolicyMapsEveryValueBothWays() throws {
-        XCTAssertEqual(FailurePolicy.allCases.count, 2)
+        XCTAssertEqual(FailurePolicy.allCases.count, 3)
         XCTAssertEqual(FailurePolicy.failClosed.rawValue, "fail_closed")
         XCTAssertEqual(FailurePolicy(rawValue: "fail_closed"), FailurePolicy.failClosed)
         XCTAssertEqual(FailurePolicy.failOpen.rawValue, "fail_open")
         XCTAssertEqual(FailurePolicy(rawValue: "fail_open"), FailurePolicy.failOpen)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(FailurePolicy(rawValue: "__not_a_failure_policy__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [FailurePolicy].self,
+            from: Data("[\"__not_a_failure_policy__\"]".utf8))
+        XCTAssertEqual(stranger, [FailurePolicy.unknown])
+        XCTAssertNotEqual(FailurePolicy.unknown, FailurePolicy.failClosed)
+        XCTAssertNotEqual(FailurePolicy.unknown, FailurePolicy.failOpen)
+        XCTAssertEqual(FailurePolicy.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([FailurePolicy.failClosed])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"fail_closed\"]")
     }
 
     func testKeyAlgorithmMapsEveryValueBothWays() throws {
-        XCTAssertEqual(KeyAlgorithm.allCases.count, 2)
+        XCTAssertEqual(KeyAlgorithm.allCases.count, 3)
         XCTAssertEqual(KeyAlgorithm.rsa4096.rawValue, "Rsa4096")
         XCTAssertEqual(KeyAlgorithm(rawValue: "Rsa4096"), KeyAlgorithm.rsa4096)
         XCTAssertEqual(KeyAlgorithm.ed25519.rawValue, "Ed25519")
         XCTAssertEqual(KeyAlgorithm(rawValue: "Ed25519"), KeyAlgorithm.ed25519)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(KeyAlgorithm(rawValue: "__not_a_key_algorithm__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [KeyAlgorithm].self,
+            from: Data("[\"__not_a_key_algorithm__\"]".utf8))
+        XCTAssertEqual(stranger, [KeyAlgorithm.unknown])
+        XCTAssertNotEqual(KeyAlgorithm.unknown, KeyAlgorithm.rsa4096)
+        XCTAssertNotEqual(KeyAlgorithm.unknown, KeyAlgorithm.ed25519)
+        XCTAssertEqual(KeyAlgorithm.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([KeyAlgorithm.rsa4096])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Rsa4096\"]")
     }
 
     func testMfaMethodTypeMapsEveryValueBothWays() throws {
-        XCTAssertEqual(MfaMethodType.allCases.count, 3)
+        XCTAssertEqual(MfaMethodType.allCases.count, 4)
         XCTAssertEqual(MfaMethodType.totp.rawValue, "Totp")
         XCTAssertEqual(MfaMethodType(rawValue: "Totp"), MfaMethodType.totp)
         XCTAssertEqual(MfaMethodType.passkey.rawValue, "Passkey")
@@ -7726,16 +7850,28 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(MfaMethodType.securityKey.rawValue, "SecurityKey")
         XCTAssertEqual(MfaMethodType(rawValue: "SecurityKey"), MfaMethodType.securityKey)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(MfaMethodType(rawValue: "__not_a_mfa_method_type__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [MfaMethodType].self,
+            from: Data("[\"__not_a_mfa_method_type__\"]".utf8))
+        XCTAssertEqual(stranger, [MfaMethodType.unknown])
+        XCTAssertNotEqual(MfaMethodType.unknown, MfaMethodType.totp)
+        XCTAssertNotEqual(MfaMethodType.unknown, MfaMethodType.passkey)
+        XCTAssertNotEqual(MfaMethodType.unknown, MfaMethodType.securityKey)
+        XCTAssertEqual(MfaMethodType.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([MfaMethodType.totp])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Totp\"]")
     }
 
     func testNotificationEventTypeMapsEveryValueBothWays() throws {
-        XCTAssertEqual(NotificationEventType.allCases.count, 17)
+        XCTAssertEqual(NotificationEventType.allCases.count, 18)
         XCTAssertEqual(NotificationEventType.loginFailure.rawValue, "login_failure")
         XCTAssertEqual(NotificationEventType(rawValue: "login_failure"), NotificationEventType.loginFailure)
         XCTAssertEqual(NotificationEventType.accountLocked.rawValue, "account_locked")
@@ -7771,91 +7907,172 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(NotificationEventType.serviceAccountDeleted.rawValue, "service_account_deleted")
         XCTAssertEqual(NotificationEventType(rawValue: "service_account_deleted"), NotificationEventType.serviceAccountDeleted)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(NotificationEventType(rawValue: "__not_a_notification_event_type__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [NotificationEventType].self,
+            from: Data("[\"__not_a_notification_event_type__\"]".utf8))
+        XCTAssertEqual(stranger, [NotificationEventType.unknown])
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.loginFailure)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.accountLocked)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.mfaEnrollmentChanged)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.passwordChanged)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.passwordResetRequested)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.roleAssigned)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.roleUnassigned)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.permissionGranted)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.permissionRevoked)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.certificateIssued)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.certificateRevoked)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.caCertificateRevoked)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.userCreated)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.userDeleted)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.userUpdated)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.serviceAccountCreated)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.serviceAccountDeleted)
+        XCTAssertEqual(NotificationEventType.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([NotificationEventType.loginFailure])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"login_failure\"]")
     }
 
     func testPermissionEffectMapsEveryValueBothWays() throws {
-        XCTAssertEqual(PermissionEffect.allCases.count, 2)
+        XCTAssertEqual(PermissionEffect.allCases.count, 3)
         XCTAssertEqual(PermissionEffect.allow.rawValue, "allow")
         XCTAssertEqual(PermissionEffect(rawValue: "allow"), PermissionEffect.allow)
         XCTAssertEqual(PermissionEffect.deny.rawValue, "deny")
         XCTAssertEqual(PermissionEffect(rawValue: "deny"), PermissionEffect.deny)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(PermissionEffect(rawValue: "__not_a_permission_effect__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [PermissionEffect].self,
+            from: Data("[\"__not_a_permission_effect__\"]".utf8))
+        XCTAssertEqual(stranger, [PermissionEffect.unknown])
+        XCTAssertNotEqual(PermissionEffect.unknown, PermissionEffect.allow)
+        XCTAssertNotEqual(PermissionEffect.unknown, PermissionEffect.deny)
+        XCTAssertEqual(PermissionEffect.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([PermissionEffect.allow])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"allow\"]")
     }
 
     func testPgpKeyAlgorithmMapsEveryValueBothWays() throws {
-        XCTAssertEqual(PgpKeyAlgorithm.allCases.count, 2)
+        XCTAssertEqual(PgpKeyAlgorithm.allCases.count, 3)
         XCTAssertEqual(PgpKeyAlgorithm.rsa4096.rawValue, "Rsa4096")
         XCTAssertEqual(PgpKeyAlgorithm(rawValue: "Rsa4096"), PgpKeyAlgorithm.rsa4096)
         XCTAssertEqual(PgpKeyAlgorithm.ed25519.rawValue, "Ed25519")
         XCTAssertEqual(PgpKeyAlgorithm(rawValue: "Ed25519"), PgpKeyAlgorithm.ed25519)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(PgpKeyAlgorithm(rawValue: "__not_a_pgp_key_algorithm__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [PgpKeyAlgorithm].self,
+            from: Data("[\"__not_a_pgp_key_algorithm__\"]".utf8))
+        XCTAssertEqual(stranger, [PgpKeyAlgorithm.unknown])
+        XCTAssertNotEqual(PgpKeyAlgorithm.unknown, PgpKeyAlgorithm.rsa4096)
+        XCTAssertNotEqual(PgpKeyAlgorithm.unknown, PgpKeyAlgorithm.ed25519)
+        XCTAssertEqual(PgpKeyAlgorithm.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([PgpKeyAlgorithm.rsa4096])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Rsa4096\"]")
     }
 
     func testPgpKeyPurposeMapsEveryValueBothWays() throws {
-        XCTAssertEqual(PgpKeyPurpose.allCases.count, 2)
+        XCTAssertEqual(PgpKeyPurpose.allCases.count, 3)
         XCTAssertEqual(PgpKeyPurpose.auditSigning.rawValue, "AuditSigning")
         XCTAssertEqual(PgpKeyPurpose(rawValue: "AuditSigning"), PgpKeyPurpose.auditSigning)
         XCTAssertEqual(PgpKeyPurpose.export.rawValue, "Export")
         XCTAssertEqual(PgpKeyPurpose(rawValue: "Export"), PgpKeyPurpose.export)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(PgpKeyPurpose(rawValue: "__not_a_pgp_key_purpose__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [PgpKeyPurpose].self,
+            from: Data("[\"__not_a_pgp_key_purpose__\"]".utf8))
+        XCTAssertEqual(stranger, [PgpKeyPurpose.unknown])
+        XCTAssertNotEqual(PgpKeyPurpose.unknown, PgpKeyPurpose.auditSigning)
+        XCTAssertNotEqual(PgpKeyPurpose.unknown, PgpKeyPurpose.export)
+        XCTAssertEqual(PgpKeyPurpose.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([PgpKeyPurpose.auditSigning])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"AuditSigning\"]")
     }
 
     func testPgpKeyStatusMapsEveryValueBothWays() throws {
-        XCTAssertEqual(PgpKeyStatus.allCases.count, 2)
+        XCTAssertEqual(PgpKeyStatus.allCases.count, 3)
         XCTAssertEqual(PgpKeyStatus.active.rawValue, "Active")
         XCTAssertEqual(PgpKeyStatus(rawValue: "Active"), PgpKeyStatus.active)
         XCTAssertEqual(PgpKeyStatus.revoked.rawValue, "Revoked")
         XCTAssertEqual(PgpKeyStatus(rawValue: "Revoked"), PgpKeyStatus.revoked)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(PgpKeyStatus(rawValue: "__not_a_pgp_key_status__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [PgpKeyStatus].self,
+            from: Data("[\"__not_a_pgp_key_status__\"]".utf8))
+        XCTAssertEqual(stranger, [PgpKeyStatus.unknown])
+        XCTAssertNotEqual(PgpKeyStatus.unknown, PgpKeyStatus.active)
+        XCTAssertNotEqual(PgpKeyStatus.unknown, PgpKeyStatus.revoked)
+        XCTAssertEqual(PgpKeyStatus.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([PgpKeyStatus.active])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
     func testReactorModeMapsEveryValueBothWays() throws {
-        XCTAssertEqual(ReactorMode.allCases.count, 2)
+        XCTAssertEqual(ReactorMode.allCases.count, 3)
         XCTAssertEqual(ReactorMode.intercept.rawValue, "intercept")
         XCTAssertEqual(ReactorMode(rawValue: "intercept"), ReactorMode.intercept)
         XCTAssertEqual(ReactorMode.listen.rawValue, "listen")
         XCTAssertEqual(ReactorMode(rawValue: "listen"), ReactorMode.listen)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(ReactorMode(rawValue: "__not_a_reactor_mode__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [ReactorMode].self,
+            from: Data("[\"__not_a_reactor_mode__\"]".utf8))
+        XCTAssertEqual(stranger, [ReactorMode.unknown])
+        XCTAssertNotEqual(ReactorMode.unknown, ReactorMode.intercept)
+        XCTAssertNotEqual(ReactorMode.unknown, ReactorMode.listen)
+        XCTAssertEqual(ReactorMode.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([ReactorMode.intercept])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"intercept\"]")
     }
 
     func testScimTokenStatusMapsEveryValueBothWays() throws {
-        XCTAssertEqual(ScimTokenStatus.allCases.count, 3)
+        XCTAssertEqual(ScimTokenStatus.allCases.count, 4)
         XCTAssertEqual(ScimTokenStatus.active.rawValue, "active")
         XCTAssertEqual(ScimTokenStatus(rawValue: "active"), ScimTokenStatus.active)
         XCTAssertEqual(ScimTokenStatus.expired.rawValue, "expired")
@@ -7863,61 +8080,132 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(ScimTokenStatus.revoked.rawValue, "revoked")
         XCTAssertEqual(ScimTokenStatus(rawValue: "revoked"), ScimTokenStatus.revoked)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(ScimTokenStatus(rawValue: "__not_a_scim_token_status__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [ScimTokenStatus].self,
+            from: Data("[\"__not_a_scim_token_status__\"]".utf8))
+        XCTAssertEqual(stranger, [ScimTokenStatus.unknown])
+        XCTAssertNotEqual(ScimTokenStatus.unknown, ScimTokenStatus.active)
+        XCTAssertNotEqual(ScimTokenStatus.unknown, ScimTokenStatus.expired)
+        XCTAssertNotEqual(ScimTokenStatus.unknown, ScimTokenStatus.revoked)
+        XCTAssertEqual(ScimTokenStatus.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([ScimTokenStatus.active])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"active\"]")
     }
 
     func testSettingsScopeMapsEveryValueBothWays() throws {
-        XCTAssertEqual(SettingsScope.allCases.count, 2)
+        XCTAssertEqual(SettingsScope.allCases.count, 3)
         XCTAssertEqual(SettingsScope.org.rawValue, "Org")
         XCTAssertEqual(SettingsScope(rawValue: "Org"), SettingsScope.org)
         XCTAssertEqual(SettingsScope.tenant.rawValue, "Tenant")
         XCTAssertEqual(SettingsScope(rawValue: "Tenant"), SettingsScope.tenant)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(SettingsScope(rawValue: "__not_a_settings_scope__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [SettingsScope].self,
+            from: Data("[\"__not_a_settings_scope__\"]".utf8))
+        XCTAssertEqual(stranger, [SettingsScope.unknown])
+        XCTAssertNotEqual(SettingsScope.unknown, SettingsScope.org)
+        XCTAssertNotEqual(SettingsScope.unknown, SettingsScope.tenant)
+        XCTAssertEqual(SettingsScope.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([SettingsScope.org])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Org\"]")
     }
 
+    func testTenantKindMapsEveryValueBothWays() throws {
+        XCTAssertEqual(TenantKind.allCases.count, 3)
+        XCTAssertEqual(TenantKind.standard.rawValue, "standard")
+        XCTAssertEqual(TenantKind(rawValue: "standard"), TenantKind.standard)
+        XCTAssertEqual(TenantKind.organization.rawValue, "organization")
+        XCTAssertEqual(TenantKind(rawValue: "organization"), TenantKind.organization)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(TenantKind(rawValue: "__not_a_tenant_kind__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [TenantKind].self,
+            from: Data("[\"__not_a_tenant_kind__\"]".utf8))
+        XCTAssertEqual(stranger, [TenantKind.unknown])
+        XCTAssertNotEqual(TenantKind.unknown, TenantKind.standard)
+        XCTAssertNotEqual(TenantKind.unknown, TenantKind.organization)
+        XCTAssertEqual(TenantKind.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([TenantKind.standard])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"standard\"]")
+    }
+
     func testTenantStatusMapsEveryValueBothWays() throws {
-        XCTAssertEqual(TenantStatus.allCases.count, 2)
+        XCTAssertEqual(TenantStatus.allCases.count, 3)
         XCTAssertEqual(TenantStatus.active.rawValue, "Active")
         XCTAssertEqual(TenantStatus(rawValue: "Active"), TenantStatus.active)
         XCTAssertEqual(TenantStatus.suspended.rawValue, "Suspended")
         XCTAssertEqual(TenantStatus(rawValue: "Suspended"), TenantStatus.suspended)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(TenantStatus(rawValue: "__not_a_tenant_status__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [TenantStatus].self,
+            from: Data("[\"__not_a_tenant_status__\"]".utf8))
+        XCTAssertEqual(stranger, [TenantStatus.unknown])
+        XCTAssertNotEqual(TenantStatus.unknown, TenantStatus.active)
+        XCTAssertNotEqual(TenantStatus.unknown, TenantStatus.suspended)
+        XCTAssertEqual(TenantStatus.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([TenantStatus.active])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
     func testUnknownAaguidActionMapsEveryValueBothWays() throws {
-        XCTAssertEqual(UnknownAaguidAction.allCases.count, 2)
+        XCTAssertEqual(UnknownAaguidAction.allCases.count, 3)
         XCTAssertEqual(UnknownAaguidAction.allow.rawValue, "allow")
         XCTAssertEqual(UnknownAaguidAction(rawValue: "allow"), UnknownAaguidAction.allow)
         XCTAssertEqual(UnknownAaguidAction.deny.rawValue, "deny")
         XCTAssertEqual(UnknownAaguidAction(rawValue: "deny"), UnknownAaguidAction.deny)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(UnknownAaguidAction(rawValue: "__not_a_unknown_aaguid_action__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [UnknownAaguidAction].self,
+            from: Data("[\"__not_a_unknown_aaguid_action__\"]".utf8))
+        XCTAssertEqual(stranger, [UnknownAaguidAction.unknown])
+        XCTAssertNotEqual(UnknownAaguidAction.unknown, UnknownAaguidAction.allow)
+        XCTAssertNotEqual(UnknownAaguidAction.unknown, UnknownAaguidAction.deny)
+        XCTAssertEqual(UnknownAaguidAction.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([UnknownAaguidAction.allow])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"allow\"]")
     }
 
     func testUserStatusMapsEveryValueBothWays() throws {
-        XCTAssertEqual(UserStatus.allCases.count, 6)
+        XCTAssertEqual(UserStatus.allCases.count, 7)
         XCTAssertEqual(UserStatus.active.rawValue, "Active")
         XCTAssertEqual(UserStatus(rawValue: "Active"), UserStatus.active)
         XCTAssertEqual(UserStatus.inactive.rawValue, "Inactive")
@@ -7931,16 +8219,31 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(UserStatus.deleted.rawValue, "Deleted")
         XCTAssertEqual(UserStatus(rawValue: "Deleted"), UserStatus.deleted)
 
-        // An unrecognised value is REPORTED. Mapping it to whichever case happens to be first
-        // would turn a server newer than this SDK into silently wrong data rather than an error
-        // a caller can act on.
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
         XCTAssertNil(UserStatus(rawValue: "__not_a_user_status__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [UserStatus].self,
+            from: Data("[\"__not_a_user_status__\"]".utf8))
+        XCTAssertEqual(stranger, [UserStatus.unknown])
+        XCTAssertNotEqual(UserStatus.unknown, UserStatus.active)
+        XCTAssertNotEqual(UserStatus.unknown, UserStatus.inactive)
+        XCTAssertNotEqual(UserStatus.unknown, UserStatus.locked)
+        XCTAssertNotEqual(UserStatus.unknown, UserStatus.pendingVerification)
+        XCTAssertNotEqual(UserStatus.unknown, UserStatus.anonymized)
+        XCTAssertNotEqual(UserStatus.unknown, UserStatus.deleted)
+        XCTAssertEqual(UserStatus.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([UserStatus.active])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
     // §27.9: this file covers 146 operations, 114 models (114 of them also through their
-    // memberwise initializer) and 22 enums.
+    // memberwise initializer) and 23 enums.
     //
     // The counts above are literals THIS generator wrote, so comparing them to each other would
     // be a tautology a bad regeneration still satisfies. They are compared against the vendored

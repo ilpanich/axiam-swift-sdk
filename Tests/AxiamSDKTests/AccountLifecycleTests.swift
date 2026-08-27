@@ -209,6 +209,200 @@ final class AccountLifecycleTests: XCTestCase {
         }
     }
 
+    // MARK: - §25.7: resendOwnVerification, and why it is not resendVerification
+
+    /// The signed-in resend sends NO caller-supplied data (§25.6).
+    ///
+    /// Asserted on the serialized request rather than on the signature: a method that takes
+    /// no address but reads one off the client and sends it anyway would pass a signature
+    /// check and still be the bug §25.7 exists to prevent. An empty JSON object — the same
+    /// thing `mfaEnroll` already sends — is conformant; an `email` key is not, whatever the
+    /// SDK does with the value.
+    func testResendOwnVerificationSendsNoAddress() async throws {
+        try await withClient(router: { request, _ in
+            if request.uri.contains("/auth/login") {
+                return .json(200, TestKit.loginSuccessBody(), headers: [
+                    ("Set-Cookie", "axiam_access=tok; Path=/; HttpOnly"),
+                ])
+            }
+            return .json(200, ["sent": true])
+        }) { client, server in
+            _ = try await client.login(email: "alice@example.com", password: "pw")
+
+            try await client.resendOwnVerification()
+
+            let sent = try XCTUnwrap(
+                server.state.requests(pathContaining: "/api/v1/users/me/resend-verification").first
+            )
+            let body = (try? JSONSerialization.jsonObject(with: sent.body)) as? [String: Any]
+            XCTAssertEqual((body ?? [:]).count, 0,
+                           "the request must carry no address field")
+            XCTAssertFalse(sent.uri.contains("email="), "nor smuggle one onto the query string")
+        }
+    }
+
+    /// The two resends are distinct operations on distinct paths (§25.6).
+    ///
+    /// §25.7 rule 2 forbids routing either to the other in either direction; an SDK that
+    /// aliased one reintroduces exactly the defect that section describes, and this is the
+    /// assertion that would catch it.
+    func testTheTwoResendsHitDistinctPaths() async throws {
+        try await withClient(router: { request, _ in
+            if request.uri.contains("/auth/login") {
+                return .json(200, TestKit.loginSuccessBody(), headers: [
+                    ("Set-Cookie", "axiam_access=tok; Path=/; HttpOnly"),
+                ])
+            }
+            return .json(200, ["sent": true])
+        }) { client, server in
+            _ = try await client.login(email: "alice@example.com", password: "pw")
+
+            try await client.resendOwnVerification()
+            try await client.resendVerification(email: "alice@example.com",
+                                                tenantID: Self.tenantUUID)
+
+            XCTAssertEqual(
+                server.state.requests(pathContaining: "/api/v1/users/me/resend-verification").count, 1)
+            XCTAssertEqual(
+                server.state.requests(pathContaining: "/api/v1/auth/resend-verification").count, 1)
+        }
+    }
+
+    /// A `409` raises and is NOT retried against the public endpoint.
+    ///
+    /// This matters more than it looks: the bug this operation exists to fix was a success
+    /// return on a request that sent nothing, and §25.7 rule 2's forbidden "helpful"
+    /// fallback would restore it with an extra round trip. The request count is what pins
+    /// that — one call, never two.
+    func testResendOwnVerificationRaisesOn409AndDoesNotFallBack() async throws {
+        try await withClient(router: { request, _ in
+            if request.uri.contains("/auth/login") {
+                return .json(200, TestKit.loginSuccessBody(), headers: [
+                    ("Set-Cookie", "axiam_access=tok; Path=/; HttpOnly"),
+                ])
+            }
+            return .json(409, ["message": "already verified"])
+        }) { client, server in
+            _ = try await client.login(email: "alice@example.com", password: "pw")
+
+            do {
+                try await client.resendOwnVerification()
+                XCTFail("a 409 must not resolve successfully")
+            } catch AxiamError.authz {
+                // §2 maps 409 to the authorization error, which is §25.7's table.
+            }
+
+            XCTAssertEqual(
+                server.state.requests(pathContaining: "/api/v1/auth/resend-verification").count, 0,
+                "no fallback to the unauthenticated endpoint")
+        }
+    }
+
+    /// A `429` is the §2 mapping of the daily resend limit, and is likewise not retried.
+    func testResendOwnVerificationRaisesOn429AndDoesNotFallBack() async throws {
+        try await withClient(router: { request, _ in
+            if request.uri.contains("/auth/login") {
+                return .json(200, TestKit.loginSuccessBody(), headers: [
+                    ("Set-Cookie", "axiam_access=tok; Path=/; HttpOnly"),
+                ])
+            }
+            return .json(429, ["message": "slow down"])
+        }) { client, server in
+            _ = try await client.login(email: "alice@example.com", password: "pw")
+
+            do {
+                try await client.resendOwnVerification()
+                XCTFail("a 429 must not resolve successfully")
+            } catch AxiamError.network {
+                // §2 maps 429 to the network error.
+            }
+
+            XCTAssertEqual(
+                server.state.requests(pathContaining: "/api/v1/auth/resend-verification").count, 0,
+                "no fallback to the unauthenticated endpoint")
+        }
+    }
+
+    /// With no session it refuses client-side, with ZERO wire calls.
+    func testResendOwnVerificationWithNoSessionMakesNoWireCall() async throws {
+        try await withClient(router: { _, _ in
+            .json(200, ["sent": true])
+        }) { client, server in
+            do {
+                try await client.resendOwnVerification()
+                XCTFail("expected an auth error")
+            } catch AxiamError.auth {
+                // Raised before the request is built, which is the point.
+            }
+
+            XCTAssertEqual(server.state.requests.count, 0)
+        }
+    }
+
+    // MARK: - §5.2: organization-level principals
+
+    /// `organization_level` on the login response reaches the returned user.
+    ///
+    /// The flag is the only thing that makes a tenant switch meaningful: such a principal
+    /// changes the tenant it acts on by sending a different `X-Tenant-ID`, with no
+    /// re-login. An application checks this BEFORE offering the switch rather than
+    /// discovering the answer from a `403`.
+    func testLoginSurfacesAnOrganizationLevelPrincipal() async throws {
+        let body = TestResponse.jsonBody([
+            "session_id": "sess-123",
+            "expires_in": 900,
+            "user": [
+                "id": "user-uuid-1",
+                "username": "root",
+                "email": "root@example.com",
+                "tenant_id": "tenant-uuid-1",
+                "organization_level": true,
+            ],
+        ])
+
+        try await withClient(router: { _, _ in
+            TestResponse(status: 200, headers: [("Content-Type", "application/json")], body: body)
+        }) { client, _ in
+            guard case let .authenticated(principal) = try await client.login(
+                email: "root@example.com", password: "pw") else {
+                return XCTFail("expected an authenticated outcome")
+            }
+            XCTAssertTrue(principal.organizationLevel)
+        }
+    }
+
+    /// Absent means `false` — what a server older than contract 1.31 answers, and the safe
+    /// direction: the application then offers no cross-tenant action.
+    func testAnAbsentOrganizationLevelFlagIsFalse() async throws {
+        try await withClient(router: { _, _ in
+            .json(200, TestKit.loginSuccessBody())
+        }) { client, _ in
+            guard case let .authenticated(principal) = try await client.login(
+                email: "alice@example.com", password: "pw") else {
+                return XCTFail("expected an authenticated outcome")
+            }
+            XCTAssertFalse(principal.organizationLevel)
+        }
+    }
+
+    /// §5.2 rule 2: it is derived, never asserted — the SDK never SENDS it.
+    ///
+    /// A field a client could put on the request would be a client claiming a capability
+    /// the server is supposed to resolve, which is why the rule is a prohibition rather
+    /// than a convention.
+    func testOrganizationLevelIsNeverSentOnTheLoginRequest() async throws {
+        try await withClient(router: { _, _ in
+            .json(200, TestKit.loginSuccessBody())
+        }) { client, server in
+            _ = try await client.login(email: "alice@example.com", password: "pw")
+
+            let sent = try XCTUnwrap(server.state.requests(pathContaining: "/auth/login").first)
+            let body = try XCTUnwrap(
+                JSONSerialization.jsonObject(with: sent.body) as? [String: Any])
+            XCTAssertNil(body["organization_level"])
+        }
+    }
+
     func testAnExpiredVerificationTokenIsAnError() async throws {
         try await withClient(router: { _, _ in
             .json(400, ["message": "token expired"])
