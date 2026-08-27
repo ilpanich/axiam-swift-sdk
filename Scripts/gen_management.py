@@ -483,6 +483,42 @@ def swift_field(schema: Any, secret: bool = False) -> dict[str, str]:
     return {"decl": "ManagementJSON", "kind": "json", "ref": ""}
 
 
+PROJECTION_DOC = (
+    "Resolved by the list projection only.\n\n"
+    "The server resolves this for a whole page in one query, so it is populated by "
+    "`list` and is `nil` on `get` (CONTRACT.md \u00a727.11 rule 4). `nil` there means "
+    "\"this read does not carry it\", not \"there is nothing bound\" \u2014 this SDK does "
+    "not issue a second request to fill it in."
+)
+
+
+def projection_map() -> dict[str, list[dict[str, Any]]]:
+    """Fields a list projection ADDS to its base schema, keyed by the base's name.
+
+    \u00a727.11 rule 4: the server expresses a projection as an ``allOf`` of the named base
+    and an anonymous object, so the added property belongs to no schema in
+    ``components``. The registry records it as ``response.projected_fields``; this folds
+    it back onto the base model as an OPTIONAL property, which is what makes it ``nil``
+    on the ``get`` that does not project it rather than absent from the type.
+    """
+    added: dict[str, list[dict[str, Any]]] = {}
+    for ns in REGISTRY["namespaces"].values():
+        for op in ns["operations"].values():
+            response = op.get("response") or {}
+            extras = response.get("projected_fields") or []
+            base = (response.get("schema") or "").lstrip("[]")
+            if not extras or not base:
+                continue
+            known = {f["name"] for f in added.setdefault(base, [])}
+            for extra in extras:
+                if extra["name"] not in known:
+                    added[base].append(extra)
+    return added
+
+
+PROJECTED: dict[str, list[dict[str, Any]]] = projection_map()
+
+
 def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]], str | None]:
     """Every property of ``schema_name``, in the spec's own order.
 
@@ -507,6 +543,17 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
         ], schema.get("description"))
 
     props, required, description = flatten(schema_name)
+    props = dict(props)
+    for extra in PROJECTED.get(schema_name, []):
+        if extra["name"] in props:
+            continue
+        # Never added to `required`: the whole point is that the operation which does NOT
+        # project it still decodes, with the property nil (\u00a727.11 rule 4).
+        props[extra["name"]] = {
+            "type": extra["type"],
+            "format": extra.get("format"),
+            "description": extra.get("description") or PROJECTION_DOC,
+        }
     out: list[dict[str, Any]] = []
     for wire, sub in props.items():
         info = swift_field(sub, secret=wire in secrets)
@@ -598,7 +645,7 @@ def op_params(namespace: str, op: dict[str, Any]) -> list[dict[str, Any]]:
                        "text": f"The `{{{name}}}` path parameter."})
 
     for q in op["query_params"]:
-        if op["paginated"] and q["name"] in {"offset", "limit"}:
+        if op["paginated"] and q["name"] in {"offset", "limit", "search"}:
             continue
         if q["required"]:
             params.append({"name": field(q["name"]), "type": "String", "kind": "query",
@@ -616,7 +663,7 @@ def op_params(namespace: str, op: dict[str, Any]) -> list[dict[str, Any]]:
                        "text": "Which page to fetch; defaults to the first."})
 
     for q in op["query_params"]:
-        if op["paginated"] and q["name"] in {"offset", "limit"}:
+        if op["paginated"] and q["name"] in {"offset", "limit", "search"}:
             continue
         if not q["required"]:
             params.append({"name": field(q["name"]), "type": "String?", "kind": "query",
@@ -816,14 +863,43 @@ def emit_models() -> str:
         description = (SCHEMAS.get(name) or {}).get("description")
         out.extend(doc(escape(description) if description
                        else f"The `{name}` enumeration, as the server spells it."))
+        if "unknown" in cases:
+            raise SystemExit(
+                f"enum {rendered}: the spec declares a value rendering as case 'unknown', "
+                "which collides with the open-enum carrier this generator adds."
+            )
         out.extend(doc(""))
         out.extend(doc(
-            "A `String` raw-value enum, so an unrecognised value from a server newer than "
-            "this SDK fails decoding rather than silently becoming whichever case happens to "
-            "be first. The failure surfaces as a `NetworkError` from `ManagementCodec`."))
+            "An **open** enum. A value this SDK's copy of the spec does not list decodes to "
+            "`.unknown` rather than failing the response it arrived in (CONTRACT.md \u00a727.11 "
+            "rule 1). Throwing there fails the WHOLE response, so one field of one record "
+            "would take down the page it was on, including the records the caller did ask "
+            "for."))
+        out.extend(doc(""))
+        out.extend(doc(
+            "It is never read as one of the KNOWN cases: reading a new value as whichever "
+            "case happens to be first turns a new server state into a wrong one, and on this "
+            "surface these values gate access. `.unknown`'s own raw value is the empty "
+            "string, which no server value is, so carrying an unrecognised value back into "
+            "an update is refused by the server rather than written as a spelling it never "
+            "used. A `switch` over these cases needs an `.unknown` arm."))
         out.append(f"public enum {rendered}: String, Codable, Sendable, CaseIterable {{")
         for case, value in cases.items():
             out.append(f'    case {case} = "{value}"')
+        out.extend(doc("A value this SDK's copy of the spec does not list; see the type's "
+                       "summary.", "    "))
+        out.append('    case unknown = ""')
+        out.append("")
+        out.extend(doc("Decodes an unrecognised value to `.unknown` instead of throwing.\n\n"
+                       "The synthesised `RawRepresentable` initializer stays strict \u2014 "
+                       "`init(rawValue:)` is still `nil` for a value that is not a case \u2014 "
+                       "so code that deliberately parses a raw string keeps its check. Only "
+                       "DECODING, where the alternative is failing a whole response, is "
+                       "lenient.", "    "))
+        out.append("    public init(from decoder: any Decoder) throws {")
+        out.append("        let raw = try decoder.singleValueContainer().decode(String.self)")
+        out.append(f"        self = {rendered}(rawValue: raw) ?? .unknown")
+        out.append("    }")
         out.append("}")
         out.append("")
 
@@ -1320,7 +1396,7 @@ def emit_tests() -> str:
             continue
         enums += 1
         out.append(f"    func test{rendered}MapsEveryValueBothWays() throws {{")
-        out.append(f"        XCTAssertEqual({rendered}.allCases.count, {len(values)})")
+        out.append(f"        XCTAssertEqual({rendered}.allCases.count, {len(values) + 1})")
         for value in values:
             case = enum_case(value)
             out.append(f'        XCTAssertEqual({rendered}.{case}.rawValue, "{value}")')
@@ -1328,10 +1404,24 @@ def emit_tests() -> str:
                        f"{rendered}.{case})")
         out.append("")
         out.extend(comment(
-            "An unrecognised value is REPORTED. Mapping it to whichever case happens to be "
-            "first would turn a server newer than this SDK into silently wrong data rather "
-            "than an error a caller can act on.", "        "))
+            "The raw-value initializer stays STRICT: an unrecognised value is nil, never "
+            "whichever case happens to be first. Code that parses a raw string keeps its "
+            "check.", "        "))
         out.append(f'        XCTAssertNil({rendered}(rawValue: "__not_a_{snake(rendered)}__"))')
+        out.append("")
+        out.extend(comment(
+            "DECODING is the lenient direction, and only it (\u00a727.11 rule 1). Throwing "
+            "here would fail the whole response the value arrived in, so one field of one "
+            "record would take down the page it was on. `.unknown` is a case of its own and "
+            "is never one of the known ones.", "        "))
+        out.append(f'        let stranger = try JSONDecoder().decode(')
+        out.append(f'            [{rendered}].self,')
+        out.append(f'            from: Data("[\\"__not_a_{snake(rendered)}__\\"]".utf8))')
+        out.append(f"        XCTAssertEqual(stranger, [{rendered}.unknown])")
+        for value in values:
+            out.append(f"        XCTAssertNotEqual({rendered}.unknown, "
+                       f"{rendered}.{enum_case(value)})")
+        out.append(f'        XCTAssertEqual({rendered}.unknown.rawValue, "")')
         first = enum_case(values[0])
         out.append(f'        let encoded = try JSONEncoder().encode([{rendered}.{first}])')
         out.append(f'        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), '

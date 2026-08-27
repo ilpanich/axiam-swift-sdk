@@ -1100,7 +1100,10 @@ extension LoginSuccessResponse {
             tenantID: user.tenant_id,
             roles: [],
             username: user.username,
-            email: user.email
+            email: user.email,
+            // §5.2: absent means false, which is what a server older than contract 1.31
+            // answers and the safe direction in both cases.
+            organizationLevel: user.organization_level ?? false
         )
     }
 }

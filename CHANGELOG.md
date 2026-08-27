@@ -9,6 +9,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **CONTRACT.md contract 1.31 — list search, the truthful resend, and organization scope.**
+  The vendored `CONTRACT.md`, `openapi.json` and `management-registry.json` are re-synced
+  from `axiam@main`, and four behaviours follow from them.
+
+  **`PageRequest` gained a third component, `search` (§27.4 rule 4).** All twenty paginated
+  operations accept an optional free-text term, matched case-insensitively by the **server**
+  against the identifying fields of whatever is being listed — a name or username, plus the
+  record id, so a UUID pasted out of a log line finds its row. `Page.total` then counts
+  *matches*, not rows.
+
+  It lives beside `offset` and `limit` rather than becoming an extra argument on twenty
+  generated `list` methods, and that is what makes `PageRequest.next()` — and so
+  `Page.nextRequest`, and so every walk written against it — carry the term across the whole
+  walk. A per-method argument has nowhere to live between one request and the next, so a
+  walk built on one would return the matches followed by the unfiltered tail. `nil`, `""`
+  and `"   "` are the same request: no `search` parameter at all. The term is trimmed but
+  never truncated — the server's length cap stays the server's, because a client-side
+  truncation the server would not have made is a silently different query the caller cannot
+  see.
+
+- **`AxiamClient.resendOwnVerification()` (§25.1, §25.7).** `POST
+  /api/v1/users/me/resend-verification`, session-authenticated, taking **no address** — the
+  server reads it off the caller's own record, and the signature deliberately offers no way
+  to name a different one. Refused client-side, with no wire call, when there is no session.
+
+  It does not replace `resendVerification(email:tenantID:)`, and neither is routed to the
+  other. The unauthenticated one takes an address from an anonymous caller, so it must
+  answer identically whether the address exists, is already verified, or is rate-limited:
+  anything else is an oracle for which addresses have accounts. This one is asked by a
+  caller already signed in to the account it is asking about, so it tells the truth — a
+  `409` raises `AxiamError.authz` and a `429` raises `AxiamError.network`, and this SDK does
+  **not** fall back to the public endpoint on either (§25.7 rule 2). That fallback would
+  turn both failures back into a silent success and restore the bug this operation exists to
+  fix, with an extra round trip. Returning means the mail was *enqueued*, not delivered.
+
+- **`AxiamUser.organizationLevel` (§5.2).** A completed login now reports whether the account
+  it signed in is an organization-level principal — one whose record lives in its
+  organization's reserved tenant, so its global grants apply in every tenant there and it can
+  act on a different one by sending a different `X-Tenant-ID`, with no re-login.
+
+  An ordinary tenant principal is a principal of exactly one tenant; the same header change
+  produces a `403` for it. The flag is what an admin UI checks *before* offering a tenant
+  selector, rather than discovering the answer from a failed request. It is derived from the
+  response and never asserted: never sent, and `false` when absent — which is what a server
+  older than contract 1.31 answers, and what the resource-server guard path yields, since
+  token claims do not carry it. Added as a defaulted initializer parameter, so every existing
+  `AxiamUser(...)` construction still compiles.
+
+- **Three §27.11 model additions**, regenerated: `Tenant.kind` (`TenantKind`, the new
+  `standard` | `organization` enum), `MtlsTrustAnchorResponse.trustedAnchors` (`Int?` —
+  `nil` is *not* zero: "the listener trusts no CAs" and "there was no listener to ask" are
+  different operational states), and `Certificate.boundServiceAccountID`.
+
+  That last one is a **projection**, not a property of the certificate: the server resolves
+  it for a whole page in one query, so `certificates.list()` populates it and
+  `certificates.get(id:)` leaves it `nil`, with no second request to fill it in (§27.11
+  rule 4). `Scripts/gen_management.py` learned to read the registry's
+  `response.projected_fields` and fold such a field onto its base model as optional — the
+  server expresses a projection as an `allOf` of the named base and an anonymous object, and
+  a generator that reads only for a `$ref` sees a response with no element name at all.
+
+### Changed
+
+- **Generated enums are now open (§27.11 rule 1).** Each one gained an `unknown` case, and a
+  hand-written `init(from:)` that decodes an unrecognised value to it instead of throwing.
+
+  Throwing failed the **whole** response, so one field of one record on a page took down
+  every record on it — including the ones the caller did ask for. That is the failure
+  §27.11 rule 1 exists to prevent, and it is why this is a fix rather than a loosening.
+
+  It still never reads an unrecognised value as one of the **known** cases: reading a new
+  value as whichever case was declared first turns a new server state into a wrong one, and
+  on this surface these values gate access. `.unknown`'s own raw value is the empty string —
+  which no server value is, so carrying an unrecognised value back into an update is refused
+  by the server rather than written as a spelling it never used.
+
+  `init(rawValue:)` is **unchanged** and still strict, so code that deliberately parses a raw
+  string keeps its check; only decoding is lenient. **A `switch` over one of these enums now
+  needs an `.unknown` arm.**
+
+
 - **CONTRACT.md §27 — the management API.** 146 operations across 24 namespaces, reached
   through namespace handles that sit directly on the client (`client.serviceAccounts
   .rotateSecret(saID:)`), which is the form §27.3's Swift row specifies. The same handles

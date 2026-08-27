@@ -1671,7 +1671,7 @@ public struct CertificatesApi: Sendable {
         CertificatesApi(client: client, scope: scope.withTenant(tenantID))
     }
 
-    /// `GET /api/v1/certificates`
+    /// `GET /api/v1/certificates`.
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
     /// `items.count`; call again with `page.next()` and stop when a page comes back empty

@@ -13,19 +13,39 @@ public struct AxiamUser: Sendable, Equatable {
     public let roles: [String]
     public let username: String?
     public let email: String?
+    /// Whether this is an **organization-level** principal (CONTRACT.md §5.2).
+    ///
+    /// Such a principal's record lives in its organization's reserved tenant, so its global
+    /// grants apply in every tenant of that organization, and it can act on a different one
+    /// by sending a different `X-Tenant-ID` on the next request — no re-login, because it
+    /// already is a principal of every tenant there.
+    ///
+    /// An ordinary tenant principal is a principal of exactly one tenant; the same header
+    /// change produces a `403` for it. This flag is therefore what an application checks
+    /// *before* offering a tenant switch, rather than discovering the answer from a failed
+    /// request.
+    ///
+    /// **Derived, never asserted** (§5.2 rule 2): resolved server-side from the caller's own
+    /// tenant record, and never sent by this SDK. `false` when the login response omits it —
+    /// which is what a server older than contract 1.31 answers — and `false` on the guard
+    /// path, where this value is built from token claims that do not carry it. Both are the
+    /// safe direction: the application then offers no cross-tenant action.
+    public let organizationLevel: Bool
 
     public init(
         userID: String,
         tenantID: String,
         roles: [String] = [],
         username: String? = nil,
-        email: String? = nil
+        email: String? = nil,
+        organizationLevel: Bool = false
     ) {
         self.userID = userID
         self.tenantID = tenantID
         self.roles = roles
         self.username = username
         self.email = email
+        self.organizationLevel = organizationLevel
     }
 }
 
@@ -134,6 +154,9 @@ struct LoginUserInfo: Decodable {
     let tenant_id: String
     let tenant_slug: String?
     let org_slug: String?
+    // §5.2. Optional here rather than defaulted at the decoder, so "absent" and "false"
+    // stay distinguishable at this layer; `toUser()` collapses them, in that direction.
+    let organization_level: Bool?
 }
 
 struct LoginSuccessResponse: Decodable {

@@ -15,59 +15,159 @@ import Foundation
 
 /// The `ActorType` enumeration, as the server spells it.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum ActorType: String, Codable, Sendable, CaseIterable {
     case user = "User"
     case serviceAccount = "ServiceAccount"
     case system = "System"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = ActorType(rawValue: raw) ?? .unknown
+    }
 }
 
 /// What attestation conveyance a registration ceremony requests, and whether the policy is
 /// enforced at all. `None` is the default and reproduces today's behavior byte-for-byte:
 /// `evaluate` allows every registration unconditionally, with no MDS lookup (D8 step 1).
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum AttestationMode: String, Codable, Sendable, CaseIterable {
     case none = "none"
     case indirect = "indirect"
     case directRequired = "direct_required"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = AttestationMode(rawValue: raw) ?? .unknown
+    }
 }
 
 /// The `AuditOutcome` enumeration, as the server spells it.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum AuditOutcome: String, Codable, Sendable, CaseIterable {
     case success = "Success"
     case failure = "Failure"
     case denied = "Denied"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = AuditOutcome(rawValue: raw) ?? .unknown
+    }
 }
 
 /// Status of a certificate in its lifecycle.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum CertificateStatus: String, Codable, Sendable, CaseIterable {
     case active = "Active"
     case revoked = "Revoked"
     case expired = "Expired"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CertificateStatus(rawValue: raw) ?? .unknown
+    }
 }
 
 /// The purpose for which a certificate was issued.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum CertificateType: String, Codable, Sendable, CaseIterable {
     case user = "User"
     case service = "Service"
     case device = "Device"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CertificateType(rawValue: raw) ?? .unknown
+    }
 }
 
 /// FIDO certification level, as recorded in an MDS `statusReports` entry's `FIDO_CERTIFIED*`
@@ -75,9 +175,16 @@ public enum CertificateType: String, Codable, Sendable, CaseIterable {
 /// L2Plus < L3 < L3Plus`, which `WebauthnAttestationPolicy::evaluate` (D8 step 9) relies on
 /// directly for the `min_certification` boundary check (`entry_level >= policy_min`).
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum CertificationLevel: String, Codable, Sendable, CaseIterable {
     case l1 = "L1"
     case l1Plus = "L1Plus"
@@ -85,6 +192,19 @@ public enum CertificationLevel: String, Codable, Sendable, CaseIterable {
     case l2Plus = "L2Plus"
     case l3 = "L3"
     case l3Plus = "L3Plus"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CertificationLevel(rawValue: raw) ?? .unknown
+    }
 }
 
 /// How a client proves its identity at the token endpoint (RFC 8705 §2, OIDC Core §9 naming).
@@ -93,14 +213,34 @@ public enum CertificationLevel: String, Codable, Sendable, CaseIterable {
 /// and adding a public-client value here before the rest of the server understands one would
 /// let an operator register a client whose authentication is silently skipped.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum ClientAuthMethod: String, Codable, Sendable, CaseIterable {
     case clientSecretPost = "client_secret_post"
     case tlsClientAuth = "tls_client_auth"
     case selfSignedTLSClientAuth = "self_signed_tls_client_auth"
     case privateKeyJWT = "private_key_jwt"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = ClientAuthMethod(rawValue: raw) ?? .unknown
+    }
 }
 
 /// Which security posture a client is registered under (X5.1). This is the FAPI "one switch".
@@ -113,51 +253,138 @@ public enum ClientAuthMethod: String, Codable, Sendable, CaseIterable {
 /// change at all, because [`Standard`](Self::Standard) is the serde default and every row
 /// written before schema v38 decodes to it.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum ClientProfile: String, Codable, Sendable, CaseIterable {
     case standard = "standard"
     case fapi2 = "fapi2"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = ClientProfile(rawValue: raw) ?? .unknown
+    }
 }
 
 /// What the server does when an interceptor does not produce a usable reply — timeout,
 /// transport failure, bad signature, stale nonce, or a patch the allow-list rejects.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum FailurePolicy: String, Codable, Sendable, CaseIterable {
     case failClosed = "fail_closed"
     case failOpen = "fail_open"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = FailurePolicy(rawValue: raw) ?? .unknown
+    }
 }
 
 /// The type of key algorithm used for a certificate.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum KeyAlgorithm: String, Codable, Sendable, CaseIterable {
     case rsa4096 = "Rsa4096"
     case ed25519 = "Ed25519"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = KeyAlgorithm(rawValue: raw) ?? .unknown
+    }
 }
 
 /// Type of MFA method.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum MfaMethodType: String, Codable, Sendable, CaseIterable {
     case totp = "Totp"
     case passkey = "Passkey"
     case securityKey = "SecurityKey"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = MfaMethodType(rawValue: raw) ?? .unknown
+    }
 }
 
 /// Events that can trigger an admin notification.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum NotificationEventType: String, Codable, Sendable, CaseIterable {
     case loginFailure = "login_failure"
     case accountLocked = "account_locked"
@@ -176,6 +403,19 @@ public enum NotificationEventType: String, Codable, Sendable, CaseIterable {
     case userUpdated = "user_updated"
     case serviceAccountCreated = "service_account_created"
     case serviceAccountDeleted = "service_account_deleted"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = NotificationEventType(rawValue: raw) ?? .unknown
+    }
 }
 
 /// Whether a grant permits an action or refuses it (B1, deny-override). # Precedence Default
@@ -189,103 +429,324 @@ public enum NotificationEventType: String, Codable, Sendable, CaseIterable {
 /// [`PermissionEffect::Allow`] is the default, so data written before this existed, and clients
 /// that send no `effect`, both mean "allow". No migration.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum PermissionEffect: String, Codable, Sendable, CaseIterable {
     case allow = "allow"
     case deny = "deny"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PermissionEffect(rawValue: raw) ?? .unknown
+    }
 }
 
 /// Key algorithm for OpenPGP keys.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum PgpKeyAlgorithm: String, Codable, Sendable, CaseIterable {
     case rsa4096 = "Rsa4096"
     case ed25519 = "Ed25519"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PgpKeyAlgorithm(rawValue: raw) ?? .unknown
+    }
 }
 
 /// The purpose of an OpenPGP key.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum PgpKeyPurpose: String, Codable, Sendable, CaseIterable {
     case auditSigning = "AuditSigning"
     case export = "Export"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PgpKeyPurpose(rawValue: raw) ?? .unknown
+    }
 }
 
 /// Status of an OpenPGP key.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum PgpKeyStatus: String, Codable, Sendable, CaseIterable {
     case active = "Active"
     case revoked = "Revoked"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PgpKeyStatus(rawValue: raw) ?? .unknown
+    }
 }
 
 /// How a reactor participates in an event.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum ReactorMode: String, Codable, Sendable, CaseIterable {
     case intercept = "intercept"
     case listen = "listen"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = ReactorMode(rawValue: raw) ?? .unknown
+    }
 }
 
 /// Why a token is or is not currently usable — for display only. The authentication path never
 /// surfaces this distinction on the wire.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum ScimTokenStatus: String, Codable, Sendable, CaseIterable {
     case active = "active"
     case expired = "expired"
     case revoked = "revoked"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = ScimTokenStatus(rawValue: raw) ?? .unknown
+    }
 }
 
 /// Whether a settings row belongs to an organization or a tenant.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum SettingsScope: String, Codable, Sendable, CaseIterable {
     case org = "Org"
     case tenant = "Tenant"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = SettingsScope(rawValue: raw) ?? .unknown
+    }
+}
+
+/// What a tenant *is*, as distinct from what state it is in. Reserved rather than inferred: an
+/// organization has exactly one tenant of kind [`Self::Organization`], enforced by a unique
+/// index rather than by convention. Deriving it from a magic slug or from "the oldest tenant"
+/// would make the organization scope something an operator could rename or delete by accident,
+/// and it is the scope the super-admin lives in.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum TenantKind: String, Codable, Sendable, CaseIterable {
+    case standard = "standard"
+    case organization = "organization"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = TenantKind(rawValue: raw) ?? .unknown
+    }
 }
 
 /// Lifecycle status of a tenant. A `Suspended` tenant remains stored and its data isolated, but
 /// is treated as administratively disabled. New tenants are `Active` by default.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum TenantStatus: String, Codable, Sendable, CaseIterable {
     case active = "Active"
     case suspended = "Suspended"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = TenantStatus(rawValue: raw) ?? .unknown
+    }
 }
 
 /// What to do with an AAGUID that has no MDS entry (i.e. FIDO Alliance has no metadata for it —
 /// not necessarily malicious, MDS coverage is incomplete for some legitimate authenticators).
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum UnknownAaguidAction: String, Codable, Sendable, CaseIterable {
     case allow = "allow"
     case deny = "deny"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = UnknownAaguidAction(rawValue: raw) ?? .unknown
+    }
 }
 
 /// The `UserStatus` enumeration, as the server spells it.
 ///
-/// A `String` raw-value enum, so an unrecognised value from a server newer than this SDK fails
-/// decoding rather than silently becoming whichever case happens to be first. The failure
-/// surfaces as a `NetworkError` from `ManagementCodec`.
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum UserStatus: String, Codable, Sendable, CaseIterable {
     case active = "Active"
     case inactive = "Inactive"
@@ -293,6 +754,19 @@ public enum UserStatus: String, Codable, Sendable, CaseIterable {
     case pendingVerification = "PendingVerification"
     case anonymized = "Anonymized"
     case deleted = "Deleted"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = UserStatus(rawValue: raw) ?? .unknown
+    }
 }
 
 /// The `AddMemberRequest` schema.
@@ -761,6 +1235,12 @@ public struct Certificate: Codable, Sendable {
     /// The tenant this certificate belongs to.
     public let tenantID: String
 
+    /// Resolved by the list projection only. The server resolves this for a whole page in one
+    /// query, so it is populated by `list` and is `nil` on `get` (CONTRACT.md §27.11 rule 4).
+    /// `nil` there means "this read does not carry it", not "there is nothing bound" — this SDK
+    /// does not issue a second request to fill it in.
+    public let boundServiceAccountID: String?
+
     public init(
         certType: CertificateType,
         createdAt: String,
@@ -774,7 +1254,8 @@ public struct Certificate: Codable, Sendable {
         publicCertPEM: String,
         status: CertificateStatus,
         subject: String,
-        tenantID: String
+        tenantID: String,
+        boundServiceAccountID: String? = nil
     ) {
         self.certType = certType
         self.createdAt = createdAt
@@ -789,6 +1270,7 @@ public struct Certificate: Codable, Sendable {
         self.status = status
         self.subject = subject
         self.tenantID = tenantID
+        self.boundServiceAccountID = boundServiceAccountID
     }
 
     enum CodingKeys: String, CodingKey {
@@ -805,6 +1287,7 @@ public struct Certificate: Codable, Sendable {
         case status = "status"
         case subject = "subject"
         case tenantID = "tenant_id"
+        case boundServiceAccountID = "bound_service_account_id"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -822,6 +1305,7 @@ public struct Certificate: Codable, Sendable {
         self.status = try container.decode(CertificateStatus.self, forKey: .status)
         self.subject = try container.decode(String.self, forKey: .subject)
         self.tenantID = try container.decode(String.self, forKey: .tenantID)
+        self.boundServiceAccountID = try container.decodeIfPresent(String.self, forKey: .boundServiceAccountID)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -839,6 +1323,7 @@ public struct Certificate: Codable, Sendable {
         try container.encode(status, forKey: .status)
         try container.encode(subject, forKey: .subject)
         try container.encode(tenantID, forKey: .tenantID)
+        try container.encodeIfPresent(boundServiceAccountID, forKey: .boundServiceAccountID)
     }
 }
 
@@ -3594,20 +4079,28 @@ public struct MtlsTrustAnchorResponse: Codable, Sendable {
     /// The flag as now stored.
     public let mtlsTrustAnchor: Bool
 
-    /// Always `true`: rustls builds its client trust store once, when the listener is
-    /// constructed, so this takes effect at the next start.
+    /// Whether the change still needs a restart to take effect. `false` when the live listener
+    /// accepted the new anchor set — the ordinary case on a TLS deployment. `true` only when
+    /// there was no listener to reload into (plaintext, or `client_auth = off`), where the flag
+    /// is stored and applies at the next start.
     public let restartRequired: Bool
+
+    /// How many CAs the listener now trusts for client authentication, when it was reloaded.
+    /// `None` when nothing was reloaded.
+    public let trustedAnchors: Int?
 
     public init(
         caCertificateID: String,
         message: String,
         mtlsTrustAnchor: Bool,
-        restartRequired: Bool
+        restartRequired: Bool,
+        trustedAnchors: Int? = nil
     ) {
         self.caCertificateID = caCertificateID
         self.message = message
         self.mtlsTrustAnchor = mtlsTrustAnchor
         self.restartRequired = restartRequired
+        self.trustedAnchors = trustedAnchors
     }
 
     enum CodingKeys: String, CodingKey {
@@ -3615,6 +4108,7 @@ public struct MtlsTrustAnchorResponse: Codable, Sendable {
         case message = "message"
         case mtlsTrustAnchor = "mtls_trust_anchor"
         case restartRequired = "restart_required"
+        case trustedAnchors = "trusted_anchors"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -3623,6 +4117,7 @@ public struct MtlsTrustAnchorResponse: Codable, Sendable {
         self.message = try container.decode(String.self, forKey: .message)
         self.mtlsTrustAnchor = try container.decode(Bool.self, forKey: .mtlsTrustAnchor)
         self.restartRequired = try container.decode(Bool.self, forKey: .restartRequired)
+        self.trustedAnchors = try container.decodeIfPresent(Int.self, forKey: .trustedAnchors)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -3631,6 +4126,7 @@ public struct MtlsTrustAnchorResponse: Codable, Sendable {
         try container.encode(message, forKey: .message)
         try container.encode(mtlsTrustAnchor, forKey: .mtlsTrustAnchor)
         try container.encode(restartRequired, forKey: .restartRequired)
+        try container.encodeIfPresent(trustedAnchors, forKey: .trustedAnchors)
     }
 }
 
@@ -6378,6 +6874,11 @@ public struct Tenant: Codable, Sendable {
     /// The server's `id` field.
     public let id: String
 
+    /// Whether this is an ordinary tenant or the organization's own scope. `#[serde(default)]`
+    /// so every row written before organization scope existed reads back as
+    /// [`TenantKind::Standard`], which is what it is.
+    public let kind: TenantKind?
+
     /// Arbitrary key-value metadata.
     public let metadata: ManagementJSON
 
@@ -6399,6 +6900,7 @@ public struct Tenant: Codable, Sendable {
     public init(
         createdAt: String,
         id: String,
+        kind: TenantKind? = nil,
         metadata: ManagementJSON,
         name: String,
         organizationID: String,
@@ -6408,6 +6910,7 @@ public struct Tenant: Codable, Sendable {
     ) {
         self.createdAt = createdAt
         self.id = id
+        self.kind = kind
         self.metadata = metadata
         self.name = name
         self.organizationID = organizationID
@@ -6419,6 +6922,7 @@ public struct Tenant: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case createdAt = "created_at"
         case id = "id"
+        case kind = "kind"
         case metadata = "metadata"
         case name = "name"
         case organizationID = "organization_id"
@@ -6431,6 +6935,7 @@ public struct Tenant: Codable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.createdAt = try container.decode(String.self, forKey: .createdAt)
         self.id = try container.decode(String.self, forKey: .id)
+        self.kind = try container.decodeIfPresent(TenantKind.self, forKey: .kind)
         self.metadata = try container.decode(ManagementJSON.self, forKey: .metadata)
         self.name = try container.decode(String.self, forKey: .name)
         self.organizationID = try container.decode(String.self, forKey: .organizationID)
@@ -6443,6 +6948,7 @@ public struct Tenant: Codable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(kind, forKey: .kind)
         try container.encode(metadata, forKey: .metadata)
         try container.encode(name, forKey: .name)
         try container.encode(organizationID, forKey: .organizationID)

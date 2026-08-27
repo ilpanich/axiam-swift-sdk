@@ -195,6 +195,30 @@ try await client.shutdown()   // release the underlying HTTP client
 Tokens are delivered by the server via `httpOnly` cookies and managed by the client's
 in-memory cookie jar (§4); your code never handles raw token strings.
 
+### Organization-level principals (§5.2)
+
+The `AxiamUser` a completed login hands back reports whether the account it signed in is an
+**organization-level** principal — one whose record lives in its organization's reserved
+tenant, so its global grants apply in every tenant of that organization:
+
+```swift
+if user.organizationLevel {
+    // This principal can act on another tenant by sending a different X-Tenant-ID on the
+    // next request — no re-login, because it already is a principal of every tenant in the
+    // organization. Offer the tenant selector.
+}
+```
+
+An ordinary tenant principal is a principal of exactly one tenant; the same header change
+produces a `403` for it, so an admin UI checks this flag *before* offering the switch rather
+than discovering the answer from a failed request.
+
+It is **derived, never asserted**: resolved server-side from the caller's own tenant record,
+never a constructor argument, and never sent by this SDK. It is `false` when the login
+response omits it — what a server older than contract 1.31 answers — and `false` on the
+resource-server guard path, where the value is built from token claims that do not carry it.
+Both are the safe direction.
+
 ## TLS & mutual TLS
 
 Strict server verification is **always on**. There is no insecure/skip-verify option — by
@@ -1039,7 +1063,7 @@ Worked end to end in [`Examples/WebauthnPasskeys`](Examples/WebauthnPasskeys)
 
 ## Account lifecycle and MFA enrolment (§25)
 
-Nine operations covering the things a user does to their own account — none of which is
+Ten operations covering the things a user does to their own account — none of which is
 administration.
 
 ```swift
@@ -1103,6 +1127,39 @@ and the SDK does not distinguish them either (§25.4 rule 3).
 `verifyEmail` and `resendVerification` are unauthenticated — a user whose address is
 unverified may have no session at all — and carry the tenant as a **body** field, since
 §12.1 rule 2's `?tenant_id=` convention is scoped to the `/oauth2` endpoints.
+
+### Two resends, and why neither replaces the other (§25.7)
+
+```swift
+// No session — a sign-up screen. Answers the same whatever happened; that is the point.
+try await client.resendVerification(email: "alice@example.com", tenantID: tenantID)
+
+// Signed in — a profile page. Says what happened, and names no address.
+do {
+    try await client.resendOwnVerification()
+} catch AxiamError.authz {
+    // 409: already verified, or an account state that must not be sent a live token.
+} catch AxiamError.network {
+    // 429: the daily resend limit.
+}
+```
+
+They look like one operation and are not. `resendVerification` takes an address from an
+**anonymous** caller, so it must answer identically whether the address exists, is already
+verified, or is rate-limited — anything else is an oracle for which addresses have accounts.
+`resendOwnVerification` is asked by a caller already signed in to the account it is asking
+about, so none of those outcomes discloses anything it did not bring with it, and this one
+tells the truth.
+
+**Neither is routed to the other**, in either direction, and this SDK does not fall back
+from the authenticated one to the public one on a `409` or a `429`: that fallback turns both
+failures back into a silent success and restores the exact bug §25.7 describes, with an
+extra round trip. `resendOwnVerification` also takes no address parameter and sends no
+address field — a parameter here would let an authenticated session mail an arbitrary one.
+With no session it refuses client-side, with no wire call.
+
+Returning means the mail was **enqueued**, not delivered. Delivery is asynchronous and can
+still fail at the provider.
 
 Worked end to end in [`Examples/AccountLifecycle`](Examples/AccountLifecycle).
 
@@ -1292,6 +1349,58 @@ while true {
 
 A bare JSON array response is not a page and is never modelled as one; those operations return
 an `Array`.
+
+**Searching a list (§27.4 rule 4).** All twenty paginated operations take an optional
+free-text term, matched case-insensitively by the **server** against the identifying fields
+of whatever is being listed — a name or username, plus the record id, so a UUID pasted out of
+a log line finds its row. `Page.total` then counts *matches*, not rows.
+
+```swift
+let page = try await client.users.list(page: PageRequest(search: "ada"))
+
+var request = PageRequest(search: "ada")   // the term rides on the page request…
+while true {
+    let batch = try await client.users.list(page: request)
+    if batch.isEmpty { break }
+    process(batch.items)
+    request = batch.nextRequest            // …so the whole walk stays filtered
+}
+```
+
+It lives on `PageRequest` rather than as an extra argument on twenty generated `list`
+methods, and that is what makes the walk above work: a per-method argument has nowhere to
+live between one request and the next, so a walk built on one would return the matches
+followed by the unfiltered tail.
+
+`nil` sends no `search` parameter, and an empty or whitespace-only term is the **same
+request** — a search box that fires on every keystroke sends one the moment it is cleared,
+and "rows containing the empty string" is a different question from "all rows". The term is
+trimmed but never truncated: the server caps its length, and a client-side truncation the
+server would not have made is a silently different query the caller cannot see.
+
+**Enums are open (§27.11 rule 1).** A value this SDK's copy of the spec does not list decodes
+to that enum's `.unknown` case rather than throwing. Throwing would fail the *whole*
+response, so one field of one record would take down the page it was on — including the
+records the caller did ask for. `.unknown` is never confused with a known case, and its raw
+value is the empty string, which no server value is: carrying an unrecognised value back into
+an update is refused by the server rather than written as a spelling it never used. The
+`init(rawValue:)` initializer stays strict, so code that parses a raw string keeps its check
+— only *decoding* is lenient. A `switch` over one of these enums needs an `.unknown` arm:
+
+```swift
+switch tenant.kind {
+case .some(.organization): …
+case .some(.standard), .none: …
+case .some(.unknown): …    // a kind this SDK predates
+}
+```
+
+`Certificate.boundServiceAccountID` is a **projection**, not a property: the server resolves
+it for a whole page in one query, so `certificates.list()` populates it and
+`certificates.get(id:)` leaves it `nil`. `nil` there means "this read does not carry it", not
+"there is nothing bound" — the SDK does not issue a second request to fill it in, because a
+`get` that silently costs two round trips is the behaviour §27.4 rule 3 forbids for slug
+resolution, for the same reason (§27.11 rule 4).
 
 **Re-scoping returns a new handle (§27.4 rule 3).** `inOrg(_:)` and `forTenant(_:)` hand back a
 fresh handle rather than repointing the one you called them on. On a read surface that mistake
