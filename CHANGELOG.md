@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta02] - 2026-08-28
+
 ### Added
 
 - **CONTRACT.md contract 1.31 — list search, the truthful resend, and organization scope.**
@@ -72,6 +74,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Re-vendor openapi.json and management-registry.json from axiam main (#50)
+
+- Contract 1.31: list search, the truthful resend, organization scope (#49)
+
+- Re-vendor the contract artifacts: spec digest + §27.10 posture (#48)
+
+- Cover the §27 code the first CI run showed was unreached
+
+- Add the CONTRACT.md §27 management surface to the Swift SDK
+
+- Re-vendor CONTRACT.md, openapi.json and the §27 registry
+
 - **Generated enums are now open (§27.11 rule 1).** Each one gained an `unknown` case, and a
   hand-written `init(from:)` that decodes an unrecognised value to it instead of throwing.
 
@@ -88,7 +102,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `init(rawValue:)` is **unchanged** and still strict, so code that deliberately parses a raw
   string keeps its check; only decoding is lenient. **A `switch` over one of these enums now
   needs an `.unknown` arm.**
-
 
 - **CONTRACT.md §27 — the management API.** 146 operations across 24 namespaces, reached
   through namespace handles that sit directly on the client (`client.serviceAccounts
@@ -154,7 +167,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (service account, device certificate from the tenant signing CA, certificate binding,
   mTLS trust anchor) and then configuring a second client with that certificate so the
   device authorizes as itself over §6.1 mTLS.
-
 
 ## [1.0.0-alpha44] - 2026-08-25
 
