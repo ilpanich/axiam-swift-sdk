@@ -7,25 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- **`AxiamConfig` now rejects a blank `tenantSlug`, `tenantID`, `orgSlug` or
-  `orgID`** (CONTRACT.md §5, §5.1, §5.2.1 rule 2), whitespace included. A **nil**
-  identifier stays accepted — that is what "not named" looks like, and it is the
-  difference between an unset optional and a blank one.
-
-  The §5 tenant check was an *aggregate* — `(tenantID?.isEmpty == false) ||
-  (tenantSlug?.isEmpty == false)` — so a blank `tenantSlug` **beside a valid
-  `tenantID`** satisfied it, and the blank one was stored and serialized into
-  every login body.
-
-  An SDK MUST NOT send an empty-string slug. Nothing can carry one, so the
-  server resolves nothing — and on `/auth/opaque/login/start` it fails on the
-  workspace *before* the tenant's OPAQUE mode is read, so the `404` of §23.4
-  rule 10 never arrives, this SDK has no fallback to take, and sign-in fails
-  even against a tenant with OPAQUE **disabled**.
+## [1.0.0-beta04] - 2026-08-28
 
 ### Changed
+
+- Re-vendor the 1.0.0-beta03 spec stamp
+
+- Pin actions by digest, record why SwiftPM needs no attestation, re-vendor contract 1.33
 
 - **CONTRACT 1.32 — signing in an organization-level principal (§5.2.1).**
   `CONTRACT.md`, `openapi.json` and `management-registry.json` re-vendored from
@@ -44,6 +32,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Prefer that over omitting the tenant: §5 rule 2 still requires one on the
   `X-Tenant-ID` header of every request after the login.
+
+### Fixed
+
+- Reject a blank tenantSlug or orgSlug instead of sending it as ""
+
+- **`AxiamConfig` now rejects a blank `tenantSlug`, `tenantID`, `orgSlug` or
+  `orgID`** (CONTRACT.md §5, §5.1, §5.2.1 rule 2), whitespace included. A **nil**
+  identifier stays accepted — that is what "not named" looks like, and it is the
+  difference between an unset optional and a blank one.
+
+  The §5 tenant check was an *aggregate* — `(tenantID?.isEmpty == false) ||
+  (tenantSlug?.isEmpty == false)` — so a blank `tenantSlug` **beside a valid
+  `tenantID`** satisfied it, and the blank one was stored and serialized into
+  every login body.
+
+  An SDK MUST NOT send an empty-string slug. Nothing can carry one, so the
+  server resolves nothing — and on `/auth/opaque/login/start` it fails on the
+  workspace *before* the tenant's OPAQUE mode is read, so the `404` of §23.4
+  rule 10 never arrives, this SDK has no fallback to take, and sign-in fails
+  even against a tenant with OPAQUE **disabled**.
 
 ## [1.0.0-beta02] - 2026-08-28
 
