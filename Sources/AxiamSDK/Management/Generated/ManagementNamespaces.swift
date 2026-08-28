@@ -4,7 +4,7 @@
 
 import Foundation
 
-// CONTRACT.md §27 namespace handles — 146 operations across 24 of them.
+// CONTRACT.md §27 namespace handles — 147 operations across 24 of them.
 //
 // §27.2 rule 1: a handle is cheap and stateless. It holds the client and a scope of two
 // optional strings, acquiring one performs no I/O, and every accessor below builds a fresh one
@@ -223,6 +223,27 @@ public struct TenantsApi: Sendable {
             operation: "tenants.delete",
             method: .delete,
             template: "/api/v1/organizations/{org_id}/tenants/{tenant_id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
+        // server that started sending one does not silently change what this returns.
+        _ = data
+    }
+
+    /// `POST /api/v1/organizations/{org_id}/tenants/{tenant_id}/audit-export`
+    ///
+    /// - Parameter tenantID: The `{tenant_id}` path parameter.
+    public func exportAudit(tenantID: String) async throws {
+        let pathParameters = ["tenant_id": tenantID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "tenants.export_audit",
+            method: .post,
+            template: "/api/v1/organizations/{org_id}/tenants/{tenant_id}/audit-export",
             pathParameters: pathParameters,
             query: query,
             body: payload,

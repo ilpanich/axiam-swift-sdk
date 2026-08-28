@@ -1,6 +1,6 @@
 import Foundation
 
-// CONTRACT.md §27.8 — the one request path the 146 generated operations go through.
+// CONTRACT.md §27.8 — the one request path the 147 generated operations go through.
 //
 // Nothing below opens a connection or builds a client. It reaches the three seams declared
 // in `AxiamClient.swift` and adds only what §27 itself specifies: rule 3's implicit

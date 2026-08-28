@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Generate the CONTRACT §27 management surface for the Swift SDK.
 
-Reads ``management-registry.json`` (the 146 operations across 24 namespaces, maintained
+Reads ``management-registry.json`` (the 147 operations across 24 namespaces, maintained
 in ``ilpanich/axiam`` and vendored here) plus ``openapi.json``, and writes:
 
 - ``Sources/AxiamSDK/Management/Generated/ManagementModels.swift`` — one struct or enum
   per request and response type;
 - ``Sources/AxiamSDK/Management/Generated/ManagementNamespaces.swift`` — the 24 namespace
-  handles, their 146 operations, and the accessors that put them on ``AxiamClient``;
+  handles, their 147 operations, and the accessors that put them on ``AxiamClient``;
 - ``Tests/AxiamSDKTests/ManagementGeneratedTests.swift`` — one conformance case per
   operation, plus a round-trip case per model and a both-ways case per enum.
 
@@ -1106,7 +1106,7 @@ def emit_namespaces() -> str:
     """The 24 handles, their operations, and the accessors that put them on the client."""
     out = [BANNER, "import Foundation", ""]
     out.extend(comment(
-        "CONTRACT.md §27 namespace handles — 146 operations across 24 of them.\n\n"
+        "CONTRACT.md §27 namespace handles — 147 operations across 24 of them.\n\n"
         "§27.2 rule 1: a handle is cheap and stateless. It holds the client and a scope of "
         "two optional strings, acquiring one performs no I/O, and every accessor below "
         "builds a fresh one — a caller cannot tell that from a memoized one, which is what "

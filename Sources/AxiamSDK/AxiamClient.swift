@@ -1045,7 +1045,7 @@ extension AxiamClient {
     func managementHasSession() -> Bool { hasSession }
 
     /// The §9 single-flight refresh. Reached rather than reimplemented: a management layer
-    /// with its own refresh would put 146 endpoints outside this client's one guard.
+    /// with its own refresh would put 147 endpoints outside this client's one guard.
     func managementRefreshOnce() async throws { try await refreshOnce() }
 }
 

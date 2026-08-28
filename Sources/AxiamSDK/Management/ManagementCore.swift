@@ -2,7 +2,7 @@ import Foundation
 
 // CONTRACT.md §27 — the hand-written half of the management API.
 //
-// §27.8 divides this section in two. The 146 operations and their model types are
+// §27.8 divides this section in two. The 147 operations and their model types are
 // GENERATED from `management-registry.json` (see `Scripts/gen_management.py`, and the
 // files under `Generated/`). Everything in this file is the part that is written once:
 // paging, per-call scope, the error sub-types, and the JSON value the spec's free-form
