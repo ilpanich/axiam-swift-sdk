@@ -60,6 +60,52 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(config.tenantHeaderValue, "id-1")
     }
 
+    // CONTRACT.md §5.2.1 rule 2: an SDK MUST NOT send an empty-string slug.
+    //
+    // Nothing can carry a blank slug, so the server resolves nothing — and on
+    // /auth/opaque/login/start it fails on the workspace *before* the tenant's
+    // OPAQUE mode is read, so the 404 of §23.4 rule 10 never arrives, this SDK
+    // has no fallback to take, and sign-in fails even against a tenant with
+    // OPAQUE disabled.
+    func testBlankTenantSlugThrows() {
+        for blank in ["", "   "] {
+            XCTAssertThrowsError(try AxiamConfig(baseURL: url, tenantSlug: blank)) { error in
+                XCTAssertTrue(error is AuthError)
+            }
+        }
+    }
+
+    // The case the aggregate check missed entirely: a real tenantID satisfies
+    // §5, and the blank slug rides along into every login body.
+    func testBlankTenantSlugThrowsEvenBesideAValidTenantID() {
+        XCTAssertThrowsError(try AxiamConfig(baseURL: url, tenantID: "id-1", tenantSlug: "")) { error in
+            XCTAssertTrue(error is AuthError)
+        }
+    }
+
+    func testBlankOrgSlugThrows() {
+        XCTAssertThrowsError(try AxiamConfig(baseURL: url, tenantSlug: "acme", orgSlug: "  ")) { error in
+            XCTAssertTrue(error is AuthError)
+        }
+    }
+
+    // `nil` is not blank: an unset organization identifier is legitimate (§5.1
+    // — it is optional for a client that never calls login or refresh).
+    // Collapsing the two would break every resource-server client.
+    func testNilOrgSlugAccepted() throws {
+        let config = try AxiamConfig(baseURL: url, tenantSlug: "acme")
+        XCTAssertNil(config.orgSlug)
+    }
+
+    // §5.2.1: an organization-level principal signs in by naming the
+    // organization's reserved tenant, whose slug is fixed in every deployment.
+    // No new surface — the ordinary initializer reaches it.
+    func testReservedOrganizationTenantIsNamedLikeAnyOther() throws {
+        let config = try AxiamConfig(baseURL: url, tenantSlug: "organization", orgSlug: "globex")
+        XCTAssertEqual(config.tenantHeaderValue, "organization")
+        XCTAssertEqual(config.orgSlug, "globex")
+    }
+
     func testBothOrgIdentifiersRejected() {
         XCTAssertThrowsError(try AxiamConfig(baseURL: url, tenantSlug: "acme", orgID: "o-1", orgSlug: "globex"))
     }
