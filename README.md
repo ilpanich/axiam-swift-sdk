@@ -53,7 +53,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §24 WebAuthn / passkeys | ✅ implemented (contract 1.28) — the six relying-party operations and §24.6a's JSON bridge on **every** target, plus §24.6b's linked-API ceremony helpers on iOS 16+ and macOS 13+. The Linux build keeps the RP layer and the bridge; `webauthnCeremonySupported` answers `false` there rather than throwing |
 | §25 account lifecycle & MFA enrolment | ✅ implemented (contract 1.28) — voluntary and forced TOTP enrolment, email verification, and the password-reset triple |
 | §26 Pushed Authorization Requests (RFC 9126) | ✅ implemented (contract 1.28) — required for a FAPI 2.0 client, which cannot authorize any other way (§21.1) |
-| §27 management API | ✅ implemented — 146 operations across 24 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL |
+| §27 management API | ✅ implemented — 147 operations across 24 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL |
 | §20 UMA 2.0 Protection API + ticket grant | ✅ implemented, and it landed *before* §12 rather than waiting for it: UMA carries its own discovery document (`/.well-known/uma2-configuration`), the Protection API is ordinary bearer-authenticated REST, and the ticket grant returns an opaque RPT with no `id_token` to validate. That §20 could ship alone is part of what showed the §12 deferral was cutting across the wrong seam — see contract §12.6 |
 
 ## Installation
@@ -1321,7 +1321,7 @@ including a transport skeleton: [`Examples/Reactor`](Examples/Reactor/main.swift
 
 ## Management API (§27)
 
-146 operations across 24 namespaces, reached through namespace handles that sit directly on
+147 operations across 24 namespaces, reached through namespace handles that sit directly on
 the client — the form §27.3's Swift row specifies (property, camelCase, `async`):
 
 ```swift

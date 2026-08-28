@@ -1,6 +1,6 @@
 // ManagementBasics — the CONTRACT.md §27 management surface.
 //
-// 146 operations across 24 namespaces, reached through namespace handles that sit directly
+// 147 operations across 24 namespaces, reached through namespace handles that sit directly
 // on the client: `client.roles`, `client.serviceAccounts` — the form §27.3's Swift row
 // specifies (property, camelCase, async). Nothing here opens its own connection: §27.8
 // requires the generated layer sit on the SDK's existing request path, so every call below

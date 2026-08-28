@@ -363,6 +363,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(transport.last?.path, "/api/v1/organizations/11111111-1111-4111-8111-111111111111/tenants/11111111-1111-4111-8111-111111111111")
     }
 
+    func testTenantsExportAuditReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 204, body: "")])
+        _ = try await client.tenants.exportAudit(tenantID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/organizations/11111111-1111-4111-8111-111111111111/tenants/11111111-1111-4111-8111-111111111111/audit-export")
+    }
+
     func testUsersListReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
             [(status: 200, body: "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
@@ -8242,7 +8252,7 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
-    // §27.9: this file covers 146 operations, 114 models (114 of them also through their
+    // §27.9: this file covers 147 operations, 114 models (114 of them also through their
     // memberwise initializer) and 23 enums.
     //
     // The counts above are literals THIS generator wrote, so comparing them to each other would
@@ -8264,7 +8274,7 @@ final class ManagementGeneratedTests: XCTestCase {
         let declared = namespaces.values.reduce(into: 0) { total, namespace in
             total += (namespace["operations"] as? [String: Any])?.count ?? 0
         }
-        XCTAssertEqual(declared, 146,
+        XCTAssertEqual(declared, 147,
                        "the registry declares a different number of operations than this file covers — regenerate with Scripts/gen_management.py")
         XCTAssertEqual(namespaces.count, 24)
     }

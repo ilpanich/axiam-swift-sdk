@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     container: swift:5.10-jammy
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
       # The swift:jammy image is minimal and ships without curl, which the
       # Coveralls uploader action needs to fetch its reporter binary.
@@ -89,13 +89,13 @@ jobs:
       # Publish the lcov so per-file coverage is auditable from CI without the
       # Coveralls UI (which posts no status/PR comment for this repo).
       - name: Upload lcov artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: coverage-lcov
           path: coverage.lcov
 
       - name: Upload to Coveralls
-        uses: coverallsapp/github-action@v2
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329  # v2.3.8
         with:
           file: coverage.lcov
           format: lcov
