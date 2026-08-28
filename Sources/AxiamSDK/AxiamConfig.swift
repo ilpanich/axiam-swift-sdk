@@ -125,9 +125,38 @@ public struct AxiamConfig: Sendable {
         oidcClockSkew: TimeInterval = 60
     ) throws {
         // §5: a tenant identifier is non-optional and cannot be deferred.
-        let hasTenant = (tenantID?.isEmpty == false) || (tenantSlug?.isEmpty == false)
+        let hasTenant = (tenantID?.isBlank == false) || (tenantSlug?.isBlank == false)
         guard hasTenant else {
-            throw AuthError("AxiamConfig requires either tenantID or tenantSlug (§5: no default tenant).")
+            throw AuthError(
+                "AxiamConfig requires either tenantID or tenantSlug (§5: no default tenant). "
+                + "To sign in an organization-level principal, name the organization's reserved "
+                + #"tenant, whose slug is "organization" (§5.2.1)."#
+            )
+        }
+        // §5.2.1 rule 2: an SDK MUST NOT send an empty-string slug. The check
+        // above is an *aggregate* — a blank `tenantSlug` beside a real
+        // `tenantID` satisfies it, and the blank one is then stored and
+        // serialized into every login body.
+        //
+        // Nothing can carry a blank slug, so the server resolves nothing — and
+        // on /auth/opaque/login/start it fails on the workspace *before* the
+        // tenant's OPAQUE mode is read, so the 404 that means "OPAQUE is not
+        // offered here" never arrives, this SDK has no fallback to take, and
+        // sign-in fails even against a tenant with OPAQUE disabled.
+        //
+        // `nil` stays fine: that is what "not named" looks like, and the server
+        // reads an unnamed tenant as the organization's own scope.
+        if tenantSlug?.isBlank == true {
+            throw AuthError("AxiamConfig: tenantSlug must not be blank — leave it nil or name a tenant (§5, §5.2.1).")
+        }
+        if tenantID?.isBlank == true {
+            throw AuthError("AxiamConfig: tenantID must not be blank — leave it nil or name a tenant (§5, §5.2.1).")
+        }
+        if orgSlug?.isBlank == true {
+            throw AuthError("AxiamConfig: orgSlug must not be blank — leave it nil or name the organization (§5.1, §5.2.1).")
+        }
+        if orgID?.isBlank == true {
+            throw AuthError("AxiamConfig: orgID must not be blank — leave it nil or name the organization (§5.1, §5.2.1).")
         }
         // org identifiers are optional but mutually exclusive.
         if (orgID?.isEmpty == false) && (orgSlug?.isEmpty == false) {
@@ -263,4 +292,13 @@ public struct AxiamConfig: Sendable {
             }
         }
     }
+}
+
+/// A string of only whitespace is not an identifier (§5.2.1 rule 2).
+///
+/// Kept `internal` and separate from `isEmpty` on purpose: the two read alike
+/// and mean different things here, and it is `isEmpty` — used in an aggregate
+/// check — that let a blank slug through beside a valid id.
+extension String {
+    var isBlank: Bool { trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 }
