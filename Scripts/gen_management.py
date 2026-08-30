@@ -808,9 +808,29 @@ def decode_expr(f: dict[str, Any]) -> list[str]:
     return [f"        self.{name} = try container.decodeIfPresent({decl}.self, forKey: .{key})"]
 
 
+#: The one wire field an EMPTY array must not be encoded as.
+#:
+#: CONTRACT.md 5.2.3 rule 1: `tenant_scope: []` is refused with 400, and an empty
+#: array is exactly what building the field from a filtered collection produces for
+#: "no tenants named". `encodeIfPresent` covers `nil` and nothing else -- an array
+#: that is present but empty is encoded, so the refused shape reaches the wire.
+#:
+#: Deliberately an allowlist of ONE, not a blanket "skip empty arrays". Elsewhere an
+#: empty array is meaningful -- a replacement body clearing a list -- and dropping it
+#: would make "remove every entry" inexpressible.
+OMIT_WHEN_EMPTY = {"tenant_scope"}
+
+
 def encode_expr(f: dict[str, Any]) -> list[str]:
     """The `encode(to:)` line(s) for one property."""
     name, key = f["name"], f["name"]
+    if f["wire"] in OMIT_WHEN_EMPTY and not f["required"]:
+        # 5.2.3 rule 1 -- see OMIT_WHEN_EMPTY.
+        return [
+            f"        if let {name}, !{name}.isEmpty {{",
+            f"            try container.encode({name}, forKey: .{key})",
+            "        }",
+        ]
     if f["kind"] == "union_raw":
         return [f"        try {name}.encode(to: encoder)"]
     if f["kind"] == "sensitive":

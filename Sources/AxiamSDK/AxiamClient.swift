@@ -612,17 +612,57 @@ public actor AxiamClient {
     ///   `libaxiam_opaque_ffi` is not installed, or when the server names a key-stretching
     ///   function this SDK cannot ask for.
     public func opaqueEnrollment(password: String) async throws -> OpaqueEnrollment {
+        try await enroll(password: password, principalTenantID: nil)
+    }
+
+    /// Builds a registration record for the **caller's own** new password, sealed against the
+    /// tenant the caller's account lives in.
+    ///
+    /// CONTRACT.md §5.2.2 rule 2. `POST /auth/password/change` and the record that accompanies
+    /// it are about the *account*, not about whatever tenant the client is currently pointed
+    /// at, and a record sealed against the acting tenant is refused with *"the OPAQUE session
+    /// was issued for a different tenant"*.
+    ///
+    /// The distinction only bites for an organization-level principal that has selected another
+    /// tenant to act on; for everyone else the two tenants are the same value and this behaves
+    /// identically to ``opaqueEnrollment(password:)``. It is still the method to call for a
+    /// self-service password change, because which principal is signed in is not something the
+    /// call site usually knows.
+    ///
+    /// - Throws: ``AxiamError/network(_:)`` when no login has completed on this client yet —
+    ///   the principal tenant is reported by the login response, so there is nothing to seal
+    ///   against before then — and on the same terms as ``opaqueEnrollment(password:)``
+    ///   otherwise.
+    public func opaqueEnrollmentForSelf(password: String) async throws -> OpaqueEnrollment {
+        guard let principal = sessionUser?.principalTenantID else {
+            throw AxiamError.network(NetworkError(
+                "OPAQUE: no principal tenant is known yet — sign in before building a "
+                + "registration record for your own password"))
+        }
+        return try await enroll(password: password, principalTenantID: principal)
+    }
+
+    /// The shared body of the two enrolment methods; they differ only in the tenant the record
+    /// is sealed against. `nil` is the ordinary case.
+    private func enroll(
+        password: String,
+        principalTenantID: String?
+    ) async throws -> OpaqueEnrollment {
         try ensureOpen()
 
         let exchange = try Opaque.startRegistration(password: password)
         defer { exchange.close() }
 
+        // §5.2.2 rule 2: when a principal tenant is named, it is named BY ID and the slug is
+        // dropped. A slug naming the acting tenant left beside the id would out-vote it
+        // server-side, which is the exact confusion this override exists to avoid. The
+        // organization fields still apply — they identify the organization, not the tenant.
         let started = try await opaqueStart(
             path: "api/v1/auth/opaque/register/start",
             body: try encode(OpaqueRegisterStartRequest(
                 registration_request: exchange.request,
-                tenant_id: config.tenantID,
-                tenant_slug: config.tenantSlug,
+                tenant_id: principalTenantID ?? config.tenantID,
+                tenant_slug: principalTenantID == nil ? config.tenantSlug : nil,
                 org_id: config.orgID,
                 org_slug: config.orgSlug
             )),
@@ -1103,7 +1143,18 @@ extension LoginSuccessResponse {
             email: user.email,
             // §5.2: absent means false, which is what a server older than contract 1.31
             // answers and the safe direction in both cases.
-            organizationLevel: user.organization_level ?? false
+            organizationLevel: user.organization_level ?? false,
+            // §5.2.2 rule 1: absent means *equal* to the acting tenant, not unknown. A
+            // server older than contract 1.34 omits the field and cannot switch the acting
+            // tenant either, so `tenant_id` is not a guess here — it is the only value the
+            // field could have had. Applied at this seam rather than left to the caller,
+            // because it is the whole point of the field and is easy to lose.
+            principalTenantID: user.principal_tenant_id ?? user.tenant_id,
+            principalTenantSlug: user.principal_tenant_slug,
+            orgID: user.org_id,
+            // §5.2.3: a present-but-empty list stays `nil`. It would read as "reaches
+            // nothing", the exact opposite of what an omitted field means here.
+            reachableTenantIDs: user.reachable_tenant_ids.flatMap { $0.isEmpty ? nil : $0 }
         )
     }
 }

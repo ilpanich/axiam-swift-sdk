@@ -17,7 +17,7 @@ public struct AxiamUser: Sendable, Equatable {
     ///
     /// Such a principal's record lives in its organization's reserved tenant, so its global
     /// grants apply in every tenant of that organization, and it can act on a different one
-    /// by sending a different `X-Tenant-ID` on the next request — no re-login, because it
+    /// by sending a different `X-Axiam-Tenant` on the next request — no re-login, because it
     /// already is a principal of every tenant there.
     ///
     /// An ordinary tenant principal is a principal of exactly one tenant; the same header
@@ -30,15 +30,60 @@ public struct AxiamUser: Sendable, Equatable {
     /// which is what a server older than contract 1.31 answers — and `false` on the guard
     /// path, where this value is built from token claims that do not carry it. Both are the
     /// safe direction: the application then offers no cross-tenant action.
+    ///
+    /// Since contract 1.35 that reach can be narrowed per assignment, so this flag alone no
+    /// longer decides what to offer: consult ``reachableTenantIDs`` as well (§5.2.3 rule 3).
     public let organizationLevel: Bool
 
+    /// The tenant this principal's record **lives in** (CONTRACT.md §5.2.2).
+    ///
+    /// Distinct from ``tenantID``, which is the tenant being *acted on* — what the
+    /// `X-Axiam-Tenant` header names. The two hold the same value for every ordinary
+    /// principal and diverge only once an organization-level principal selects another
+    /// tenant to act on.
+    ///
+    /// This is where the account's own credentials belong, and what a §23 registration
+    /// record for *this* account must be sealed against — see
+    /// ``AxiamClient/opaqueEnrollmentForSelf(password:)``. Filled from ``tenantID`` when the
+    /// server omits `principal_tenant_id`, which is exactly right there: absent means
+    /// *equal*, not unknown, because a server that cannot switch the acting tenant cannot
+    /// make the two differ. `nil` on the guard path, which builds this value from token
+    /// claims that do not carry it.
+    public let principalTenantID: String?
+
+    /// Slug of ``principalTenantID`` — `"organization"` for an organization-level principal.
+    /// `nil` when the server omits it.
+    public let principalTenantSlug: String?
+
+    /// The caller's organization as a UUID (§5.2.2 rule 3).
+    ///
+    /// Read this rather than resolving an organization slug through
+    /// `GET /api/v1/organizations`, which is `super-admin`-only and returns only the caller's
+    /// own organization — a resolver that cannot work for an ordinary administrator.
+    public let orgID: String?
+
+    /// The tenants this caller's roles reach, when they are narrowed (§5.2.3).
+    ///
+    /// `nil` means **unrestricted**, which is both the common case and the only thing a
+    /// server older than contract 1.35 can mean — never "reaches nothing". A present list is
+    /// a deliberately narrowed organization-level account: confine any tenant switch to it,
+    /// because naming anything outside is refused at the header. An empty list on the wire
+    /// arrives as `nil`, for the same reason.
+    public let reachableTenantIDs: [String]?
+
+    /// The four §5.2.2/§5.2.3 parameters are appended and defaulted, so every call site
+    /// written before contract 1.34 still compiles.
     public init(
         userID: String,
         tenantID: String,
         roles: [String] = [],
         username: String? = nil,
         email: String? = nil,
-        organizationLevel: Bool = false
+        organizationLevel: Bool = false,
+        principalTenantID: String? = nil,
+        principalTenantSlug: String? = nil,
+        orgID: String? = nil,
+        reachableTenantIDs: [String]? = nil
     ) {
         self.userID = userID
         self.tenantID = tenantID
@@ -46,6 +91,10 @@ public struct AxiamUser: Sendable, Equatable {
         self.username = username
         self.email = email
         self.organizationLevel = organizationLevel
+        self.principalTenantID = principalTenantID
+        self.principalTenantSlug = principalTenantSlug
+        self.orgID = orgID
+        self.reachableTenantIDs = reachableTenantIDs
     }
 }
 
@@ -157,6 +206,14 @@ struct LoginUserInfo: Decodable {
     // §5.2. Optional here rather than defaulted at the decoder, so "absent" and "false"
     // stay distinguishable at this layer; `toUser()` collapses them, in that direction.
     let organization_level: Bool?
+    // §5.2.2 (contract 1.34) and §5.2.3 (contract 1.35). All optional: a server older than
+    // 1.34 sends none of them. `toUser()` applies the two rules that make them useful —
+    // "absent principal tenant means EQUAL to the acting tenant" and "an empty reach is no
+    // reach restriction at all" — rather than leaving either to the caller.
+    let principal_tenant_id: String?
+    let principal_tenant_slug: String?
+    let org_id: String?
+    let reachable_tenant_ids: [String]?
 }
 
 struct LoginSuccessResponse: Decodable {

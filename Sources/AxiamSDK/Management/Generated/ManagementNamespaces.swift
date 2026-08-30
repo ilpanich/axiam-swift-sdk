@@ -705,6 +705,80 @@ public struct GroupsApi: Sendable {
         return try ManagementCodec.decode([RoleAssignment].self, from: data)
     }
 
+    /// `GET /api/v1/groups/{group_id}/service-accounts`
+    ///
+    /// Returns ONE page. `Page.total` is the server's count across every page and is not
+    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
+    /// (§27.4 rule 4).
+    ///
+    /// - Parameter groupID: The `{group_id}` path parameter.
+    /// - Parameter page: Which page to fetch; defaults to the first.
+    public func listServiceAccounts(
+        groupID: String,
+        page: PageRequest = PageRequest()
+    ) async throws -> Page<ServiceAccountResponse> {
+        let pathParameters = ["group_id": groupID]
+        let query: [(String, String)] = page.queryPairs
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "groups.list_service_accounts",
+            method: .get,
+            template: "/api/v1/groups/{group_id}/service-accounts",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decodePage(ServiceAccountResponse.self, from: data, request: page)
+    }
+
+    /// `POST /api/v1/groups/{group_id}/service-accounts`
+    ///
+    /// - Parameter groupID: The `{group_id}` path parameter.
+    /// - Parameter body: The request body.
+    public func addServiceAccount(
+        groupID: String,
+        body: AddServiceAccountMemberRequest
+    ) async throws {
+        let pathParameters = ["group_id": groupID]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "groups.add_service_account",
+            method: .post,
+            template: "/api/v1/groups/{group_id}/service-accounts",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
+        // server that started sending one does not silently change what this returns.
+        _ = data
+    }
+
+    /// `DELETE /api/v1/groups/{group_id}/service-accounts/{service_account_id}`
+    ///
+    /// - Parameter groupID: The `{group_id}` path parameter.
+    /// - Parameter serviceAccountID: The `{service_account_id}` path parameter.
+    public func removeServiceAccount(groupID: String, serviceAccountID: String) async throws {
+        let pathParameters = ["group_id": groupID, "service_account_id": serviceAccountID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "groups.remove_service_account",
+            method: .delete,
+            template: "/api/v1/groups/{group_id}/service-accounts/{service_account_id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
+        // server that started sending one does not silently change what this returns.
+        _ = data
+    }
+
 }
 
 /// Roles, their permission sets, and their assignment to users and groups.
@@ -1030,6 +1104,80 @@ public struct RolesApi: Sendable {
             operation: "roles.revoke_permission",
             method: .delete,
             template: "/api/v1/roles/{role_id}/permissions/{permission_id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
+        // server that started sending one does not silently change what this returns.
+        _ = data
+    }
+
+    /// `GET /api/v1/roles/{role_id}/service-accounts`
+    ///
+    /// - Parameter roleID: The `{role_id}` path parameter.
+    public func listServiceAccounts(roleID: String) async throws -> [RoleServiceAccountAssignment] {
+        let pathParameters = ["role_id": roleID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "roles.list_service_accounts",
+            method: .get,
+            template: "/api/v1/roles/{role_id}/service-accounts",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode([RoleServiceAccountAssignment].self, from: data)
+    }
+
+    /// `POST /api/v1/roles/{role_id}/service-accounts`
+    ///
+    /// - Parameter roleID: The `{role_id}` path parameter.
+    /// - Parameter body: The request body.
+    public func assignToServiceAccount(
+        roleID: String,
+        body: AssignRoleToServiceAccountRequest
+    ) async throws {
+        let pathParameters = ["role_id": roleID]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "roles.assign_to_service_account",
+            method: .post,
+            template: "/api/v1/roles/{role_id}/service-accounts",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
+        // server that started sending one does not silently change what this returns.
+        _ = data
+    }
+
+    /// `DELETE /api/v1/roles/{role_id}/service-accounts/{service_account_id}`
+    ///
+    /// - Parameter roleID: The `{role_id}` path parameter.
+    /// - Parameter serviceAccountID: The `{service_account_id}` path parameter.
+    /// - Parameter resourceID: The optional `resource_id` query parameter.
+    public func unassignFromServiceAccount(
+        roleID: String,
+        serviceAccountID: String,
+        resourceID: String? = nil
+    ) async throws {
+        let pathParameters = ["role_id": roleID, "service_account_id": serviceAccountID]
+        var query: [(String, String)] = []
+        if let resourceID = resourceID {
+            query.append(("resource_id", resourceID))
+        }
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "roles.unassign_from_service_account",
+            method: .delete,
+            template: "/api/v1/roles/{role_id}/service-accounts/{service_account_id}",
             pathParameters: pathParameters,
             query: query,
             body: payload,
@@ -1662,6 +1810,44 @@ public struct ServiceAccountsApi: Sendable {
         // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
         // server that started sending one does not silently change what this returns.
         _ = data
+    }
+
+    /// `GET /api/v1/service-accounts/{service_account_id}/roles`
+    ///
+    /// - Parameter serviceAccountID: The `{service_account_id}` path parameter.
+    public func listRoles(serviceAccountID: String) async throws -> [RoleAssignment] {
+        let pathParameters = ["service_account_id": serviceAccountID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "service_accounts.list_roles",
+            method: .get,
+            template: "/api/v1/service-accounts/{service_account_id}/roles",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode([RoleAssignment].self, from: data)
+    }
+
+    /// `GET /api/v1/service-accounts/{service_account_id}/groups`
+    ///
+    /// - Parameter serviceAccountID: The `{service_account_id}` path parameter.
+    public func listGroups(serviceAccountID: String) async throws -> [Group] {
+        let pathParameters = ["service_account_id": serviceAccountID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "service_accounts.list_groups",
+            method: .get,
+            template: "/api/v1/service-accounts/{service_account_id}/groups",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode([Group].self, from: data)
     }
 
 }

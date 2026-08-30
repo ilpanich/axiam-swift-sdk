@@ -795,6 +795,32 @@ public struct AddMemberRequest: Codable, Sendable {
     }
 }
 
+/// The `AddServiceAccountMemberRequest` schema.
+public struct AddServiceAccountMemberRequest: Codable, Sendable {
+    /// The server's `service_account_id` field.
+    public let serviceAccountID: String
+
+    public init(
+        serviceAccountID: String
+    ) {
+        self.serviceAccountID = serviceAccountID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case serviceAccountID = "service_account_id"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.serviceAccountID = try container.decode(String.self, forKey: .serviceAccountID)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(serviceAccountID, forKey: .serviceAccountID)
+    }
+}
+
 /// API-based provider configuration (SendGrid, Postmark, Resend, Brevo). `api_key` follows the
 /// same write-only + omit-preserving contract as [`SmtpConfig::password`] (D-01/D-02).
 public struct ApiProviderConfig: Codable, Sendable {
@@ -830,29 +856,93 @@ public struct AssignRoleToGroupRequest: Codable, Sendable {
     /// The server's `resource_id` field.
     public let resourceID: String?
 
+    /// The tenants this assignment reaches. Only meaningful for an assignment made in an
+    /// organization's scope, whose global roles otherwise reach every tenant of the
+    /// organization; naming tenants here confines the assignment to those and to nothing else,
+    /// the organization's own scope included. Omitted — the default — reaches wherever the role
+    /// does. Refused with 400 outside an organization scope, when empty, and when it names a
+    /// tenant of another organization or the organization's own scope tenant.
+    public let tenantScope: [String]?
+
     public init(
         groupID: String,
-        resourceID: String? = nil
+        resourceID: String? = nil,
+        tenantScope: [String]? = nil
     ) {
         self.groupID = groupID
         self.resourceID = resourceID
+        self.tenantScope = tenantScope
     }
 
     enum CodingKeys: String, CodingKey {
         case groupID = "group_id"
         case resourceID = "resource_id"
+        case tenantScope = "tenant_scope"
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.groupID = try container.decode(String.self, forKey: .groupID)
         self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
+        self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(groupID, forKey: .groupID)
         try container.encodeIfPresent(resourceID, forKey: .resourceID)
+        if let tenantScope, !tenantScope.isEmpty {
+            try container.encode(tenantScope, forKey: .tenantScope)
+        }
+    }
+}
+
+/// The `AssignRoleToServiceAccountRequest` schema.
+public struct AssignRoleToServiceAccountRequest: Codable, Sendable {
+    /// The server's `resource_id` field.
+    public let resourceID: String?
+
+    /// The server's `service_account_id` field.
+    public let serviceAccountID: String
+
+    /// The tenants this assignment reaches. Only meaningful for an assignment made in an
+    /// organization's scope, whose global roles otherwise reach every tenant of the
+    /// organization; naming tenants here confines the assignment to those and to nothing else,
+    /// the organization's own scope included. Omitted — the default — reaches wherever the role
+    /// does. Refused with 400 outside an organization scope, when empty, and when it names a
+    /// tenant of another organization or the organization's own scope tenant.
+    public let tenantScope: [String]?
+
+    public init(
+        resourceID: String? = nil,
+        serviceAccountID: String,
+        tenantScope: [String]? = nil
+    ) {
+        self.resourceID = resourceID
+        self.serviceAccountID = serviceAccountID
+        self.tenantScope = tenantScope
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case resourceID = "resource_id"
+        case serviceAccountID = "service_account_id"
+        case tenantScope = "tenant_scope"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
+        self.serviceAccountID = try container.decode(String.self, forKey: .serviceAccountID)
+        self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(resourceID, forKey: .resourceID)
+        try container.encode(serviceAccountID, forKey: .serviceAccountID)
+        if let tenantScope, !tenantScope.isEmpty {
+            try container.encode(tenantScope, forKey: .tenantScope)
+        }
     }
 }
 
@@ -861,31 +951,46 @@ public struct AssignRoleToUserRequest: Codable, Sendable {
     /// The server's `resource_id` field.
     public let resourceID: String?
 
+    /// The tenants this assignment reaches. Only meaningful for an assignment made in an
+    /// organization's scope, whose global roles otherwise reach every tenant of the
+    /// organization; naming tenants here confines the assignment to those and to nothing else,
+    /// the organization's own scope included. Omitted — the default — reaches wherever the role
+    /// does. Refused with 400 outside an organization scope, when empty, and when it names a
+    /// tenant of another organization or the organization's own scope tenant.
+    public let tenantScope: [String]?
+
     /// The server's `user_id` field.
     public let userID: String
 
     public init(
         resourceID: String? = nil,
+        tenantScope: [String]? = nil,
         userID: String
     ) {
         self.resourceID = resourceID
+        self.tenantScope = tenantScope
         self.userID = userID
     }
 
     enum CodingKeys: String, CodingKey {
         case resourceID = "resource_id"
+        case tenantScope = "tenant_scope"
         case userID = "user_id"
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
+        self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
         self.userID = try container.decode(String.self, forKey: .userID)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(resourceID, forKey: .resourceID)
+        if let tenantScope, !tenantScope.isEmpty {
+            try container.encode(tenantScope, forKey: .tenantScope)
+        }
         try container.encode(userID, forKey: .userID)
     }
 }
@@ -5784,29 +5889,39 @@ public struct RoleAssignment: Codable, Sendable {
     /// The server's `role` field.
     public let role: Role
 
+    /// The tenants this assignment reaches. See [`TenantScope`].
+    public let tenantScope: [String]?
+
     public init(
         resourceID: String? = nil,
-        role: Role
+        role: Role,
+        tenantScope: [String]? = nil
     ) {
         self.resourceID = resourceID
         self.role = role
+        self.tenantScope = tenantScope
     }
 
     enum CodingKeys: String, CodingKey {
         case resourceID = "resource_id"
         case role = "role"
+        case tenantScope = "tenant_scope"
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
         self.role = try container.decode(Role.self, forKey: .role)
+        self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(resourceID, forKey: .resourceID)
         try container.encode(role, forKey: .role)
+        if let tenantScope, !tenantScope.isEmpty {
+            try container.encode(tenantScope, forKey: .tenantScope)
+        }
     }
 }
 
@@ -5818,29 +5933,88 @@ public struct RoleGroupAssignment: Codable, Sendable {
     /// `None` means the role was assigned globally (no resource scope).
     public let resourceID: String?
 
+    /// The tenants this assignment reaches, or omitted for "wherever the role does". Shown next
+    /// to the assignment so an operator can tell a deliberately narrowed grant from an
+    /// organization-wide one.
+    public let tenantScope: [String]?
+
     public init(
         group: Group,
-        resourceID: String? = nil
+        resourceID: String? = nil,
+        tenantScope: [String]? = nil
     ) {
         self.group = group
         self.resourceID = resourceID
+        self.tenantScope = tenantScope
     }
 
     enum CodingKeys: String, CodingKey {
         case group = "group"
         case resourceID = "resource_id"
+        case tenantScope = "tenant_scope"
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.group = try container.decode(Group.self, forKey: .group)
         self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
+        self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(group, forKey: .group)
         try container.encodeIfPresent(resourceID, forKey: .resourceID)
+        if let tenantScope, !tenantScope.isEmpty {
+            try container.encode(tenantScope, forKey: .tenantScope)
+        }
+    }
+}
+
+/// A service account together with the resource scope of its assignment.
+public struct RoleServiceAccountAssignment: Codable, Sendable {
+    /// `None` means the role was assigned globally (no resource scope).
+    public let resourceID: String?
+
+    /// The assigned service account. Carries no secret — the client secret is returned once, at
+    /// creation, and never again.
+    public let serviceAccount: ServiceAccountResponse
+
+    /// The tenants this assignment reaches, or omitted for "wherever the role does". Shown next
+    /// to the assignment so an operator can tell a deliberately narrowed grant from an
+    /// organization-wide one.
+    public let tenantScope: [String]?
+
+    public init(
+        resourceID: String? = nil,
+        serviceAccount: ServiceAccountResponse,
+        tenantScope: [String]? = nil
+    ) {
+        self.resourceID = resourceID
+        self.serviceAccount = serviceAccount
+        self.tenantScope = tenantScope
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case resourceID = "resource_id"
+        case serviceAccount = "service_account"
+        case tenantScope = "tenant_scope"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
+        self.serviceAccount = try container.decode(ServiceAccountResponse.self, forKey: .serviceAccount)
+        self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(resourceID, forKey: .resourceID)
+        try container.encode(serviceAccount, forKey: .serviceAccount)
+        if let tenantScope, !tenantScope.isEmpty {
+            try container.encode(tenantScope, forKey: .tenantScope)
+        }
     }
 }
 
@@ -5849,31 +6023,43 @@ public struct RoleUserAssignment: Codable, Sendable {
     /// `None` means the role was assigned globally (no resource scope).
     public let resourceID: String?
 
+    /// The tenants this assignment reaches, or omitted for "wherever the role does". Shown next
+    /// to the assignment so an operator can tell a deliberately narrowed grant from an
+    /// organization-wide one.
+    public let tenantScope: [String]?
+
     /// The assigned user.
     public let user: UserResponse
 
     public init(
         resourceID: String? = nil,
+        tenantScope: [String]? = nil,
         user: UserResponse
     ) {
         self.resourceID = resourceID
+        self.tenantScope = tenantScope
         self.user = user
     }
 
     enum CodingKeys: String, CodingKey {
         case resourceID = "resource_id"
+        case tenantScope = "tenant_scope"
         case user = "user"
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
+        self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
         self.user = try container.decode(UserResponse.self, forKey: .user)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(resourceID, forKey: .resourceID)
+        if let tenantScope, !tenantScope.isEmpty {
+            try container.encode(tenantScope, forKey: .tenantScope)
+        }
         try container.encode(user, forKey: .user)
     }
 }
