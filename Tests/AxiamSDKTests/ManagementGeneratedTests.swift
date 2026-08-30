@@ -43,14 +43,24 @@ final class ManagementGeneratedTests: XCTestCase {
         "{\"user_id\": \"11111111-1111-4111-8111-111111111111\"}",
         "AddMemberRequest")
 
+    static let fixtureAddServiceAccountMemberRequest: AddServiceAccountMemberRequest = decodeFixture(
+        AddServiceAccountMemberRequest.self,
+        "{\"service_account_id\": \"11111111-1111-4111-8111-111111111111\"}",
+        "AddServiceAccountMemberRequest")
+
     static let fixtureAssignRoleToGroupRequest: AssignRoleToGroupRequest = decodeFixture(
         AssignRoleToGroupRequest.self,
-        "{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}",
+        "{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}",
         "AssignRoleToGroupRequest")
+
+    static let fixtureAssignRoleToServiceAccountRequest: AssignRoleToServiceAccountRequest = decodeFixture(
+        AssignRoleToServiceAccountRequest.self,
+        "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}",
+        "AssignRoleToServiceAccountRequest")
 
     static let fixtureAssignRoleToUserRequest: AssignRoleToUserRequest = decodeFixture(
         AssignRoleToUserRequest.self,
-        "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}",
+        "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user_id\": \"11111111-1111-4111-8111-111111111111\"}",
         "AssignRoleToUserRequest")
 
     static let fixtureBindCertificate: BindCertificate = decodeFixture(
@@ -465,7 +475,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testUsersListRolesReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}]")])
+            [(status: 200, body: "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
         _ = try await client.users.listRoles(userID: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -555,12 +565,42 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testGroupsListRolesReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}]")])
+            [(status: 200, body: "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
         _ = try await client.groups.listRoles(groupID: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
         XCTAssertEqual(transport.last?.method, "GET")
         XCTAssertEqual(transport.last?.path, "/api/v1/groups/11111111-1111-4111-8111-111111111111/roles")
+    }
+
+    func testGroupsListServiceAccountsReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"items\": [{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+        _ = try await client.groups.listServiceAccounts(groupID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/groups/11111111-1111-4111-8111-111111111111/service-accounts")
+    }
+
+    func testGroupsAddServiceAccountReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 204, body: "")])
+        _ = try await client.groups.addServiceAccount(groupID: "11111111-1111-4111-8111-111111111111", body: Self.fixtureAddServiceAccountMemberRequest)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/groups/11111111-1111-4111-8111-111111111111/service-accounts")
+    }
+
+    func testGroupsRemoveServiceAccountReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 204, body: "")])
+        _ = try await client.groups.removeServiceAccount(groupID: "11111111-1111-4111-8111-111111111111", serviceAccountID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "DELETE")
+        XCTAssertEqual(transport.last?.path, "/api/v1/groups/11111111-1111-4111-8111-111111111111/service-accounts/11111111-1111-4111-8111-111111111111")
     }
 
     func testRolesListReachesItsRoute() async throws {
@@ -615,7 +655,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testRolesListUsersReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}]")])
+            [(status: 200, body: "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}]")])
         _ = try await client.roles.listUsers(roleID: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -645,7 +685,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testRolesListGroupsReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "[{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}]")])
+            [(status: 200, body: "[{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
         _ = try await client.roles.listGroups(roleID: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -701,6 +741,36 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(transport.count, 1)
         XCTAssertEqual(transport.last?.method, "DELETE")
         XCTAssertEqual(transport.last?.path, "/api/v1/roles/11111111-1111-4111-8111-111111111111/permissions/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testRolesListServiceAccountsReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
+        _ = try await client.roles.listServiceAccounts(roleID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/roles/11111111-1111-4111-8111-111111111111/service-accounts")
+    }
+
+    func testRolesAssignToServiceAccountReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 204, body: "")])
+        _ = try await client.roles.assignToServiceAccount(roleID: "11111111-1111-4111-8111-111111111111", body: Self.fixtureAssignRoleToServiceAccountRequest)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/roles/11111111-1111-4111-8111-111111111111/service-accounts")
+    }
+
+    func testRolesUnassignFromServiceAccountReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 204, body: "")])
+        _ = try await client.roles.unassignFromServiceAccount(roleID: "11111111-1111-4111-8111-111111111111", serviceAccountID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "DELETE")
+        XCTAssertEqual(transport.last?.path, "/api/v1/roles/11111111-1111-4111-8111-111111111111/service-accounts/11111111-1111-4111-8111-111111111111")
     }
 
     func testPermissionsListReachesItsRoute() async throws {
@@ -941,6 +1011,26 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(transport.count, 1)
         XCTAssertEqual(transport.last?.method, "POST")
         XCTAssertEqual(transport.last?.path, "/api/v1/service-accounts/11111111-1111-4111-8111-111111111111/bind-certificate")
+    }
+
+    func testServiceAccountsListRolesReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
+        _ = try await client.serviceAccounts.listRoles(serviceAccountID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/service-accounts/11111111-1111-4111-8111-111111111111/roles")
+    }
+
+    func testServiceAccountsListGroupsReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "[{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}]")])
+        _ = try await client.serviceAccounts.listGroups(serviceAccountID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/service-accounts/11111111-1111-4111-8111-111111111111/groups")
     }
 
     func testCertificatesListReachesItsRoute() async throws {
@@ -1779,6 +1869,32 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
+    func testAddServiceAccountMemberRequestRoundTripsWithoutLosingAField() throws {
+        let json = "{\"service_account_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(AddServiceAccountMemberRequest.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(AddServiceAccountMemberRequest.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
     func testApiProviderConfigRoundTripsWithoutLosingAField() throws {
         let json = "{\"api_url\": \"example\"}"
         let wire = try XCTUnwrap(
@@ -1806,7 +1922,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testAssignRoleToGroupRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let json = "{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -1831,8 +1947,34 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
+    func testAssignRoleToServiceAccountRequestRoundTripsWithoutLosingAField() throws {
+        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(AssignRoleToServiceAccountRequest.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(AssignRoleToServiceAccountRequest.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
     func testAssignRoleToUserRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -3730,7 +3872,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testRoleAssignmentRoundTripsWithoutLosingAField() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}"
+        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -3756,7 +3898,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testRoleGroupAssignmentRoundTripsWithoutLosingAField() throws {
-        let json = "{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let json = "{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -3781,8 +3923,34 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
+    func testRoleServiceAccountAssignmentRoundTripsWithoutLosingAField() throws {
+        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(RoleServiceAccountAssignment.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(RoleServiceAccountAssignment.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
     func testRoleUserAssignmentRoundTripsWithoutLosingAField() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}"
+        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4737,6 +4905,26 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: fromDecoded))
     }
 
+    func testAddServiceAccountMemberRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"service_account_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(AddServiceAccountMemberRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = AddServiceAccountMemberRequest(
+            serviceAccountID: decoded.serviceAccountID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
     func testApiProviderConfigMemberwiseInitializerAssignsEveryProperty() throws {
         let json = "{\"api_url\": \"example\"}"
         let decoded = try JSONDecoder().decode(ApiProviderConfig.self, from: Data(json.utf8))
@@ -4758,7 +4946,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testAssignRoleToGroupRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let json = "{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let decoded = try JSONDecoder().decode(AssignRoleToGroupRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -4767,7 +4955,30 @@ final class ManagementGeneratedTests: XCTestCase {
         // constructs one by hand.
         let rebuilt = AssignRoleToGroupRequest(
             groupID: decoded.groupID,
-            resourceID: decoded.resourceID)
+            resourceID: decoded.resourceID,
+            tenantScope: decoded.tenantScope)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testAssignRoleToServiceAccountRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let decoded = try JSONDecoder().decode(AssignRoleToServiceAccountRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = AssignRoleToServiceAccountRequest(
+            resourceID: decoded.resourceID,
+            serviceAccountID: decoded.serviceAccountID,
+            tenantScope: decoded.tenantScope)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -4779,7 +4990,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testAssignRoleToUserRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
         let decoded = try JSONDecoder().decode(AssignRoleToUserRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -4788,6 +4999,7 @@ final class ManagementGeneratedTests: XCTestCase {
         // constructs one by hand.
         let rebuilt = AssignRoleToUserRequest(
             resourceID: decoded.resourceID,
+            tenantScope: decoded.tenantScope,
             userID: decoded.userID)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
@@ -6590,7 +6802,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testRoleAssignmentMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}"
+        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let decoded = try JSONDecoder().decode(RoleAssignment.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -6599,7 +6811,8 @@ final class ManagementGeneratedTests: XCTestCase {
         // constructs one by hand.
         let rebuilt = RoleAssignment(
             resourceID: decoded.resourceID,
-            role: decoded.role)
+            role: decoded.role,
+            tenantScope: decoded.tenantScope)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -6611,7 +6824,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testRoleGroupAssignmentMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let json = "{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let decoded = try JSONDecoder().decode(RoleGroupAssignment.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -6620,7 +6833,30 @@ final class ManagementGeneratedTests: XCTestCase {
         // constructs one by hand.
         let rebuilt = RoleGroupAssignment(
             group: decoded.group,
-            resourceID: decoded.resourceID)
+            resourceID: decoded.resourceID,
+            tenantScope: decoded.tenantScope)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testRoleServiceAccountAssignmentMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let decoded = try JSONDecoder().decode(RoleServiceAccountAssignment.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = RoleServiceAccountAssignment(
+            resourceID: decoded.resourceID,
+            serviceAccount: decoded.serviceAccount,
+            tenantScope: decoded.tenantScope)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -6632,7 +6868,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testRoleUserAssignmentMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}"
+        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}"
         let decoded = try JSONDecoder().decode(RoleUserAssignment.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -6641,6 +6877,7 @@ final class ManagementGeneratedTests: XCTestCase {
         // constructs one by hand.
         let rebuilt = RoleUserAssignment(
             resourceID: decoded.resourceID,
+            tenantScope: decoded.tenantScope,
             user: decoded.user)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
@@ -8252,7 +8489,7 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
-    // §27.9: this file covers 147 operations, 114 models (114 of them also through their
+    // §27.9: this file covers 155 operations, 117 models (117 of them also through their
     // memberwise initializer) and 23 enums.
     //
     // The counts above are literals THIS generator wrote, so comparing them to each other would
@@ -8274,7 +8511,7 @@ final class ManagementGeneratedTests: XCTestCase {
         let declared = namespaces.values.reduce(into: 0) { total, namespace in
             total += (namespace["operations"] as? [String: Any])?.count ?? 0
         }
-        XCTAssertEqual(declared, 147,
+        XCTAssertEqual(declared, 155,
                        "the registry declares a different number of operations than this file covers — regenerate with Scripts/gen_management.py")
         XCTAssertEqual(namespaces.count, 24)
     }
