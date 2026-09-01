@@ -48,7 +48,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §22 reactors (`reactorServe`) | ✅ implemented (contract 1.28) — §22.1–§22.8 and §22.14 in full, over a **caller-supplied transport**. §22.11 now defers only the *connection*: this SDK vendors no AMQP client, and you conform `ReactorTransport` over whichever one you already trust. "Conforms to … §22" is the claim; **"ships an AMQP client" is not** |
 | §11 rule 9 decision reason codes | ✅ implemented |
 | §16 bounded read-only retry, §17 decision memo, §18 `close()`, §19 telemetry hooks | ✅ implemented |
-| §12 OIDC/SSO relying-party helpers | ✅ implemented (contract 1.11) — the nine operations on `AxiamClient`, under the names §12.2 had reserved for Swift while the section was deferred |
+| §12 OIDC/SSO relying-party helpers | ✅ implemented (contract 1.11; the four login-provider operations added at 1.37, rule 12a at 1.38) — the **thirteen** operations on `AxiamClient`, under the names §12.2 had reserved for Swift while the section was deferred |
 | §12.7 logout, §14 device grant, §15 token exchange | ✅ implemented (contract 1.11) — all three build on §12's discovery cache, token endpoint and ID-token validation, which is exactly why they land together with it |
 | §24 WebAuthn / passkeys | ✅ implemented (contract 1.28) — the six relying-party operations and §24.6a's JSON bridge on **every** target, plus §24.6b's linked-API ceremony helpers on iOS 16+ and macOS 13+. The Linux build keeps the RP layer and the bridge; `webauthnCeremonySupported` answers `false` there rather than throwing |
 | §25 account lifecycle & MFA enrolment | ✅ implemented (contract 1.28) — voluntary and forced TOTP enrolment, email verification, and the password-reset triple |
@@ -437,8 +437,9 @@ attempted afterwards throws `NetworkError` naming the cause rather than silently
 ## OIDC / SSO relying-party helpers (§12)
 
 "Login with AXIAM", plus the service-to-service and token-lifecycle operations that come with
-it. Nine operations, all on `AxiamClient`, all built on this SDK's existing transport, `Sensitive`
-wrapper and JWKS verifier — §12 adds no second HTTP path and no second key-fetching path.
+it. Thirteen operations, all on `AxiamClient`, all built on this SDK's existing transport,
+`Sensitive` wrapper and JWKS verifier — §12 adds no second HTTP path and no second key-fetching
+path.
 
 ```swift
 let config = try AxiamConfig(
@@ -487,6 +488,71 @@ The rules this surface exists to enforce:
   (`OidcTokenSet.idClaims`); §12.3 rule 5 keeps that endpoint out of the vocabulary.
 
 Runnable: [`Examples/OidcLogin`](Examples/OidcLogin/main.swift).
+
+### The four public login-provider operations, and their rules
+
+Contract 1.37 added the operations a login *page* needs — which buttons to render, and how to
+finish the two flows that cannot set a `SameSite=Strict` cookie on their own response. Contract
+1.38 added rule 12a. All four sit on `AxiamClient` beside the other nine.
+
+| Operation | Endpoint |
+|-----------|----------|
+| `ssoProviders(orgID:orgSlug:tenantID:tenantSlug:)` | `GET /api/v1/auth/federation/providers` |
+| `ssoStartOauth2(federationConfigID:redirectURI:)` | `POST /api/v1/auth/federation/oauth2/start` |
+| `ssoCompleteOauth2(code:state:)` | `POST /api/v1/auth/federation/oauth2/callback` |
+| `ssoCompleteHandoff(code:)` | `POST /api/v1/auth/federation/handoff` |
+
+```swift
+for provider in try await client.ssoProviders(orgSlug: typedByTheUser) {
+    // §12.1 note 10: `protocol` selects the start operation. Never `providerKind` —
+    // a SAML config can carry provider_kind "google", and guessing sends it to the
+    // wrong endpoint, which the server refuses with 400 rather than accepting.
+    switch provider.`protocol` {
+    case FederationProvider.protocolOidcConnect:
+        let start = try await client.ssoStart(
+            federationConfigID: provider.id, redirectURI: callbackURL)
+        navigate(to: start.authorizeURL)
+    case FederationProvider.protocolOAuth2:
+        let start = try await client.ssoStartOauth2(
+            federationConfigID: provider.id, redirectURI: callbackURL)
+        navigate(to: start.authorizeURL)
+    case FederationProvider.protocolSaml:
+        navigate(to: samlLoginURL(for: provider.id))   // not a §12 operation
+    default:
+        continue                                        // a protocol this build predates
+    }
+}
+```
+
+- **An empty list is a success, and the only success there is** (§12.1 note 9). An unknown
+  organization, a known one with no providers, and a request naming no organization at all all
+  answer `200` with an empty array. `ssoProviders` therefore never synthesises a not-found
+  error, never refuses client-side for missing workspace context, and gives you no way to tell
+  the three apart — the endpoint is shaped so it cannot enumerate org or tenant slugs. A caller
+  learns it named the workspace wrongly at the start operations, where every failure is a
+  uniform `401`.
+- **`protocol` is a `String`, deliberately.** A closed enum would fail the decode of the whole
+  list over one provider this build predates. Compare against
+  `FederationProvider.protocolOidcConnect` / `.protocolOAuth2` / `.protocolSaml` and treat
+  anything else as unsupported.
+- **PKCE on the OAuth2 path is mandatory and entirely server-side** (§12.1 note 11). This SDK
+  computes no verifier and no challenge, and sends neither; nothing PKCE-shaped appears in the
+  request or the response. The OAuth2 variant also carries **reduced assurance** — no ID token,
+  so no signature, no `nonce`, no `aud` — which is worth surfacing rather than presenting
+  `OAuth2` and `OidcConnect` buttons as equivalent.
+- **A handoff code is single-use and lives 60 seconds** (§12.1 note 12). It arrives on your
+  callback route in the `axiam_handoff` query parameter (`FederationHandoff.queryParameter`);
+  redeem it from the same origin. A `401` is **terminal** — unknown, expired and
+  already-redeemed all answer the same `401`, and the code is gone either way, so this SDK
+  issues the redemption exactly once and never retries it.
+- **A `400` is a configuration error, not a retry** (§12.1 rule 12a). On the SAML and Apple
+  flows the `redirect_uri` must be on an origin the deployment accepts, and the server refuses
+  anything else with `400`. §2 maps `400` to `NetworkError` — this taxonomy's
+  configuration/programming-error member, as distinct from the `AuthError` a `401` gets. Never
+  build a `redirect_uri` from a value the identity provider supplied.
+- **Inheritance is resolved server-side** (§12.1 note 13). `FederationProvider.inherited` tells
+  you a provider belongs to the organization rather than the tenant; pass the `id` you were
+  handed and let the server work out the rest.
 
 ### Logout (§12.7)
 
