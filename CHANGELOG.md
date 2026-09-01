@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The four public login-provider operations (CONTRACT §12.1, contract 1.38).**
+  `ssoProviders`, `ssoStartOauth2`, `ssoCompleteOauth2` and `ssoCompleteHandoff`
+  join the nine §12 operations already on `AxiamClient`, under the names §12.2
+  reserves for Swift. They are what a login *page* needs: which "Sign in with X"
+  buttons to render, and how to finish the two flows that cannot set a
+  `SameSite=Strict` cookie on their own response. `FederationProvider` models the
+  public provider shape faithfully, including the nullable `buttonIcon` data URL,
+  `hasBundledMark` and `inherited`; `FederationHandoff` carries the `axiam_handoff`
+  query-parameter name and the 60-second code TTL.
+
+  Five rules are load-bearing and each has a test.
+
+  - **An empty list is a success, and the only success there is** (note 9). An
+    unknown organization, a known one with no providers, and a request naming no
+    organization at all all answer `200 []`. `ssoProviders` never turns that into a
+    not-found error and never refuses client-side for missing workspace context — a
+    client-side `400` would restore exactly the two-valued organization-slug oracle
+    the empty list exists to remove.
+  - **`protocol` selects the start operation, never `providerKind`** (note 10). It
+    is surfaced as the wire `String` rather than an enum, so a protocol the server
+    adds later cannot fail the decode of the whole list.
+  - **PKCE on the OAuth2 path is generated and held server-side** (note 11). This
+    SDK computes no verifier and no challenge and sends neither.
+  - **A handoff `401` is terminal** (note 12). Unknown, expired and
+    already-redeemed answer alike, the code is gone either way, and the redemption
+    is issued exactly once.
+  - **A `400` is a configuration error** (rule 12a, new at 1.38). §2 puts it on the
+    `NetworkError` row — this taxonomy's configuration/programming-error member, as
+    distinct from the `AuthError` a `401` gets — and it is not retried. A
+    `redirect_uri` is never built from a value the identity provider supplied.
+
+### Changed
+
+- **Re-vendored contract 1.38.** `CONTRACT.md`, `openapi.json` and
+  `management-registry.json` are byte-for-byte copies of the `sdks/` sources in
+  [`ilpanich/axiam`](https://github.com/ilpanich/axiam) (ilpanich/axiam#398).
+  `proto/` and `opaque-test-vectors.json` did not change. The §27 management
+  surface was regenerated with `Scripts/gen_management.py`, as §27.8 requires
+  whenever the vendored artifacts move: `openapi.json` gained fields on the
+  federation-config schemas.
+
 ## [1.0.0-beta07] - 2026-08-30
 
 ### Changed
