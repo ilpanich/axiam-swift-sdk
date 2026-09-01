@@ -232,18 +232,21 @@ final class OidcLoginProvidersTests: XCTestCase {
     }
 
     /// §5.1, as everywhere else in this SDK: the UUID form wins over the slug form.
+    ///
+    /// `AxiamConfig` accepts at most one org form, so the two are put in conflict the only
+    /// way they can be — a UUID argument against a slug-configured client — which is also
+    /// the case a login page actually produces.
     func testProvidersPrefersTheUuidFormOverTheSlugForm() async throws {
         let router = Self.providersRouter(providers: [])
-        try await withFederationClient(
-            tenantID: Self.tenantUUID, tenantSlug: nil,
-            orgID: Self.orgUUID, orgSlug: "acme",
-            router: router
-        ) { client, server in
-            _ = try await client.ssoProviders()
+        try await withFederationClient(orgSlug: "acme", router: router) { client, server in
+            _ = try await client.ssoProviders(orgID: Self.orgUUID)
             let uri = try XCTUnwrap(
                 server.state.requests(pathContaining: "/federation/providers").first).uri
-            XCTAssertTrue(uri.contains("org_id=\(Self.orgUUID)"))
+            XCTAssertTrue(uri.contains("org_id=\(Self.orgUUID)"), uri)
             XCTAssertFalse(uri.contains("org_slug"), "the UUID form replaces the slug form")
+            // The tenant is UUID-configured, so its own §5.1 pair resolves the same way.
+            XCTAssertTrue(uri.contains("tenant_id=\(Self.tenantUUID)"), uri)
+            XCTAssertFalse(uri.contains("tenant_slug"), uri)
         }
     }
 
