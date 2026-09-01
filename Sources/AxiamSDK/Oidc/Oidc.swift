@@ -2,7 +2,8 @@ import Foundation
 
 // CONTRACT.md §12 — the OIDC/SSO relying-party helpers.
 //
-// Nine operations, built on this SDK's existing machinery and forking none of it: the §6/§6.1
+// Thirteen operations — the original nine, plus the four login-provider operations that joined
+// them at contract 1.37 — built on this SDK's existing machinery and forking none of it: the §6/§6.1
 // transport, the §7 `Sensitive` wrapper, and the same JWKS verifier the §10 guard uses. §12
 // adds no second HTTP path and no second key-fetching path.
 //
@@ -17,6 +18,10 @@ extension AxiamClient {
     // MARK: - Constants
 
     static let oidcDiscoveryPath = ".well-known/openid-configuration"
+    static let federationProvidersPath = "api/v1/auth/federation/providers"
+    static let federationOAuth2StartPath = "api/v1/auth/federation/oauth2/start"
+    static let federationOAuth2CallbackPath = "api/v1/auth/federation/oauth2/callback"
+    static let federationHandoffPath = "api/v1/auth/federation/handoff"
     static let refreshGrantType = "refresh_token"
     static let clientCredentialsGrantType = "client_credentials"
     static let authorizationCodeGrantType = "authorization_code"
@@ -293,6 +298,159 @@ extension AxiamClient {
             "api/v1/auth/federation/oidc/callback",
             body: ["code": code, "state": state],
             context: "sso complete")
+        return SsoCompleteResult(
+            userID: wire.user_id, sessionID: wire.session_id, expiresIn: wire.expires_in,
+            redirectURI: wire.redirect_uri)
+    }
+
+    // MARK: - §12.1 sso_providers / sso_start_oauth2 / sso_complete_oauth2 / sso_complete_handoff
+
+    /// `GET /api/v1/auth/federation/providers` (§12.1) — which "Sign in with X" buttons to
+    /// render for a workspace.
+    ///
+    /// The workspace travels as **query parameters**, not a body: this is the one §12
+    /// operation that is a `GET`. Arguments override what this client was constructed with;
+    /// anything neither given nor configured is simply omitted.
+    ///
+    /// **An empty array is a success, and the only success there is** (§12.1 note 9). An
+    /// unknown organization, a known one with no providers, and a request naming no workspace
+    /// at all all answer `200` with `providers: []`. This method therefore never synthesises a
+    /// not-found error, never refuses client-side for missing context, and offers no way to
+    /// tell the three apart — the endpoint is shaped so it cannot be used to enumerate org or
+    /// tenant slugs, and an SDK that restored the distinction would restore the oracle. A
+    /// caller learns it named the workspace wrongly at the start operations, where every
+    /// failure is a uniform `401`.
+    ///
+    /// Dispatch on each provider's ``FederationProvider/protocol`` to pick the start operation
+    /// (§12.1 note 10) — never on ``FederationProvider/providerKind``.
+    public func ssoProviders(
+        orgID: String? = nil,
+        orgSlug: String? = nil,
+        tenantID: String? = nil,
+        tenantSlug: String? = nil
+    ) async throws -> [FederationProvider] {
+        try ensureOpen()
+        // §5.1: one form per workspace level, UUID winning over slug, exactly as the body-
+        // carrying start operations resolve it. Nothing is required — see note 9 above.
+        var query: [URLQueryItem] = []
+        if let value = orgID ?? config.orgID {
+            query.append(URLQueryItem(name: "org_id", value: value))
+        } else if let value = orgSlug ?? config.orgSlug {
+            query.append(URLQueryItem(name: "org_slug", value: value))
+        }
+        if let value = tenantID ?? config.tenantID {
+            query.append(URLQueryItem(name: "tenant_id", value: value))
+        } else if let value = tenantSlug ?? config.tenantSlug {
+            query.append(URLQueryItem(name: "tenant_slug", value: value))
+        }
+
+        let response = try await rawGetWithQuery(
+            path: Self.federationProvidersPath, query: query, context: "sso providers")
+        guard (200..<300).contains(response.status) else { throw oidcMapError(response) }
+        let wire: PublicFederationProvidersWire = try oidcDecode(
+            PublicFederationProvidersWire.self, response.body, "sso providers")
+        return wire.providers.map {
+            FederationProvider(
+                id: $0.id,
+                providerKind: $0.provider_kind,
+                displayName: $0.display_name,
+                protocol: $0.`protocol`,
+                hasBundledMark: $0.has_bundled_mark,
+                buttonIcon: $0.button_icon,
+                inherited: $0.inherited)
+        }
+    }
+
+    /// `POST /api/v1/auth/federation/oauth2/start` (§12.1) — begin a login through a
+    /// **plain-OAuth2** upstream (GitHub, Facebook, any configured `generic_oauth2`).
+    ///
+    /// Call this, and not ``ssoStart(federationConfigID:redirectURI:)``, exactly when the
+    /// provider's ``FederationProvider/protocol`` is
+    /// ``FederationProvider/protocolOAuth2`` (§12.1 note 10). The server refuses a mismatch
+    /// with `400` rather than accepting it silently.
+    ///
+    /// PKCE is mandatory on this path and is generated and stored **server-side** (§12.1
+    /// note 11): no verifier and no challenge appears in this request or its response, and
+    /// this SDK computes neither. The OAuth2 variant also carries reduced assurance — there is
+    /// no ID token, so no signature, no `nonce` and no `aud`; the server authenticates by
+    /// calling the provider's userinfo endpoint.
+    ///
+    /// A `400` can also mean the deployment does not accept `redirectURI`'s origin (§12.1
+    /// rule 12a). §2 maps `400` to ``NetworkError`` — this taxonomy's configuration/programming
+    /// error, as distinct from the ``AuthError`` a `401` gets — and it is never retried. Never
+    /// build `redirectURI` from a value the identity provider supplied.
+    public func ssoStartOauth2(
+        federationConfigID: String,
+        redirectURI: String
+    ) async throws -> SsoStartResult {
+        try ensureOpen()
+        var body: [String: String] = [
+            "federation_config_id": federationConfigID,
+            "redirect_uri": redirectURI,
+        ]
+        // §5.1, identical to `ssoStart` — and with no PKCE field anywhere, by note 11.
+        if let tenantID = config.tenantID { body["tenant_id"] = tenantID }
+        else if let slug = config.tenantSlug { body["tenant_slug"] = slug }
+        if let orgID = config.orgID { body["org_id"] = orgID }
+        else if let orgSlug = config.orgSlug { body["org_slug"] = orgSlug }
+
+        let wire: SsoStartWire = try await oidcJSONPost(
+            Self.federationOAuth2StartPath, body: body, context: "sso start oauth2")
+        return SsoStartResult(
+            authorizeURL: wire.authorize_url, state: wire.state,
+            expiresInSecs: wire.expires_in_secs)
+    }
+
+    /// `POST /api/v1/auth/federation/oauth2/callback` (§12.1) — finish a plain-OAuth2 login.
+    ///
+    /// The SPA calls this same-origin, so the session arrives directly as `Set-Cookie` and
+    /// lands in this client's §4 cookie jar; the returned value carries **no token material**
+    /// (§12.1 note 6). The server recovers the whole context from the single-use `state`, so
+    /// no tenant or org argument is needed.
+    public func ssoCompleteOauth2(code: String, state: String) async throws -> SsoCompleteResult {
+        try ensureOpen()
+        return try await completeFederationSession(
+            path: Self.federationOAuth2CallbackPath,
+            body: ["code": code, "state": state],
+            context: "sso complete oauth2")
+    }
+
+    /// `POST /api/v1/auth/federation/handoff` (§12.1) — redeem a handoff code for a session.
+    ///
+    /// SAML and Apple's `response_mode=form_post` return cross-site, so the server cannot set
+    /// `SameSite=Strict` cookies on that response. It redirects the browser to the SPA callback
+    /// with the code in the ``FederationHandoff/queryParameter`` query parameter; *this*
+    /// same-origin POST is the one that carries `Set-Cookie` (§12.1 note 12).
+    ///
+    /// The code is single-use and lives ``FederationHandoff/codeTTLSeconds`` seconds. Unknown,
+    /// expired and already-redeemed all answer the same `401`, deliberately — so a `401` here
+    /// is **terminal**: the code is gone either way and a failed redemption must never be
+    /// retried. Redeem from the same origin the code was delivered to.
+    public func ssoCompleteHandoff(code: String) async throws -> SsoCompleteResult {
+        try ensureOpen()
+        return try await completeFederationSession(
+            path: Self.federationHandoffPath,
+            body: ["code": code],
+            context: "sso complete handoff")
+    }
+
+    /// The shared body of the two session-establishing federation POSTs.
+    ///
+    /// One wire call through the same §6 transport the rest of §12 uses, the §2 status mapping
+    /// on anything but success, and — because these two responses are the ones that carry the
+    /// session — the `Set-Cookie` lines stored into the §4 jar and any rotated CSRF token kept.
+    private func completeFederationSession(
+        path: String,
+        body: [String: String],
+        context: String
+    ) async throws -> SsoCompleteResult {
+        let payload = try JSONSerialization.data(withJSONObject: body)
+        // §12.1 note 8: these endpoints are unauthenticated, so on a first call no `axiam_csrf`
+        // cookie exists yet and no `X-CSRF-Token` header is sent. §3 step 3 governs, and
+        // `federationSessionPost` follows it — it never invents a value.
+        let response = try await federationSessionPost(path: path, body: payload)
+        guard (200..<300).contains(response.status) else { throw oidcMapError(response) }
+        let wire: SsoCompleteWire = try oidcDecode(SsoCompleteWire.self, response.body, context)
         return SsoCompleteResult(
             userID: wire.user_id, sessionID: wire.session_id, expiresIn: wire.expires_in,
             redirectURI: wire.redirect_uri)

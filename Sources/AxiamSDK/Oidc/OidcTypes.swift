@@ -285,3 +285,115 @@ struct PushedAuthorizationResponseWire: Decodable {
     let request_uri: String
     let expires_in: Int
 }
+
+// MARK: - §12.1 login providers (contract 1.37; rule 12a added at 1.38)
+
+/// One sign-in button, from `GET /api/v1/auth/federation/providers` (§12.1).
+///
+/// Carries exactly what a button needs and nothing more. There is no `client_id`, no
+/// `metadata_url`, no endpoint URL and no secret in this shape — the server builds it as a
+/// dedicated unauthenticated response rather than narrowing the admin one, so a field added
+/// to the admin response cannot reach here by inheritance (§12.1 note 9).
+public struct FederationProvider: Sendable, Equatable {
+    /// Config id, echoed back to whichever start operation ``protocol`` selects.
+    public let id: String
+
+    /// Which provider this is, for the button's branding (`google`, `github`, `generic_oidc`, …).
+    ///
+    /// **Not** what selects the start operation — ``protocol`` is (§12.1 note 10). A
+    /// `generic_oauth2` config and a `google` one can both speak plain OAuth2, and a `google`
+    /// one need not.
+    public let providerKind: String
+
+    /// The operator's display name for the provider.
+    public let displayName: String
+
+    /// `OidcConnect`, `Saml` or `OAuth2` — selects which start operation to call
+    /// (§12.1 note 10): ``AxiamClient/ssoStart(federationConfigID:redirectURI:)``,
+    /// the SAML login endpoint, and
+    /// ``AxiamClient/ssoStartOauth2(federationConfigID:redirectURI:)`` respectively.
+    ///
+    /// Deliberately a `String` and not an enum: the server may add a protocol, and a closed
+    /// enum would fail to decode the whole list over one provider a client does not yet
+    /// understand. Compare against ``protocolOidcConnect``, ``protocolOAuth2`` and
+    /// ``protocolSaml``, and treat anything else as "cannot start this one here".
+    public let `protocol`: String
+
+    /// Whether AXIAM ships this provider's own sign-in mark.
+    ///
+    /// `true` for the branded kinds, whose buttons must use it; `false` for the generic kinds,
+    /// whose buttons read "Sign in with *displayName*" and use ``buttonIcon`` when the
+    /// operator uploaded one.
+    public let hasBundledMark: Bool
+
+    /// The operator's uploaded button icon as a bounded raster `data:` URL, or `nil`.
+    ///
+    /// Absent for most providers, and branding rather than configuration — which is why it is
+    /// the one additional field this unauthenticated response carries.
+    public let buttonIcon: String?
+
+    /// `true` when the provider is inherited from the organization (§12.1 note 13).
+    ///
+    /// Not needed to sign in. Resolution is entirely server-side: an SDK passes the workspace
+    /// and the ``id`` it was handed and never computes inheritance itself.
+    public let inherited: Bool
+
+    public init(
+        id: String,
+        providerKind: String,
+        displayName: String,
+        protocol federationProtocol: String,
+        hasBundledMark: Bool,
+        buttonIcon: String?,
+        inherited: Bool
+    ) {
+        self.id = id
+        self.providerKind = providerKind
+        self.displayName = displayName
+        self.`protocol` = federationProtocol
+        self.hasBundledMark = hasBundledMark
+        self.buttonIcon = buttonIcon
+        self.inherited = inherited
+    }
+}
+
+extension FederationProvider {
+    /// ``protocol`` value selecting ``AxiamClient/ssoStart(federationConfigID:redirectURI:)``.
+    public static let protocolOidcConnect = "OidcConnect"
+
+    /// ``protocol`` value selecting ``AxiamClient/ssoStartOauth2(federationConfigID:redirectURI:)``.
+    public static let protocolOAuth2 = "OAuth2"
+
+    /// ``protocol`` value selecting the SAML login endpoint, which is **not** a §12 vocabulary
+    /// operation and therefore has no method on this client.
+    public static let protocolSaml = "Saml"
+}
+
+/// The handoff mechanism's two constants (§12.1 note 12).
+///
+/// SAML and Apple's `response_mode=form_post` return **cross-site**, so the server cannot set
+/// `SameSite=Strict` cookies on that response. It redirects the browser to the SPA callback
+/// with ``queryParameter`` carrying a 256-bit code, which
+/// ``AxiamClient/ssoCompleteHandoff(code:)`` redeems from the same origin.
+public enum FederationHandoff {
+    /// The query parameter the code arrives in on the SPA's callback route.
+    public static let queryParameter = "axiam_handoff"
+
+    /// How long the code stays redeemable. Single-use: unknown, expired and already-redeemed
+    /// all answer the same `401`, deliberately, and a failed redemption is never retried.
+    public static let codeTTLSeconds = 60
+}
+
+struct PublicFederationProviderWire: Decodable {
+    let id: String
+    let provider_kind: String
+    let display_name: String
+    let `protocol`: String
+    let has_bundled_mark: Bool
+    let button_icon: String?
+    let inherited: Bool
+}
+
+struct PublicFederationProvidersWire: Decodable {
+    let providers: [PublicFederationProviderWire]
+}
