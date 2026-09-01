@@ -80,7 +80,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureCreateFederationConfigRequest: CreateFederationConfigRequest = decodeFixture(
         CreateFederationConfigRequest.self,
-        "{\"allowed_algorithms\": [\"example\"], \"attribute_map\": {}, \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}}",
+        "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}",
         "CreateFederationConfigRequest")
 
     static let fixtureCreateGroupRequest: CreateGroupRequest = decodeFixture(
@@ -220,7 +220,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureUpdateFederationConfigRequest: UpdateFederationConfigRequest = decodeFixture(
         UpdateFederationConfigRequest.self,
-        "{\"allowed_algorithms\": [\"example\"], \"attribute_map\": {}, \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}}",
+        "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}",
         "UpdateFederationConfigRequest")
 
     static let fixtureUpdateGroup: UpdateGroup = decodeFixture(
@@ -1335,7 +1335,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testFederationListConfigsReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"items\": [{\"attribute_map\": {}, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+            [(status: 200, body: "{\"items\": [{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
         _ = try await client.federation.listConfigs()
 
         XCTAssertEqual(transport.count, 1)
@@ -1345,7 +1345,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testFederationCreateConfigReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"attribute_map\": {}, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+            [(status: 200, body: "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}")])
         _ = try await client.federation.createConfig(body: Self.fixtureCreateFederationConfigRequest)
 
         XCTAssertEqual(transport.count, 1)
@@ -1355,7 +1355,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testFederationGetConfigReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"attribute_map\": {}, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+            [(status: 200, body: "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}")])
         _ = try await client.federation.getConfig(id: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -1365,7 +1365,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testFederationUpdateConfigReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"attribute_map\": {}, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+            [(status: 200, body: "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}")])
         _ = try await client.federation.updateConfig(id: "11111111-1111-4111-8111-111111111111", body: Self.fixtureUpdateFederationConfigRequest)
 
         XCTAssertEqual(transport.count, 1)
@@ -2208,7 +2208,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCreateFederationConfigRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"allowed_algorithms\": [\"example\"], \"attribute_map\": {}, \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}}"
+        let json = "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -2806,7 +2806,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testFederationConfigResponseRoundTripsWithoutLosingAField() throws {
-        let json = "{\"attribute_map\": {}, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let json = "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4444,7 +4444,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testUpdateFederationConfigRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"allowed_algorithms\": [\"example\"], \"attribute_map\": {}, \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}}"
+        let json = "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -5226,7 +5226,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCreateFederationConfigRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"allowed_algorithms\": [\"example\"], \"attribute_map\": {}, \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}}"
+        let json = "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}"
         let decoded = try JSONDecoder().decode(CreateFederationConfigRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -5234,15 +5234,27 @@ final class ManagementGeneratedTests: XCTestCase {
         // decode-only test cannot see -- the JSON round trip above would pass, because it never
         // constructs one by hand.
         let rebuilt = CreateFederationConfigRequest(
+            allowTenantInheritance: decoded.allowTenantInheritance,
             allowedAlgorithms: decoded.allowedAlgorithms,
+            allowedIssuerTenants: decoded.allowedIssuerTenants,
+            appleKeyID: decoded.appleKeyID,
+            appleTeamID: decoded.appleTeamID,
             attributeMap: decoded.attributeMap,
+            authorizationEndpoint: decoded.authorizationEndpoint,
+            buttonIcon: decoded.buttonIcon,
             clientID: decoded.clientID,
             clientSecret: decoded.clientSecret,
             idpSigningCertPEM: decoded.idpSigningCertPEM,
             metadataURL: decoded.metadataURL,
             `protocol`: decoded.`protocol`,
             provider: decoded.provider,
-            tokenExchange: decoded.tokenExchange)
+            providerKind: decoded.providerKind,
+            providerSlug: decoded.providerSlug,
+            requirePKCE: decoded.requirePKCE,
+            scopes: decoded.scopes,
+            tokenEndpoint: decoded.tokenEndpoint,
+            tokenExchange: decoded.tokenExchange,
+            userinfoEndpoint: decoded.userinfoEndpoint)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -5775,7 +5787,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testFederationConfigResponseMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"attribute_map\": {}, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let json = "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}"
         let decoded = try JSONDecoder().decode(FederationConfigResponse.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -5783,17 +5795,33 @@ final class ManagementGeneratedTests: XCTestCase {
         // decode-only test cannot see -- the JSON round trip above would pass, because it never
         // constructs one by hand.
         let rebuilt = FederationConfigResponse(
+            allowTenantInheritance: decoded.allowTenantInheritance,
+            allowedAlgorithms: decoded.allowedAlgorithms,
+            allowedIssuerTenants: decoded.allowedIssuerTenants,
+            appleKeyID: decoded.appleKeyID,
+            appleTeamID: decoded.appleTeamID,
             attributeMap: decoded.attributeMap,
+            authorizationEndpoint: decoded.authorizationEndpoint,
+            buttonIcon: decoded.buttonIcon,
             clientID: decoded.clientID,
             createdAt: decoded.createdAt,
+            effectiveScopes: decoded.effectiveScopes,
             enabled: decoded.enabled,
+            hasBundledMark: decoded.hasBundledMark,
             id: decoded.id,
             metadataURL: decoded.metadataURL,
+            mintsClientSecret: decoded.mintsClientSecret,
+            pkceRequired: decoded.pkceRequired,
             `protocol`: decoded.`protocol`,
             provider: decoded.provider,
+            providerKind: decoded.providerKind,
+            providerSlug: decoded.providerSlug,
+            scopes: decoded.scopes,
             tenantID: decoded.tenantID,
+            tokenEndpoint: decoded.tokenEndpoint,
             tokenExchange: decoded.tokenExchange,
-            updatedAt: decoded.updatedAt)
+            updatedAt: decoded.updatedAt,
+            userinfoEndpoint: decoded.userinfoEndpoint)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -7372,7 +7400,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testUpdateFederationConfigRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"allowed_algorithms\": [\"example\"], \"attribute_map\": {}, \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}}"
+        let json = "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}"
         let decoded = try JSONDecoder().decode(UpdateFederationConfigRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7380,15 +7408,26 @@ final class ManagementGeneratedTests: XCTestCase {
         // decode-only test cannot see -- the JSON round trip above would pass, because it never
         // constructs one by hand.
         let rebuilt = UpdateFederationConfigRequest(
+            allowTenantInheritance: decoded.allowTenantInheritance,
             allowedAlgorithms: decoded.allowedAlgorithms,
+            allowedIssuerTenants: decoded.allowedIssuerTenants,
+            appleKeyID: decoded.appleKeyID,
+            appleTeamID: decoded.appleTeamID,
             attributeMap: decoded.attributeMap,
+            authorizationEndpoint: decoded.authorizationEndpoint,
+            buttonIcon: decoded.buttonIcon,
             clientID: decoded.clientID,
             clientSecret: decoded.clientSecret,
             enabled: decoded.enabled,
             idpSigningCertPEM: decoded.idpSigningCertPEM,
             metadataURL: decoded.metadataURL,
             provider: decoded.provider,
-            tokenExchange: decoded.tokenExchange)
+            providerSlug: decoded.providerSlug,
+            requirePKCE: decoded.requirePKCE,
+            scopes: decoded.scopes,
+            tokenEndpoint: decoded.tokenEndpoint,
+            tokenExchange: decoded.tokenExchange,
+            userinfoEndpoint: decoded.userinfoEndpoint)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])

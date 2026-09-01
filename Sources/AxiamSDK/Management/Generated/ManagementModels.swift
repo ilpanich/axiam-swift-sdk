@@ -1685,12 +1685,38 @@ public struct CreateCertificateRequest: Codable, Sendable {
 
 /// The `CreateFederationConfigRequest` schema.
 public struct CreateFederationConfigRequest: Codable, Sendable {
+    /// Whether tenants of this organization may inherit this provider. Only meaningful on a
+    /// config in the organization-scope tenant.
+    public let allowTenantInheritance: Bool?
+
     /// Accepted JWT signing algorithms (OIDC) or signature algorithms (SAML). Defaults to
     /// `["RS256"]` when not provided (CQ-B40/REQ-14 AC-5).
     public let allowedAlgorithms: [String]?
 
+    /// External IdP tenant identifiers accepted when the provider publishes a templated issuer
+    /// (Entra ID's `{tenantid}`).
+    public let allowedIssuerTenants: [String]?
+
+    /// Apple Key ID of the `.p8` signing key (10 characters). With both Apple identifiers set,
+    /// `client_secret` is the `.p8` key itself and AXIAM mints a fresh five-minute client
+    /// secret per token exchange.
+    public let appleKeyID: String?
+
+    /// Apple Team ID (10 characters).
+    public let appleTeamID: String?
+
     /// Maps external IdP attributes to AXIAM user fields.
     public let attributeMap: ManagementJSON?
+
+    /// OAuth2-variant authorization endpoint. Required for `OAuth2`.
+    public let authorizationEndpoint: String?
+
+    /// Sign-in-button icon for a **generic** provider, as a base64 raster data URL
+    /// (`data:image/png;base64,…`), already cropped to `PROVIDER_ICON_SIZE_PX` square by the
+    /// client. Refused for the branded kinds: Google, Apple and Microsoft all publish
+    /// sign-in-button rules that require their own mark, so substituting a picture would
+    /// produce a button that breaks the guidelines it exists to follow.
+    public let buttonIcon: String?
 
     /// OAuth2 client ID registered with the external IdP.
     public let clientID: String
@@ -1711,67 +1737,150 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
     /// Display name for the identity provider (e.g., "Google", "Okta").
     public let provider: String
 
+    /// Which provider this is: `google`, `github`, `facebook`, `apple`, `microsoft`,
+    /// `generic_oidc`, `generic_oauth2` or `generic_saml`. Selects the sign-in button's
+    /// branding, the per-kind defaults, and the key on which a tenant config overrides an
+    /// inherited organization one. Omitted ⇒ derived from `protocol`, which is what every
+    /// config written before this field existed means.
+    public let providerKind: String?
+
+    /// Operator-chosen identifier, **required** for the `generic_*` kinds and refused for the
+    /// branded ones.
+    public let providerSlug: String?
+
+    /// Send PKCE on the authorization request. Forced on for `OAuth2`.
+    public let requirePKCE: Bool?
+
+    /// Scopes to request. Omitted or empty ⇒ the per-kind default.
+    public let scopes: [String]?
+
+    /// OAuth2-variant token endpoint. Required for `OAuth2`.
+    public let tokenEndpoint: String?
+
     /// The server's `token_exchange` field.
     public let tokenExchange: TokenExchangeTrustRequest?
 
+    /// OAuth2-variant userinfo endpoint. Required for `OAuth2`.
+    public let userinfoEndpoint: String?
+
     public init(
+        allowTenantInheritance: Bool? = nil,
         allowedAlgorithms: [String]? = nil,
+        allowedIssuerTenants: [String]? = nil,
+        appleKeyID: String? = nil,
+        appleTeamID: String? = nil,
         attributeMap: ManagementJSON? = nil,
+        authorizationEndpoint: String? = nil,
+        buttonIcon: String? = nil,
         clientID: String,
         clientSecret: Sensitive<String>,
         idpSigningCertPEM: String? = nil,
         metadataURL: String? = nil,
         `protocol`: String,
         provider: String,
-        tokenExchange: TokenExchangeTrustRequest? = nil
+        providerKind: String? = nil,
+        providerSlug: String? = nil,
+        requirePKCE: Bool? = nil,
+        scopes: [String]? = nil,
+        tokenEndpoint: String? = nil,
+        tokenExchange: TokenExchangeTrustRequest? = nil,
+        userinfoEndpoint: String? = nil
     ) {
+        self.allowTenantInheritance = allowTenantInheritance
         self.allowedAlgorithms = allowedAlgorithms
+        self.allowedIssuerTenants = allowedIssuerTenants
+        self.appleKeyID = appleKeyID
+        self.appleTeamID = appleTeamID
         self.attributeMap = attributeMap
+        self.authorizationEndpoint = authorizationEndpoint
+        self.buttonIcon = buttonIcon
         self.clientID = clientID
         self.clientSecret = clientSecret
         self.idpSigningCertPEM = idpSigningCertPEM
         self.metadataURL = metadataURL
         self.`protocol` = `protocol`
         self.provider = provider
+        self.providerKind = providerKind
+        self.providerSlug = providerSlug
+        self.requirePKCE = requirePKCE
+        self.scopes = scopes
+        self.tokenEndpoint = tokenEndpoint
         self.tokenExchange = tokenExchange
+        self.userinfoEndpoint = userinfoEndpoint
     }
 
     enum CodingKeys: String, CodingKey {
+        case allowTenantInheritance = "allow_tenant_inheritance"
         case allowedAlgorithms = "allowed_algorithms"
+        case allowedIssuerTenants = "allowed_issuer_tenants"
+        case appleKeyID = "apple_key_id"
+        case appleTeamID = "apple_team_id"
         case attributeMap = "attribute_map"
+        case authorizationEndpoint = "authorization_endpoint"
+        case buttonIcon = "button_icon"
         case clientID = "client_id"
         case clientSecret = "client_secret"
         case idpSigningCertPEM = "idp_signing_cert_pem"
         case metadataURL = "metadata_url"
         case `protocol` = "protocol"
         case provider = "provider"
+        case providerKind = "provider_kind"
+        case providerSlug = "provider_slug"
+        case requirePKCE = "require_pkce"
+        case scopes = "scopes"
+        case tokenEndpoint = "token_endpoint"
         case tokenExchange = "token_exchange"
+        case userinfoEndpoint = "userinfo_endpoint"
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.allowTenantInheritance = try container.decodeIfPresent(Bool.self, forKey: .allowTenantInheritance)
         self.allowedAlgorithms = try container.decodeIfPresent([String].self, forKey: .allowedAlgorithms)
+        self.allowedIssuerTenants = try container.decodeIfPresent([String].self, forKey: .allowedIssuerTenants)
+        self.appleKeyID = try container.decodeIfPresent(String.self, forKey: .appleKeyID)
+        self.appleTeamID = try container.decodeIfPresent(String.self, forKey: .appleTeamID)
         self.attributeMap = try container.decodeIfPresent(ManagementJSON.self, forKey: .attributeMap)
+        self.authorizationEndpoint = try container.decodeIfPresent(String.self, forKey: .authorizationEndpoint)
+        self.buttonIcon = try container.decodeIfPresent(String.self, forKey: .buttonIcon)
         self.clientID = try container.decode(String.self, forKey: .clientID)
         self.clientSecret = Sensitive(try container.decode(String.self, forKey: .clientSecret))
         self.idpSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .idpSigningCertPEM)
         self.metadataURL = try container.decodeIfPresent(String.self, forKey: .metadataURL)
         self.`protocol` = try container.decode(String.self, forKey: .`protocol`)
         self.provider = try container.decode(String.self, forKey: .provider)
+        self.providerKind = try container.decodeIfPresent(String.self, forKey: .providerKind)
+        self.providerSlug = try container.decodeIfPresent(String.self, forKey: .providerSlug)
+        self.requirePKCE = try container.decodeIfPresent(Bool.self, forKey: .requirePKCE)
+        self.scopes = try container.decodeIfPresent([String].self, forKey: .scopes)
+        self.tokenEndpoint = try container.decodeIfPresent(String.self, forKey: .tokenEndpoint)
         self.tokenExchange = try container.decodeIfPresent(TokenExchangeTrustRequest.self, forKey: .tokenExchange)
+        self.userinfoEndpoint = try container.decodeIfPresent(String.self, forKey: .userinfoEndpoint)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(allowTenantInheritance, forKey: .allowTenantInheritance)
         try container.encodeIfPresent(allowedAlgorithms, forKey: .allowedAlgorithms)
+        try container.encodeIfPresent(allowedIssuerTenants, forKey: .allowedIssuerTenants)
+        try container.encodeIfPresent(appleKeyID, forKey: .appleKeyID)
+        try container.encodeIfPresent(appleTeamID, forKey: .appleTeamID)
         try container.encodeIfPresent(attributeMap, forKey: .attributeMap)
+        try container.encodeIfPresent(authorizationEndpoint, forKey: .authorizationEndpoint)
+        try container.encodeIfPresent(buttonIcon, forKey: .buttonIcon)
         try container.encode(clientID, forKey: .clientID)
         try container.encode(clientSecret.expose(), forKey: .clientSecret)
         try container.encodeIfPresent(idpSigningCertPEM, forKey: .idpSigningCertPEM)
         try container.encodeIfPresent(metadataURL, forKey: .metadataURL)
         try container.encode(`protocol`, forKey: .`protocol`)
         try container.encode(provider, forKey: .provider)
+        try container.encodeIfPresent(providerKind, forKey: .providerKind)
+        try container.encodeIfPresent(providerSlug, forKey: .providerSlug)
+        try container.encodeIfPresent(requirePKCE, forKey: .requirePKCE)
+        try container.encodeIfPresent(scopes, forKey: .scopes)
+        try container.encodeIfPresent(tokenEndpoint, forKey: .tokenEndpoint)
         try container.encodeIfPresent(tokenExchange, forKey: .tokenExchange)
+        try container.encodeIfPresent(userinfoEndpoint, forKey: .userinfoEndpoint)
     }
 }
 
@@ -3027,8 +3136,30 @@ public struct EncryptedExport: Codable, Sendable {
 
 /// Federation config response -- omits client_secret.
 public struct FederationConfigResponse: Codable, Sendable {
+    /// Whether tenants of this organization may inherit this provider.
+    public let allowTenantInheritance: Bool
+
+    /// Accepted signing algorithms. Returned for OIDC and SAML; meaningless, and therefore
+    /// empty, for the OAuth2 variant.
+    public let allowedAlgorithms: [String]
+
+    /// Accepted external IdP tenants for a templated issuer.
+    public let allowedIssuerTenants: [String]
+
+    /// Apple Key ID.
+    public let appleKeyID: String?
+
+    /// Apple Team ID. Not secret — the `.p8` key is, and it is never returned.
+    public let appleTeamID: String?
+
     /// The server's `attribute_map` field.
     public let attributeMap: ManagementJSON
+
+    /// OAuth2-variant authorization endpoint.
+    public let authorizationEndpoint: String?
+
+    /// Custom sign-in-button icon, when one is set.
+    public let buttonIcon: String?
 
     /// The server's `client_id` field.
     public let clientID: String
@@ -3036,8 +3167,17 @@ public struct FederationConfigResponse: Codable, Sendable {
     /// The server's `created_at` field.
     public let createdAt: String
 
+    /// The per-kind default that an empty `scopes` resolves to. Returned so the admin UI can
+    /// show what will actually be requested without duplicating the table.
+    public let effectiveScopes: [String]
+
     /// The server's `enabled` field.
     public let enabled: Bool
+
+    /// Whether AXIAM ships this provider's own mark. When true the button uses it and
+    /// `button_icon` is refused; when false the button reads "Sign in with <provider>" and may
+    /// carry a custom icon.
+    public let hasBundledMark: Bool
 
     /// The server's `id` field.
     public let id: String
@@ -3045,14 +3185,35 @@ public struct FederationConfigResponse: Codable, Sendable {
     /// The server's `metadata_url` field.
     public let metadataURL: String?
 
+    /// Whether AXIAM mints this provider's client secret itself, per exchange, rather than
+    /// sending a stored one. True only for an Apple config with both identifiers set.
+    public let mintsClientSecret: Bool
+
+    /// Whether PKCE is sent on the authorization request. Always true for the OAuth2 variant
+    /// regardless of the stored flag.
+    public let pkceRequired: Bool
+
     /// The server's `protocol` field.
     public let `protocol`: String
 
     /// The server's `provider` field.
     public let provider: String
 
+    /// Which provider this is. Derived from `protocol` for a config written before the field
+    /// existed.
+    public let providerKind: String
+
+    /// Operator-chosen identifier for a `generic_*` kind.
+    public let providerSlug: String?
+
+    /// Scopes as stored. Empty means "use the per-kind default"; see `effective_scopes`.
+    public let scopes: [String]
+
     /// The server's `tenant_id` field.
     public let tenantID: String
+
+    /// OAuth2-variant token endpoint.
+    public let tokenEndpoint: String?
 
     /// X4 external token-exchange trust.
     public let tokenExchange: TokenExchangeTrustResponse
@@ -3060,74 +3221,157 @@ public struct FederationConfigResponse: Codable, Sendable {
     /// The server's `updated_at` field.
     public let updatedAt: String
 
+    /// OAuth2-variant userinfo endpoint.
+    public let userinfoEndpoint: String?
+
     public init(
+        allowTenantInheritance: Bool,
+        allowedAlgorithms: [String],
+        allowedIssuerTenants: [String],
+        appleKeyID: String? = nil,
+        appleTeamID: String? = nil,
         attributeMap: ManagementJSON,
+        authorizationEndpoint: String? = nil,
+        buttonIcon: String? = nil,
         clientID: String,
         createdAt: String,
+        effectiveScopes: [String],
         enabled: Bool,
+        hasBundledMark: Bool,
         id: String,
         metadataURL: String? = nil,
+        mintsClientSecret: Bool,
+        pkceRequired: Bool,
         `protocol`: String,
         provider: String,
+        providerKind: String,
+        providerSlug: String? = nil,
+        scopes: [String],
         tenantID: String,
+        tokenEndpoint: String? = nil,
         tokenExchange: TokenExchangeTrustResponse,
-        updatedAt: String
+        updatedAt: String,
+        userinfoEndpoint: String? = nil
     ) {
+        self.allowTenantInheritance = allowTenantInheritance
+        self.allowedAlgorithms = allowedAlgorithms
+        self.allowedIssuerTenants = allowedIssuerTenants
+        self.appleKeyID = appleKeyID
+        self.appleTeamID = appleTeamID
         self.attributeMap = attributeMap
+        self.authorizationEndpoint = authorizationEndpoint
+        self.buttonIcon = buttonIcon
         self.clientID = clientID
         self.createdAt = createdAt
+        self.effectiveScopes = effectiveScopes
         self.enabled = enabled
+        self.hasBundledMark = hasBundledMark
         self.id = id
         self.metadataURL = metadataURL
+        self.mintsClientSecret = mintsClientSecret
+        self.pkceRequired = pkceRequired
         self.`protocol` = `protocol`
         self.provider = provider
+        self.providerKind = providerKind
+        self.providerSlug = providerSlug
+        self.scopes = scopes
         self.tenantID = tenantID
+        self.tokenEndpoint = tokenEndpoint
         self.tokenExchange = tokenExchange
         self.updatedAt = updatedAt
+        self.userinfoEndpoint = userinfoEndpoint
     }
 
     enum CodingKeys: String, CodingKey {
+        case allowTenantInheritance = "allow_tenant_inheritance"
+        case allowedAlgorithms = "allowed_algorithms"
+        case allowedIssuerTenants = "allowed_issuer_tenants"
+        case appleKeyID = "apple_key_id"
+        case appleTeamID = "apple_team_id"
         case attributeMap = "attribute_map"
+        case authorizationEndpoint = "authorization_endpoint"
+        case buttonIcon = "button_icon"
         case clientID = "client_id"
         case createdAt = "created_at"
+        case effectiveScopes = "effective_scopes"
         case enabled = "enabled"
+        case hasBundledMark = "has_bundled_mark"
         case id = "id"
         case metadataURL = "metadata_url"
+        case mintsClientSecret = "mints_client_secret"
+        case pkceRequired = "pkce_required"
         case `protocol` = "protocol"
         case provider = "provider"
+        case providerKind = "provider_kind"
+        case providerSlug = "provider_slug"
+        case scopes = "scopes"
         case tenantID = "tenant_id"
+        case tokenEndpoint = "token_endpoint"
         case tokenExchange = "token_exchange"
         case updatedAt = "updated_at"
+        case userinfoEndpoint = "userinfo_endpoint"
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.allowTenantInheritance = try container.decode(Bool.self, forKey: .allowTenantInheritance)
+        self.allowedAlgorithms = try container.decode([String].self, forKey: .allowedAlgorithms)
+        self.allowedIssuerTenants = try container.decode([String].self, forKey: .allowedIssuerTenants)
+        self.appleKeyID = try container.decodeIfPresent(String.self, forKey: .appleKeyID)
+        self.appleTeamID = try container.decodeIfPresent(String.self, forKey: .appleTeamID)
         self.attributeMap = try container.decode(ManagementJSON.self, forKey: .attributeMap)
+        self.authorizationEndpoint = try container.decodeIfPresent(String.self, forKey: .authorizationEndpoint)
+        self.buttonIcon = try container.decodeIfPresent(String.self, forKey: .buttonIcon)
         self.clientID = try container.decode(String.self, forKey: .clientID)
         self.createdAt = try container.decode(String.self, forKey: .createdAt)
+        self.effectiveScopes = try container.decode([String].self, forKey: .effectiveScopes)
         self.enabled = try container.decode(Bool.self, forKey: .enabled)
+        self.hasBundledMark = try container.decode(Bool.self, forKey: .hasBundledMark)
         self.id = try container.decode(String.self, forKey: .id)
         self.metadataURL = try container.decodeIfPresent(String.self, forKey: .metadataURL)
+        self.mintsClientSecret = try container.decode(Bool.self, forKey: .mintsClientSecret)
+        self.pkceRequired = try container.decode(Bool.self, forKey: .pkceRequired)
         self.`protocol` = try container.decode(String.self, forKey: .`protocol`)
         self.provider = try container.decode(String.self, forKey: .provider)
+        self.providerKind = try container.decode(String.self, forKey: .providerKind)
+        self.providerSlug = try container.decodeIfPresent(String.self, forKey: .providerSlug)
+        self.scopes = try container.decode([String].self, forKey: .scopes)
         self.tenantID = try container.decode(String.self, forKey: .tenantID)
+        self.tokenEndpoint = try container.decodeIfPresent(String.self, forKey: .tokenEndpoint)
         self.tokenExchange = try container.decode(TokenExchangeTrustResponse.self, forKey: .tokenExchange)
         self.updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        self.userinfoEndpoint = try container.decodeIfPresent(String.self, forKey: .userinfoEndpoint)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(allowTenantInheritance, forKey: .allowTenantInheritance)
+        try container.encode(allowedAlgorithms, forKey: .allowedAlgorithms)
+        try container.encode(allowedIssuerTenants, forKey: .allowedIssuerTenants)
+        try container.encodeIfPresent(appleKeyID, forKey: .appleKeyID)
+        try container.encodeIfPresent(appleTeamID, forKey: .appleTeamID)
         try container.encode(attributeMap, forKey: .attributeMap)
+        try container.encodeIfPresent(authorizationEndpoint, forKey: .authorizationEndpoint)
+        try container.encodeIfPresent(buttonIcon, forKey: .buttonIcon)
         try container.encode(clientID, forKey: .clientID)
         try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(effectiveScopes, forKey: .effectiveScopes)
         try container.encode(enabled, forKey: .enabled)
+        try container.encode(hasBundledMark, forKey: .hasBundledMark)
         try container.encode(id, forKey: .id)
         try container.encodeIfPresent(metadataURL, forKey: .metadataURL)
+        try container.encode(mintsClientSecret, forKey: .mintsClientSecret)
+        try container.encode(pkceRequired, forKey: .pkceRequired)
         try container.encode(`protocol`, forKey: .`protocol`)
         try container.encode(provider, forKey: .provider)
+        try container.encode(providerKind, forKey: .providerKind)
+        try container.encodeIfPresent(providerSlug, forKey: .providerSlug)
+        try container.encode(scopes, forKey: .scopes)
         try container.encode(tenantID, forKey: .tenantID)
+        try container.encodeIfPresent(tokenEndpoint, forKey: .tokenEndpoint)
         try container.encode(tokenExchange, forKey: .tokenExchange)
         try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encodeIfPresent(userinfoEndpoint, forKey: .userinfoEndpoint)
     }
 }
 
@@ -7530,11 +7774,29 @@ public struct TokenPolicy: Codable, Sendable {
 
 /// The `UpdateFederationConfigRequest` schema.
 public struct UpdateFederationConfigRequest: Codable, Sendable {
+    /// Whether tenants may inherit this organization-level provider.
+    public let allowTenantInheritance: Bool?
+
     /// Accepted signature algorithms (CQ-B40/REQ-14 AC-5).
     public let allowedAlgorithms: [String]?
 
+    /// Accepted external IdP tenants for a templated issuer. Replaced wholesale.
+    public let allowedIssuerTenants: [String]?
+
+    /// Apple Key ID. `Some(None)` clears it.
+    public let appleKeyID: String?
+
+    /// Apple Team ID. `Some(None)` clears it.
+    public let appleTeamID: String?
+
     /// The server's `attribute_map` field.
     public let attributeMap: ManagementJSON?
+
+    /// OAuth2-variant authorization endpoint. `Some(None)` clears it.
+    public let authorizationEndpoint: String?
+
+    /// Sign-in-button icon for a generic provider. `Some(None)` clears it.
+    public let buttonIcon: String?
 
     /// The server's `client_id` field.
     public let clientID: String?
@@ -7555,47 +7817,101 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
     /// The server's `provider` field.
     public let provider: String?
 
+    /// Operator-chosen identifier for a `generic_*` kind. `Some(None)` clears it.
+    public let providerSlug: String?
+
+    /// Send PKCE on the authorization request.
+    public let requirePKCE: Bool?
+
+    /// Scopes to request. Replaced wholesale; empty restores the per-kind default.
+    public let scopes: [String]?
+
+    /// OAuth2-variant token endpoint. `Some(None)` clears it.
+    public let tokenEndpoint: String?
+
     /// The server's `token_exchange` field.
     public let tokenExchange: TokenExchangeTrustRequest?
 
+    /// OAuth2-variant userinfo endpoint. `Some(None)` clears it.
+    public let userinfoEndpoint: String?
+
     public init(
+        allowTenantInheritance: Bool? = nil,
         allowedAlgorithms: [String]? = nil,
+        allowedIssuerTenants: [String]? = nil,
+        appleKeyID: String? = nil,
+        appleTeamID: String? = nil,
         attributeMap: ManagementJSON? = nil,
+        authorizationEndpoint: String? = nil,
+        buttonIcon: String? = nil,
         clientID: String? = nil,
         clientSecret: Sensitive<String>? = nil,
         enabled: Bool? = nil,
         idpSigningCertPEM: String? = nil,
         metadataURL: String? = nil,
         provider: String? = nil,
-        tokenExchange: TokenExchangeTrustRequest? = nil
+        providerSlug: String? = nil,
+        requirePKCE: Bool? = nil,
+        scopes: [String]? = nil,
+        tokenEndpoint: String? = nil,
+        tokenExchange: TokenExchangeTrustRequest? = nil,
+        userinfoEndpoint: String? = nil
     ) {
+        self.allowTenantInheritance = allowTenantInheritance
         self.allowedAlgorithms = allowedAlgorithms
+        self.allowedIssuerTenants = allowedIssuerTenants
+        self.appleKeyID = appleKeyID
+        self.appleTeamID = appleTeamID
         self.attributeMap = attributeMap
+        self.authorizationEndpoint = authorizationEndpoint
+        self.buttonIcon = buttonIcon
         self.clientID = clientID
         self.clientSecret = clientSecret
         self.enabled = enabled
         self.idpSigningCertPEM = idpSigningCertPEM
         self.metadataURL = metadataURL
         self.provider = provider
+        self.providerSlug = providerSlug
+        self.requirePKCE = requirePKCE
+        self.scopes = scopes
+        self.tokenEndpoint = tokenEndpoint
         self.tokenExchange = tokenExchange
+        self.userinfoEndpoint = userinfoEndpoint
     }
 
     enum CodingKeys: String, CodingKey {
+        case allowTenantInheritance = "allow_tenant_inheritance"
         case allowedAlgorithms = "allowed_algorithms"
+        case allowedIssuerTenants = "allowed_issuer_tenants"
+        case appleKeyID = "apple_key_id"
+        case appleTeamID = "apple_team_id"
         case attributeMap = "attribute_map"
+        case authorizationEndpoint = "authorization_endpoint"
+        case buttonIcon = "button_icon"
         case clientID = "client_id"
         case clientSecret = "client_secret"
         case enabled = "enabled"
         case idpSigningCertPEM = "idp_signing_cert_pem"
         case metadataURL = "metadata_url"
         case provider = "provider"
+        case providerSlug = "provider_slug"
+        case requirePKCE = "require_pkce"
+        case scopes = "scopes"
+        case tokenEndpoint = "token_endpoint"
         case tokenExchange = "token_exchange"
+        case userinfoEndpoint = "userinfo_endpoint"
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.allowTenantInheritance = try container.decodeIfPresent(Bool.self, forKey: .allowTenantInheritance)
         self.allowedAlgorithms = try container.decodeIfPresent([String].self, forKey: .allowedAlgorithms)
+        self.allowedIssuerTenants = try container.decodeIfPresent([String].self, forKey: .allowedIssuerTenants)
+        self.appleKeyID = try container.decodeIfPresent(String.self, forKey: .appleKeyID)
+        self.appleTeamID = try container.decodeIfPresent(String.self, forKey: .appleTeamID)
         self.attributeMap = try container.decodeIfPresent(ManagementJSON.self, forKey: .attributeMap)
+        self.authorizationEndpoint = try container.decodeIfPresent(String.self, forKey: .authorizationEndpoint)
+        self.buttonIcon = try container.decodeIfPresent(String.self, forKey: .buttonIcon)
         self.clientID = try container.decodeIfPresent(String.self, forKey: .clientID)
         if let raw = try container.decodeIfPresent(String.self, forKey: .clientSecret) {
             self.clientSecret = Sensitive(raw)
@@ -7606,20 +7922,36 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
         self.idpSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .idpSigningCertPEM)
         self.metadataURL = try container.decodeIfPresent(String.self, forKey: .metadataURL)
         self.provider = try container.decodeIfPresent(String.self, forKey: .provider)
+        self.providerSlug = try container.decodeIfPresent(String.self, forKey: .providerSlug)
+        self.requirePKCE = try container.decodeIfPresent(Bool.self, forKey: .requirePKCE)
+        self.scopes = try container.decodeIfPresent([String].self, forKey: .scopes)
+        self.tokenEndpoint = try container.decodeIfPresent(String.self, forKey: .tokenEndpoint)
         self.tokenExchange = try container.decodeIfPresent(TokenExchangeTrustRequest.self, forKey: .tokenExchange)
+        self.userinfoEndpoint = try container.decodeIfPresent(String.self, forKey: .userinfoEndpoint)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(allowTenantInheritance, forKey: .allowTenantInheritance)
         try container.encodeIfPresent(allowedAlgorithms, forKey: .allowedAlgorithms)
+        try container.encodeIfPresent(allowedIssuerTenants, forKey: .allowedIssuerTenants)
+        try container.encodeIfPresent(appleKeyID, forKey: .appleKeyID)
+        try container.encodeIfPresent(appleTeamID, forKey: .appleTeamID)
         try container.encodeIfPresent(attributeMap, forKey: .attributeMap)
+        try container.encodeIfPresent(authorizationEndpoint, forKey: .authorizationEndpoint)
+        try container.encodeIfPresent(buttonIcon, forKey: .buttonIcon)
         try container.encodeIfPresent(clientID, forKey: .clientID)
         try container.encodeIfPresent(clientSecret?.expose(), forKey: .clientSecret)
         try container.encodeIfPresent(enabled, forKey: .enabled)
         try container.encodeIfPresent(idpSigningCertPEM, forKey: .idpSigningCertPEM)
         try container.encodeIfPresent(metadataURL, forKey: .metadataURL)
         try container.encodeIfPresent(provider, forKey: .provider)
+        try container.encodeIfPresent(providerSlug, forKey: .providerSlug)
+        try container.encodeIfPresent(requirePKCE, forKey: .requirePKCE)
+        try container.encodeIfPresent(scopes, forKey: .scopes)
+        try container.encodeIfPresent(tokenEndpoint, forKey: .tokenEndpoint)
         try container.encodeIfPresent(tokenExchange, forKey: .tokenExchange)
+        try container.encodeIfPresent(userinfoEndpoint, forKey: .userinfoEndpoint)
     }
 }
 
