@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta08] - 2026-09-02
+
 ### Added
 
 - **The four public login-provider operations (CONTRACT §12.1, contract 1.38).**
@@ -41,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `redirect_uri` is never built from a value the identity provider supplied.
 
 ### Changed
+
+- §12.1: the four public login-provider operations (contract 1.38) (#55)
 
 - **Re-vendored contract 1.38.** `CONTRACT.md`, `openapi.json` and
   `management-registry.json` are byte-for-byte copies of the `sdks/` sources in
