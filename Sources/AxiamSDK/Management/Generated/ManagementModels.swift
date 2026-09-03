@@ -6551,6 +6551,9 @@ public struct SecuritySettings: Codable, Sendable {
     /// The server's `updated_at` field.
     public let updatedAt: String
 
+    /// The server's `webauthn` field.
+    public let webauthn: WebauthnPolicy
+
     public init(
         certificate: CertificatePolicy,
         createdAt: String,
@@ -6565,7 +6568,8 @@ public struct SecuritySettings: Codable, Sendable {
         scope: SettingsScope,
         scopeID: String,
         token: TokenPolicy,
-        updatedAt: String
+        updatedAt: String,
+        webauthn: WebauthnPolicy
     ) {
         self.certificate = certificate
         self.createdAt = createdAt
@@ -6581,6 +6585,7 @@ public struct SecuritySettings: Codable, Sendable {
         self.scopeID = scopeID
         self.token = token
         self.updatedAt = updatedAt
+        self.webauthn = webauthn
     }
 
     enum CodingKeys: String, CodingKey {
@@ -6598,6 +6603,7 @@ public struct SecuritySettings: Codable, Sendable {
         case scopeID = "scope_id"
         case token = "token"
         case updatedAt = "updated_at"
+        case webauthn = "webauthn"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -6616,6 +6622,7 @@ public struct SecuritySettings: Codable, Sendable {
         self.scopeID = try container.decode(String.self, forKey: .scopeID)
         self.token = try container.decode(TokenPolicy.self, forKey: .token)
         self.updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        self.webauthn = try container.decode(WebauthnPolicy.self, forKey: .webauthn)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -6634,6 +6641,7 @@ public struct SecuritySettings: Codable, Sendable {
         try container.encode(scopeID, forKey: .scopeID)
         try container.encode(token, forKey: .token)
         try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(webauthn, forKey: .webauthn)
     }
 }
 
@@ -6967,6 +6975,9 @@ public struct SetOrgSettings: Codable, Sendable {
     /// The server's `require_uppercase` field.
     public let requireUppercase: Bool
 
+    /// The server's `webauthn_user_verification` field.
+    public let webauthnUserVerification: String?
+
     public init(
         accessTokenLifetimeSecs: Int,
         adminNotificationsEnabled: Bool,
@@ -6991,7 +7002,8 @@ public struct SetOrgSettings: Codable, Sendable {
         requireDigits: Bool,
         requireLowercase: Bool,
         requireSymbols: Bool,
-        requireUppercase: Bool
+        requireUppercase: Bool,
+        webauthnUserVerification: String? = nil
     ) {
         self.accessTokenLifetimeSecs = accessTokenLifetimeSecs
         self.adminNotificationsEnabled = adminNotificationsEnabled
@@ -7017,6 +7029,7 @@ public struct SetOrgSettings: Codable, Sendable {
         self.requireLowercase = requireLowercase
         self.requireSymbols = requireSymbols
         self.requireUppercase = requireUppercase
+        self.webauthnUserVerification = webauthnUserVerification
     }
 
     enum CodingKeys: String, CodingKey {
@@ -7044,6 +7057,7 @@ public struct SetOrgSettings: Codable, Sendable {
         case requireLowercase = "require_lowercase"
         case requireSymbols = "require_symbols"
         case requireUppercase = "require_uppercase"
+        case webauthnUserVerification = "webauthn_user_verification"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -7072,6 +7086,7 @@ public struct SetOrgSettings: Codable, Sendable {
         self.requireLowercase = try container.decode(Bool.self, forKey: .requireLowercase)
         self.requireSymbols = try container.decode(Bool.self, forKey: .requireSymbols)
         self.requireUppercase = try container.decode(Bool.self, forKey: .requireUppercase)
+        self.webauthnUserVerification = try container.decodeIfPresent(String.self, forKey: .webauthnUserVerification)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -7100,6 +7115,7 @@ public struct SetOrgSettings: Codable, Sendable {
         try container.encode(requireLowercase, forKey: .requireLowercase)
         try container.encode(requireSymbols, forKey: .requireSymbols)
         try container.encode(requireUppercase, forKey: .requireUppercase)
+        try container.encodeIfPresent(webauthnUserVerification, forKey: .webauthnUserVerification)
     }
 }
 
@@ -7462,6 +7478,9 @@ public struct TenantSettingsOverride: Codable, Sendable {
     /// The server's `require_uppercase` field.
     public let requireUppercase: Bool?
 
+    /// The server's `webauthn_user_verification` field.
+    public let webauthnUserVerification: String?
+
     public init(
         accessTokenLifetimeSecs: Int? = nil,
         adminNotificationsEnabled: Bool? = nil,
@@ -7486,7 +7505,8 @@ public struct TenantSettingsOverride: Codable, Sendable {
         requireDigits: Bool? = nil,
         requireLowercase: Bool? = nil,
         requireSymbols: Bool? = nil,
-        requireUppercase: Bool? = nil
+        requireUppercase: Bool? = nil,
+        webauthnUserVerification: String? = nil
     ) {
         self.accessTokenLifetimeSecs = accessTokenLifetimeSecs
         self.adminNotificationsEnabled = adminNotificationsEnabled
@@ -7512,6 +7532,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         self.requireLowercase = requireLowercase
         self.requireSymbols = requireSymbols
         self.requireUppercase = requireUppercase
+        self.webauthnUserVerification = webauthnUserVerification
     }
 
     enum CodingKeys: String, CodingKey {
@@ -7539,6 +7560,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         case requireLowercase = "require_lowercase"
         case requireSymbols = "require_symbols"
         case requireUppercase = "require_uppercase"
+        case webauthnUserVerification = "webauthn_user_verification"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -7567,6 +7589,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         self.requireLowercase = try container.decodeIfPresent(Bool.self, forKey: .requireLowercase)
         self.requireSymbols = try container.decodeIfPresent(Bool.self, forKey: .requireSymbols)
         self.requireUppercase = try container.decodeIfPresent(Bool.self, forKey: .requireUppercase)
+        self.webauthnUserVerification = try container.decodeIfPresent(String.self, forKey: .webauthnUserVerification)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -7595,6 +7618,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         try container.encodeIfPresent(requireLowercase, forKey: .requireLowercase)
         try container.encodeIfPresent(requireSymbols, forKey: .requireSymbols)
         try container.encodeIfPresent(requireUppercase, forKey: .requireUppercase)
+        try container.encodeIfPresent(webauthnUserVerification, forKey: .webauthnUserVerification)
     }
 }
 
@@ -8909,6 +8933,39 @@ public struct WebauthnAttestationPolicy: Codable, Sendable {
         try container.encode(mode, forKey: .mode)
         try container.encode(requireFidoCertified, forKey: .requireFidoCertified)
         try container.encodeIfPresent(unknownAaguid, forKey: .unknownAaguid)
+    }
+}
+
+/// WebAuthn ceremony policy. One field today. It is a struct rather than a bare field on
+/// [`SecuritySettings`] so that the next WebAuthn control has an obvious home, and so the admin
+/// UI can group them. The *attestation* policy is deliberately not here: it lives in
+/// [`crate::models::webauthn_policy::WebauthnAttestationPolicy`], is tenant-only, and cannot
+/// join this model because AAGUID allow/block lists have no "more restrictive than" ordering to
+/// validate an override against. User verification does, so it can.
+public struct WebauthnPolicy: Codable, Sendable {
+    /// How hard the authenticator must prove *who* is present. Applies to enrolment and to
+    /// second-factor authentication. Usernameless sign-in is held to `required` whatever this
+    /// says — see [`WebauthnUserVerification`].
+    public let webauthnUserVerification: String
+
+    public init(
+        webauthnUserVerification: String
+    ) {
+        self.webauthnUserVerification = webauthnUserVerification
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case webauthnUserVerification = "webauthn_user_verification"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.webauthnUserVerification = try container.decode(String.self, forKey: .webauthnUserVerification)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(webauthnUserVerification, forKey: .webauthnUserVerification)
     }
 }
 
