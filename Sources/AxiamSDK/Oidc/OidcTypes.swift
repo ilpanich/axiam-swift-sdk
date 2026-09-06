@@ -6,6 +6,50 @@ import Foundation
 // `client_secret` and `code_verifier` are `Sensitive`; `state` and `nonce` are not — they are
 // correlation values a caller must be able to compare and store in its own session.
 
+/// RFC 8705 §5 `mtls_endpoint_aliases` — the six endpoints re-based on the host that
+/// performs the mutual-TLS handshake (wire schema `MtlsEndpointAliases`, contract 1.40).
+///
+/// A TLS listener decides whether to request a client certificate during the handshake,
+/// before it has seen any HTTP, so "ask for a certificate on `/oauth2/token` but not on
+/// `/oauth2/authorize`" is not something one listener can do. A deployment wanting both runs
+/// two, and this object names the second.
+///
+/// Only these six are ever aliased. `authorization_endpoint` and `end_session_endpoint` are
+/// front-channel and `jwks_uri` is public key material, so §21.3 rule 2 forbids synthesising
+/// an alias for any of them — sending a browser to an mTLS host raises a native
+/// certificate-chooser dialog most users cannot answer. `issuer` is not an endpoint and does
+/// not move either: §12.4 rule 3 still compares `iss` against it by exact string.
+///
+/// **Every property is optional**, though the server's schema marks all six required. AXIAM
+/// builds them from one path through a shared macro and so always publishes the complete set,
+/// but RFC 8705 §5 permits an OP to alias fewer, and the shape of this member must never be
+/// why a client stops working — the same principle rule 2 point 1 states for the object as a
+/// whole, one level in. A `nil` entry falls back to the top-level endpoint of the same name,
+/// exactly as an absent object does.
+public struct MtlsEndpointAliases: Sendable, Decodable, Equatable {
+    /// RFC 8705 §2 client authentication, and §3 the mint of a certificate-bound token.
+    public let tokenEndpoint: String?
+    /// OIDC Core §5.3, reached with an access token that may carry `cnf`.
+    public let userinfoEndpoint: String?
+    /// RFC 7009 §2.1 — authenticates the client.
+    public let revocationEndpoint: String?
+    /// RFC 7662 §2.1 — authenticates the caller.
+    public let introspectionEndpoint: String?
+    /// RFC 8628 §3.1 — authenticates the client.
+    public let deviceAuthorizationEndpoint: String?
+    /// RFC 9126 §2 — authenticates the client.
+    public let pushedAuthorizationRequestEndpoint: String?
+
+    enum CodingKeys: String, CodingKey {
+        case tokenEndpoint = "token_endpoint"
+        case userinfoEndpoint = "userinfo_endpoint"
+        case revocationEndpoint = "revocation_endpoint"
+        case introspectionEndpoint = "introspection_endpoint"
+        case deviceAuthorizationEndpoint = "device_authorization_endpoint"
+        case pushedAuthorizationRequestEndpoint = "pushed_authorization_request_endpoint"
+    }
+}
+
 /// The OIDC discovery document (§12.1), read from `/.well-known/openid-configuration`.
 ///
 /// `issuer` is the **authoritative** issuer for the §12.4 rule 3 check. The server derives it
@@ -31,6 +75,14 @@ public struct OidcConfiguration: Sendable, Decodable, Equatable {
     public let scopesSupported: [String]?
     public let responseTypesSupported: [String]?
     public let idTokenSigningAlgValuesSupported: [String]?
+    /// RFC 8705 §5 endpoint aliases for a deployment that terminates mutual TLS on a host
+    /// other than the issuer's own (contract 1.40, §21.3 rule 2).
+    ///
+    /// `nil` means **"no separate host", not "mTLS unsupported"**: a deployment running
+    /// `client_auth = optional` on one listener serves both populations at the conventional
+    /// endpoints and correctly publishes nothing here. A client treating absence as an error
+    /// would refuse the most common mTLS topology AXIAM ships.
+    public let mtlsEndpointAliases: MtlsEndpointAliases?
 
     enum CodingKeys: String, CodingKey {
         case issuer
@@ -45,6 +97,7 @@ public struct OidcConfiguration: Sendable, Decodable, Equatable {
         case scopesSupported = "scopes_supported"
         case responseTypesSupported = "response_types_supported"
         case idTokenSigningAlgValuesSupported = "id_token_signing_alg_values_supported"
+        case mtlsEndpointAliases = "mtls_endpoint_aliases"
     }
 }
 

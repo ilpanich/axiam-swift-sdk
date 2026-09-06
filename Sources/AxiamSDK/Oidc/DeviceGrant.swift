@@ -36,7 +36,12 @@ extension AxiamClient {
         configuration: OidcConfiguration? = nil
     ) async throws -> DeviceAuthorization {
         let document = try await oidcConfiguration(configuration)
-        guard let endpoint = document.deviceAuthorizationEndpoint else {
+        // §21.3 rule 2: prefer the mTLS alias when this call presents a client certificate.
+        // `nil` at BOTH levels still means "unsupported" — never a cue to build the URL by
+        // concatenation (§14.1).
+        guard let endpoint = preferredEndpoint(
+            document, { $0.deviceAuthorizationEndpoint }, document.deviceAuthorizationEndpoint
+        ) else {
             throw AxiamError.network(NetworkError(
                 "the discovery document advertises no device_authorization_endpoint"))
         }
