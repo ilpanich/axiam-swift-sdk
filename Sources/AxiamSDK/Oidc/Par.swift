@@ -43,7 +43,11 @@ extension AxiamClient {
         let clientID = try requireOidcClientID()
 
         guard
-            let endpoint = document.pushedAuthorizationRequestEndpoint,
+            let endpoint = preferredEndpoint(
+                document,
+                { $0.pushedAuthorizationRequestEndpoint },
+                document.pushedAuthorizationRequestEndpoint
+            ),
             !endpoint.isEmpty
         else {
             throw AxiamError.auth(AuthError(

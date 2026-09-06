@@ -56,6 +56,58 @@ extension AxiamClient {
         return try await oidcDiscover()
     }
 
+    // MARK: - RFC 8705 §5 endpoint aliases (§21.3 rule 2)
+
+    /// Whether this client presents a §6.1 mTLS client certificate, and so whether §21.3
+    /// rule 2 applies to the calls it makes.
+    ///
+    /// The identity is configured once on ``AxiamConfig`` and presented on every request, so
+    /// "is this call going over mutual TLS" has a whole-client answer here rather than a
+    /// per-call one.
+    var presentsClientCertificate: Bool { config.clientCertificate != nil }
+
+    /// The endpoint a call should use, preferring its RFC 8705 §5 alias when this client
+    /// presents a §6.1 certificate (§21.3 rule 2).
+    ///
+    /// Three things this deliberately does NOT do, each of them a documented way to get
+    /// rule 2 wrong:
+    ///
+    /// - An absent `mtls_endpoint_aliases` is never an error. It means "no separate mTLS
+    ///   host", not "mTLS unsupported" — a deployment running `client_auth = optional` on one
+    ///   listener serves both populations at the conventional endpoints and correctly
+    ///   publishes nothing.
+    /// - `pick` can only reach ``MtlsEndpointAliases``, so `authorization_endpoint`,
+    ///   `end_session_endpoint` and `jwks_uri` are unreachable rather than merely unused: they
+    ///   are front-channel or public, and an mTLS host would raise a certificate-chooser
+    ///   dialog in the user's browser.
+    /// - `issuer` is untouched. It is an identifier, not an endpoint, and §12.4 rule 3 still
+    ///   compares a token's `iss` against `document.issuer` by exact string — including for a
+    ///   token minted at an alias endpoint.
+    ///
+    /// A `nil` result for a conditionally-advertised endpoint still means "this server does
+    /// not support the feature" — the caller raises that, and never concatenates a URL onto
+    /// the issuer.
+    func preferredEndpoint(
+        _ document: OidcConfiguration,
+        _ pick: (MtlsEndpointAliases) -> String?,
+        _ topLevel: String?
+    ) -> String? {
+        if presentsClientCertificate, let aliases = document.mtlsEndpointAliases,
+           let alias = pick(aliases), !alias.isEmpty {
+            return alias
+        }
+        return topLevel
+    }
+
+    /// ``preferredEndpoint(_:_:_:)`` for an always-advertised endpoint.
+    func preferredEndpoint(
+        _ document: OidcConfiguration,
+        _ pick: (MtlsEndpointAliases) -> String?,
+        required topLevel: String
+    ) -> String {
+        preferredEndpoint(document, pick, topLevel) ?? topLevel
+    }
+
     // MARK: - The token endpoint
 
     /// One form-encoded POST to an absolute `/oauth2/*` endpoint, carrying the mandatory
@@ -87,7 +139,8 @@ extension AxiamClient {
         document: OidcConfiguration,
         tenantID: String?
     ) async throws -> TokenResponseWire {
-        let response = try await oidcFormPost(document.tokenEndpoint, form: form, tenantID: tenantID)
+        let endpoint = preferredEndpoint(document, { $0.tokenEndpoint }, required: document.tokenEndpoint)
+        let response = try await oidcFormPost(endpoint, form: form, tenantID: tenantID)
         guard (200..<300).contains(response.status) else { throw oidcMapGrantError(response) }
         return try oidcDecode(TokenResponseWire.self, response.body, "token response")
     }

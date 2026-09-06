@@ -286,6 +286,52 @@ let mtls = try AxiamConfig(
 The mTLS private key is held behind `Sensitive` and never appears in logs or debug output
 (§7); presenting a client certificate never relaxes server verification (§6.1 rule 2).
 
+### RFC 8705 §5 `mtls_endpoint_aliases` (contract 1.40, CONTRACT.md §21.3 rule 2)
+
+A TLS listener decides whether to ask for a client certificate during the handshake, before
+it has seen a byte of HTTP, so "request one on `/oauth2/token` but not on
+`/oauth2/authorize`" is not something a single listener can do. A deployment that wants both
+runs two — and `mtls_endpoint_aliases` in the discovery document is how the second one is
+named.
+
+Once a client carries a `clientCertificate`, every request it makes presents that
+certificate, so the §12 operations **prefer the alias** over the top-level entry of the same
+name wherever the document publishes one:
+
+| Operation | Endpoint aliased |
+|---|---|
+| `oidcExchange`, `oidcRefresh`, `loginClientCredentials`, `devicePoll`, `tokenExchange` | `tokenEndpoint` |
+| `introspect` | `introspectionEndpoint` |
+| `revoke` | `revocationEndpoint` |
+| `deviceAuthorize` | `deviceAuthorizationEndpoint` |
+| `oidcPar` | `pushedAuthorizationRequestEndpoint` |
+
+The parsed document exposes them as `OidcConfiguration.mtlsEndpointAliases`, an
+`MtlsEndpointAliases?`. Three things this deliberately does **not** do:
+
+- **A `nil` `mtlsEndpointAliases` is not an error.** It means "this deployment terminates
+  mutual TLS on the issuer's own host", so the conventional endpoints keep being used. A
+  deployment running `client_auth = optional` on one listener serves both populations there
+  and correctly publishes nothing. The same holds one level in: every property of
+  `MtlsEndpointAliases` is itself optional, and an endpoint the object does not name falls
+  back rather than failing the document.
+- **No alias is ever synthesised.** Only the six endpoints RFC 8705 §5 lists can be aliased —
+  never `authorizationEndpoint`, `endSessionEndpoint` or `jwksURI`. The first two are
+  front-channel and the third is public key material; sending a browser to an mTLS host
+  raises a native certificate-chooser dialog most users cannot answer.
+- **`issuer` does not move.** It is an identifier, not an endpoint. §12.4 rule 3 still
+  requires a token's `iss` to equal the document's `issuer` by exact string comparison,
+  including for a token minted at an alias endpoint — the expected issuer is never derived
+  from the host that was called.
+
+A client without a `clientCertificate` keeps using the top-level endpoints even when the
+document publishes aliases: the alias exists for the handshake, and there is no handshake to
+make.
+
+The **UMA 2.0 ticket grant is deliberately untouched**: it reads its token endpoint from the
+separate `Uma2Configuration` document (`/.well-known/uma2-configuration`), which carries no
+aliases, and §21.3 rule 2 is scoped to the OIDC discovery document.
+
 ## Sensitive values (§7)
 
 Secret material (the MFA challenge token, the mTLS private key) is wrapped in `Sensitive<T>`,

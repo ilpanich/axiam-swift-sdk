@@ -207,7 +207,7 @@ extension AxiamClient {
         configuration: OidcConfiguration? = nil
     ) async throws -> IntrospectionResult {
         let document = try await oidcConfiguration(configuration)
-        guard let endpoint = document.introspectionEndpoint else {
+        guard let endpoint = preferredEndpoint(document, { $0.introspectionEndpoint }, document.introspectionEndpoint) else {
             throw AxiamError.network(NetworkError(
                 "the discovery document advertises no introspection_endpoint"))
         }
@@ -243,7 +243,7 @@ extension AxiamClient {
         configuration: OidcConfiguration? = nil
     ) async throws {
         let document = try await oidcConfiguration(configuration)
-        guard let endpoint = document.revocationEndpoint else {
+        guard let endpoint = preferredEndpoint(document, { $0.revocationEndpoint }, document.revocationEndpoint) else {
             throw AxiamError.network(NetworkError(
                 "the discovery document advertises no revocation_endpoint"))
         }
