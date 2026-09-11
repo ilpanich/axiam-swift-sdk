@@ -53,7 +53,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §24 WebAuthn / passkeys | ✅ implemented (contract 1.28) — the six relying-party operations and §24.6a's JSON bridge on **every** target, plus §24.6b's linked-API ceremony helpers on iOS 16+ and macOS 13+. The Linux build keeps the RP layer and the bridge; `webauthnCeremonySupported` answers `false` there rather than throwing |
 | §25 account lifecycle & MFA enrolment | ✅ implemented (contract 1.28) — voluntary and forced TOTP enrolment, email verification, and the password-reset triple |
 | §26 Pushed Authorization Requests (RFC 9126) | ✅ implemented (contract 1.28) — required for a FAPI 2.0 client, which cannot authorize any other way (§21.1) |
-| §27 management API | ✅ implemented — 147 operations across 24 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL |
+| §27 management API | ✅ implemented — 158 operations across 24 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL |
 | §20 UMA 2.0 Protection API + ticket grant | ✅ implemented, and it landed *before* §12 rather than waiting for it: UMA carries its own discovery document (`/.well-known/uma2-configuration`), the Protection API is ordinary bearer-authenticated REST, and the ticket grant returns an opaque RPT with no `id_token` to validate. That §20 could ship alone is part of what showed the §12 deferral was cutting across the wrong seam — see contract §12.6 |
 
 ## Installation
@@ -411,6 +411,27 @@ let config = try AxiamConfig(
 `JwksVerifier.verifySignatureOnlyUnchecked(token:)` is the raw signature primitive §10.1 permits
 for integrators writing their own policy. As its name says, it checks **no** claims — it is not a
 guard, and the SDK's own guards never stop there.
+
+### DPoP (§21.7, RFC 9449)
+
+**This SDK verifies DPoP proofs and does not generate them.** That is the posture CONTRACT.md
+§21.9 records for it, and this paragraph is the one §21.9's row points at.
+
+*Verifying* is the resource-server half, and it is implemented in full: `DpopVerifier.verifyProof(_:request:jtiStore:)`
+runs all ten §21.7.2 checks — including check 8's single-use `jti` within the freshness window,
+through a `DpopJtiStore` — and returns the proof's `jkt`, which you hand to
+`AxiamRequestAuthenticator.verifyTokenBinding(_:proofs:)` as `PresentedProofs.dpop(_:)`. A
+`jkt`-bound access token presented without a verified proof is rejected rather than accepted as
+a bearer token (§10.1 rule 9). Check 6 compares `htu` against the request URI with query and
+fragment removed and **no further normalisation**: a normalising comparison is where two
+unequal URIs become equal, and §21.7.2 is explicit that the strict comparison is the required
+one even though the server's own comparison is defined differently.
+
+*Generating* is the client half, and it is not offered. It would mean this SDK holding and
+managing a signing key on the application's behalf, and an application that does DPoP already
+owns that key. Where a DPoP thumbprint has to travel, it is accepted as a parameter rather than
+computed: `oidcPar(…, dpopJkt:)` sends the caller's RFC 7638 thumbprint (RFC 9449 §10.1) and
+sends nothing when given nothing.
 
 ## Decision reason codes (CONTRACT.md §11 rule 9)
 
@@ -1323,17 +1344,30 @@ let begun = try client.oidcBegin(
 let pushed = try await client.oidcPar(
     request: begun, redirectURI: redirectURI, scope: "openid profile", configuration: document)
 
-redirect(to: pushed.url)      // exactly ?client_id=…&request_uri=…
+redirect(to: pushed.url)      // ?client_id=…&request_uri=…&tenant_id=…
 ```
 
-Three things worth knowing:
+Four things worth knowing:
 
 - **The server answers `201`,** not `200` — RFC 9126 §2.2 specifies *Created*. A success
   predicate written `== 200` treats every successful push as a failure.
-- **The redirect URL carries exactly two parameters.** The server refuses a request that
-  mixes a `request_uri` with inline authorization parameters rather than merging them;
-  merging is where parameter confusion lives (§26.2 rule 2). Any query the discovered
-  `authorizationEndpoint` already carried is dropped.
+- **The redirect URL carries the two authorization parameters and nothing else.** The server
+  refuses a request that mixes a `request_uri` with inline authorization parameters rather
+  than merging them; merging is where parameter confusion lives (§26.2 rule 2). Any query the
+  discovered `authorizationEndpoint` already carried is dropped — with one exception,
+  `tenant_id`, which is routing rather than an authorization parameter. Since contract 1.42
+  the discovery document publishes `authorization_endpoint` already scoped as
+  `…/oauth2/authorize?tenant_id=<uuid>`, and a redirect that dropped it would send a browser
+  with no session to an endpoint with no tenant, which answers `401` rather than a login page.
+  The resolved tenant — the one the push itself authenticated against — is the one that ends
+  up on the URL.
+- **`dpopJkt:` is accepted and never invented.** RFC 9449 §10.1 binds the authorization code
+  to a DPoP key from the moment it is issued. CONTRACT.md §21.9 records this SDK as *verifying*
+  DPoP proofs but not generating them (see [DPoP](#dpop-217-rfc-9449) below), so it holds no client key and
+  has no thumbprint of its own: pass one computed over your own key (RFC 7638) and it is sent,
+  omit it and nothing is. `request_uri` is deliberately **not** offered as a push parameter —
+  RFC 9126 §2.1 makes it the one authorization parameter a client MUST NOT push, and the
+  server models it only so it can refuse it.
 - **`oidcBegin` still owns `state`, `nonce` and the PKCE pair.** There is no second generator
   (§26.2 rule 1), and `PushedAuthorizationRequest` carries all three straight through to the
   exchange.
@@ -1433,7 +1467,7 @@ including a transport skeleton: [`Examples/Reactor`](Examples/Reactor/main.swift
 
 ## Management API (§27)
 
-147 operations across 24 namespaces, reached through namespace handles that sit directly on
+158 operations across 24 namespaces, reached through namespace handles that sit directly on
 the client — the form §27.3's Swift row specifies (property, camelCase, `async`):
 
 ```swift

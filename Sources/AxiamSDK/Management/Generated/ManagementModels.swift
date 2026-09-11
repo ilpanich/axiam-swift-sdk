@@ -108,6 +108,45 @@ public enum AuditOutcome: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// Whether this client's authorization requests may carry OpenID Connect's
+/// authentication-request parameters, or whether they are ignored (X7.1). The bundle this
+/// governs is `prompt`, `max_age`, `acr_values`, `claims`, `id_token_hint`, `login_hint`,
+/// `display`, `ui_locales` and `claims_locales`. It is **one** field rather than nine booleans
+/// for the same reason [`ClientProfile`] is one field rather than a dozen: a client that
+/// honours `max_age` but ignores `prompt=none` is not "mostly conformant", it is a client a
+/// relying party cannot reason about. [`Ignore`](Self::Ignore) is the serde default and is
+/// exactly what AXIAM has always done — unknown authorization-request parameters are dropped by
+/// the query deserialiser and never reach a decision. Every row written before schema v54
+/// therefore decodes to the behaviour it already had.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum AuthnRequestParamsMode: String, Codable, Sendable, CaseIterable {
+    case ignore = "ignore"
+    case honour = "honour"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = AuthnRequestParamsMode(rawValue: raw) ?? .unknown
+    }
+}
+
 /// Status of a certificate in its lifecycle.
 ///
 /// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
@@ -225,6 +264,7 @@ public enum CertificationLevel: String, Codable, Sendable, CaseIterable {
 /// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
 public enum ClientAuthMethod: String, Codable, Sendable, CaseIterable {
     case clientSecretPost = "client_secret_post"
+    case clientSecretBasic = "client_secret_basic"
     case tlsClientAuth = "tls_client_auth"
     case selfSignedTLSClientAuth = "self_signed_tls_client_auth"
     case privateKeyJWT = "private_key_jwt"
@@ -1544,6 +1584,59 @@ public struct ComplianceReportEntry: Codable, Sendable {
     }
 }
 
+/// One consent record, as the subject sees it.
+public struct ConsentView: Codable, Sendable {
+    /// The server's `accepted_at` field.
+    public let acceptedAt: String
+
+    /// What was consented to, e.g. `terms_of_service` or `oidc_scope_release:<client_id>`.
+    public let consentType: String
+
+    /// The document version or, for a scope release, the consented scopes.
+    public let version: String
+
+    /// Whether this record can be withdrawn here. `false` for `terms_of_service`: withdrawing
+    /// it is not a consent operation but an erasure, and it has its own endpoint with its own
+    /// grace period. Reported rather than silently absent so the self-service page can show the
+    /// record and explain it.
+    public let withdrawable: Bool
+
+    public init(
+        acceptedAt: String,
+        consentType: String,
+        version: String,
+        withdrawable: Bool
+    ) {
+        self.acceptedAt = acceptedAt
+        self.consentType = consentType
+        self.version = version
+        self.withdrawable = withdrawable
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case acceptedAt = "accepted_at"
+        case consentType = "consent_type"
+        case version = "version"
+        case withdrawable = "withdrawable"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.acceptedAt = try container.decode(String.self, forKey: .acceptedAt)
+        self.consentType = try container.decode(String.self, forKey: .consentType)
+        self.version = try container.decode(String.self, forKey: .version)
+        self.withdrawable = try container.decode(Bool.self, forKey: .withdrawable)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(acceptedAt, forKey: .acceptedAt)
+        try container.encode(consentType, forKey: .consentType)
+        try container.encode(version, forKey: .version)
+        try container.encode(withdrawable, forKey: .withdrawable)
+    }
+}
+
 /// The `CreateCaCertificateRequest` schema.
 public struct CreateCaCertificateRequest: Codable, Sendable {
     /// Common name for the signing intermediate — `vault_pki` custody only. Under that
@@ -2028,9 +2121,25 @@ public struct CreateNotificationRuleRequest: Codable, Sendable {
 
 /// The `CreateOAuth2ClientRequest` schema.
 public struct CreateOAuth2ClientRequest: Codable, Sendable {
+    /// X7.1 — whether this client's authorization requests may carry the OpenID Connect
+    /// authentication-request parameters (`prompt`, `max_age`, `acr_values`, `claims`,
+    /// `id_token_hint`, `login_hint`, `display`, `ui_locales`, `claims_locales`). `"ignore"`
+    /// (the default) is what every AXIAM client has always done: they are dropped and reach no
+    /// decision. `"honour"` opts in, and is **refused on a `fapi2` client** at both this gate
+    /// and the authorization endpoint — the two are different answers to the same question
+    /// about what a request from this client means.
+    public let authnRequestParams: AuthnRequestParamsMode?
+
     /// B5 — where OIDC back-channel logout tokens are delivered. Omit for a client that does
     /// not participate.
     public let backchannelLogoutURI: String?
+
+    /// X7.3 — whether an unauthenticated authorization request from this client may be answered
+    /// with a redirect to the login page rather than the `401` AXIAM answers today. Accepted
+    /// and stored, but **nothing reads it yet**: the login hop it gates is a later wave. Unlike
+    /// `authn_request_params` it is permitted on a `fapi2` client, because it relaxes nothing —
+    /// it decides only how an anonymous browser is answered.
+    public let browserSSO: Bool?
 
     /// RFC 9449 §5.2 — issue DPoP-bound (sender-constrained) access tokens to this client.
     /// Independent of both the authentication method and
@@ -2111,7 +2220,9 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
     public let tokenEndpointAuthMethod: ClientAuthMethod?
 
     public init(
+        authnRequestParams: AuthnRequestParamsMode? = nil,
         backchannelLogoutURI: String? = nil,
+        browserSSO: Bool? = nil,
         dpopBoundAccessTokens: Bool? = nil,
         dpopRequireNonce: Bool? = nil,
         grantTypes: [String],
@@ -2130,7 +2241,9 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
         tlsClientCertificateBoundAccessTokens: Bool? = nil,
         tokenEndpointAuthMethod: ClientAuthMethod? = nil
     ) {
+        self.authnRequestParams = authnRequestParams
         self.backchannelLogoutURI = backchannelLogoutURI
+        self.browserSSO = browserSSO
         self.dpopBoundAccessTokens = dpopBoundAccessTokens
         self.dpopRequireNonce = dpopRequireNonce
         self.grantTypes = grantTypes
@@ -2151,7 +2264,9 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case authnRequestParams = "authn_request_params"
         case backchannelLogoutURI = "backchannel_logout_uri"
+        case browserSSO = "browser_sso"
         case dpopBoundAccessTokens = "dpop_bound_access_tokens"
         case dpopRequireNonce = "dpop_require_nonce"
         case grantTypes = "grant_types"
@@ -2173,7 +2288,9 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.authnRequestParams = try container.decodeIfPresent(AuthnRequestParamsMode.self, forKey: .authnRequestParams)
         self.backchannelLogoutURI = try container.decodeIfPresent(String.self, forKey: .backchannelLogoutURI)
+        self.browserSSO = try container.decodeIfPresent(Bool.self, forKey: .browserSSO)
         self.dpopBoundAccessTokens = try container.decodeIfPresent(Bool.self, forKey: .dpopBoundAccessTokens)
         self.dpopRequireNonce = try container.decodeIfPresent(Bool.self, forKey: .dpopRequireNonce)
         self.grantTypes = try container.decode([String].self, forKey: .grantTypes)
@@ -2195,7 +2312,9 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(authnRequestParams, forKey: .authnRequestParams)
         try container.encodeIfPresent(backchannelLogoutURI, forKey: .backchannelLogoutURI)
+        try container.encodeIfPresent(browserSSO, forKey: .browserSSO)
         try container.encodeIfPresent(dpopBoundAccessTokens, forKey: .dpopBoundAccessTokens)
         try container.encodeIfPresent(dpopRequireNonce, forKey: .dpopRequireNonce)
         try container.encode(grantTypes, forKey: .grantTypes)
@@ -3942,6 +4061,41 @@ public struct GrantPermissionRequest: Codable, Sendable {
     }
 }
 
+/// Body for recording an OIDC scope-release consent.
+public struct GrantScopeConsent: Codable, Sendable {
+    /// The relying party the claims would be released to.
+    public let clientID: String
+
+    /// The sensitive scopes being consented to. Order does not matter; the record is written in
+    /// the canonical order so that the same consent has one name.
+    public let scopes: [String]
+
+    public init(
+        clientID: String,
+        scopes: [String]
+    ) {
+        self.clientID = clientID
+        self.scopes = scopes
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case clientID = "client_id"
+        case scopes = "scopes"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.clientID = try container.decode(String.self, forKey: .clientID)
+        self.scopes = try container.decode([String].self, forKey: .scopes)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(clientID, forKey: .clientID)
+        try container.encode(scopes, forKey: .scopes)
+    }
+}
+
 /// A scope named by a grant, resolved to something a human can read.
 public struct GrantedScope: Codable, Sendable {
     /// The scope's id, as it appears in the grant's `scope_ids`.
@@ -4695,6 +4849,13 @@ public struct OAuth2ClientCreatedResponse: Codable, Sendable {
 
 /// OAuth2 client response -- omits client_secret_hash.
 public struct OAuth2ClientResponse: Codable, Sendable {
+    /// X7.1 — echoed so an operator can audit which clients act on the OIDC
+    /// authentication-request parameters, from this endpoint rather than from the database.
+    public let authnRequestParams: AuthnRequestParamsMode
+
+    /// X7.3 — echoed for the same reason.
+    public let browserSSO: Bool
+
     /// The server's `client_id` field.
     public let clientID: String
 
@@ -4763,6 +4924,8 @@ public struct OAuth2ClientResponse: Codable, Sendable {
     public let updatedAt: String
 
     public init(
+        authnRequestParams: AuthnRequestParamsMode,
+        browserSSO: Bool,
         clientID: String,
         createdAt: String,
         dpopBoundAccessTokens: Bool,
@@ -4785,6 +4948,8 @@ public struct OAuth2ClientResponse: Codable, Sendable {
         tokenEndpointAuthMethod: ClientAuthMethod,
         updatedAt: String
     ) {
+        self.authnRequestParams = authnRequestParams
+        self.browserSSO = browserSSO
         self.clientID = clientID
         self.createdAt = createdAt
         self.dpopBoundAccessTokens = dpopBoundAccessTokens
@@ -4809,6 +4974,8 @@ public struct OAuth2ClientResponse: Codable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case authnRequestParams = "authn_request_params"
+        case browserSSO = "browser_sso"
         case clientID = "client_id"
         case createdAt = "created_at"
         case dpopBoundAccessTokens = "dpop_bound_access_tokens"
@@ -4834,6 +5001,8 @@ public struct OAuth2ClientResponse: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.authnRequestParams = try container.decode(AuthnRequestParamsMode.self, forKey: .authnRequestParams)
+        self.browserSSO = try container.decode(Bool.self, forKey: .browserSSO)
         self.clientID = try container.decode(String.self, forKey: .clientID)
         self.createdAt = try container.decode(String.self, forKey: .createdAt)
         self.dpopBoundAccessTokens = try container.decode(Bool.self, forKey: .dpopBoundAccessTokens)
@@ -4859,6 +5028,8 @@ public struct OAuth2ClientResponse: Codable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(authnRequestParams, forKey: .authnRequestParams)
+        try container.encode(browserSSO, forKey: .browserSSO)
         try container.encode(clientID, forKey: .clientID)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(dpopBoundAccessTokens, forKey: .dpopBoundAccessTokens)
@@ -5060,6 +5231,67 @@ public struct OidcCallbackResponse: Codable, Sendable {
         try container.encode(federationLinkID, forKey: .federationLinkID)
         try container.encode(newlyProvisioned, forKey: .newlyProvisioned)
         try container.encode(userID, forKey: .userID)
+    }
+}
+
+/// OpenID Connect surface controls (X7 G8, plan §4.6/§4.8). Two settings that are not password
+/// rules, and are here because this is the org-baseline-plus-tenant-override surface every
+/// other per-tenant control lives on. They are also the two settings in this model that are
+/// *not* of the same kind as each other, so it is worth saying which is which: *
+/// [`Self::sensitive_scopes_enabled`] **is** ordered. Releasing personal data is the
+/// less-restrictive direction, so it is validated disable-only — the mirror image of
+/// `mfa_enforced` — and a tenant can turn its organization's decision off but never on. *
+/// [`Self::default_locale`] is **not** ordered, and no ordering is invented for it. A language
+/// is a presentation preference; there is no sense in which Italian is stricter than French.
+/// [`validate_tenant_override`] therefore does not check it and [`clamp_overrides_to_org`]
+/// never clears it. The model's rule is "a tenant may only be more restrictive", which binds
+/// every field that *has* a restrictiveness; a field that has none cannot violate it.
+public struct OidcPolicy: Codable, Sendable {
+    /// The BCP 47 tag the sign-in page falls back to when the relying party's `ui_locales`
+    /// selects nothing (W5's chain, plan §4.6). `None` means "no tenant preference", which
+    /// lands on the deployment default (`en`) — the behaviour every deployment had before this
+    /// field existed. A tag this build does not ship also lands there: the parse is exact
+    /// rather than a language lookup, so a stored `fr-CA` reads as "somebody wrote something
+    /// this binary does not ship" rather than as a guess at French. Stored as a string rather
+    /// than as the `Locale` enum because that enum lives in `axiam-oauth2`, four layers above
+    /// this crate, and the crate layering points inward.
+    public let defaultLocale: String?
+
+    /// Whether `address` and `phone` may be registered on a client, requested at the
+    /// authorization endpoint, and released at UserInfo (X7 G8). **Off unless an organization
+    /// turns it on.** The two scopes release a postal address and a telephone number —
+    /// categories of personal data AXIAM has no other use for — so the deployment that has
+    /// never thought about them releases nothing, and the operator who has thought about them
+    /// says so once, at the organization level, where the lawful basis for holding the data was
+    /// decided. The switch is a *capability*, not a grant: with it on, a client still has to
+    /// register the scope, the request still has to ask for it, and the user still has to have
+    /// consented. It is the first of four gates, and it is the only one an operator can close
+    /// for everybody at once.
+    public let sensitiveScopesEnabled: Bool
+
+    public init(
+        defaultLocale: String? = nil,
+        sensitiveScopesEnabled: Bool
+    ) {
+        self.defaultLocale = defaultLocale
+        self.sensitiveScopesEnabled = sensitiveScopesEnabled
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case defaultLocale = "default_locale"
+        case sensitiveScopesEnabled = "sensitive_scopes_enabled"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.defaultLocale = try container.decodeIfPresent(String.self, forKey: .defaultLocale)
+        self.sensitiveScopesEnabled = try container.decode(Bool.self, forKey: .sensitiveScopesEnabled)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(defaultLocale, forKey: .defaultLocale)
+        try container.encode(sensitiveScopesEnabled, forKey: .sensitiveScopesEnabled)
     }
 }
 
@@ -6530,6 +6762,9 @@ public struct SecuritySettings: Codable, Sendable {
     /// The server's `notification` field.
     public let notification: NotificationPolicy
 
+    /// The server's `oidc` field.
+    public let oidc: OidcPolicy
+
     /// The server's `opaque` field.
     public let opaque: OpaquePolicy
 
@@ -6562,6 +6797,7 @@ public struct SecuritySettings: Codable, Sendable {
         lockout: LockoutPolicy,
         mfa: MfaPolicy,
         notification: NotificationPolicy,
+        oidc: OidcPolicy,
         opaque: OpaquePolicy,
         password: PasswordPolicy,
         privacy: PrivacyPolicy,
@@ -6578,6 +6814,7 @@ public struct SecuritySettings: Codable, Sendable {
         self.lockout = lockout
         self.mfa = mfa
         self.notification = notification
+        self.oidc = oidc
         self.opaque = opaque
         self.password = password
         self.privacy = privacy
@@ -6596,6 +6833,7 @@ public struct SecuritySettings: Codable, Sendable {
         case lockout = "lockout"
         case mfa = "mfa"
         case notification = "notification"
+        case oidc = "oidc"
         case opaque = "opaque"
         case password = "password"
         case privacy = "privacy"
@@ -6615,6 +6853,7 @@ public struct SecuritySettings: Codable, Sendable {
         self.lockout = try container.decode(LockoutPolicy.self, forKey: .lockout)
         self.mfa = try container.decode(MfaPolicy.self, forKey: .mfa)
         self.notification = try container.decode(NotificationPolicy.self, forKey: .notification)
+        self.oidc = try container.decode(OidcPolicy.self, forKey: .oidc)
         self.opaque = try container.decode(OpaquePolicy.self, forKey: .opaque)
         self.password = try container.decode(PasswordPolicy.self, forKey: .password)
         self.privacy = try container.decode(PrivacyPolicy.self, forKey: .privacy)
@@ -6634,6 +6873,7 @@ public struct SecuritySettings: Codable, Sendable {
         try container.encode(lockout, forKey: .lockout)
         try container.encode(mfa, forKey: .mfa)
         try container.encode(notification, forKey: .notification)
+        try container.encode(oidc, forKey: .oidc)
         try container.encode(opaque, forKey: .opaque)
         try container.encode(password, forKey: .password)
         try container.encode(privacy, forKey: .privacy)
@@ -6912,6 +7152,9 @@ public struct SetOrgSettings: Codable, Sendable {
     /// The server's `default_cert_validity_days` field.
     public let defaultCertValidityDays: Int
 
+    /// The server's `default_locale` field.
+    public let defaultLocale: String?
+
     /// The server's `deletion_grace_period_days` field.
     public let deletionGracePeriodDays: Int?
 
@@ -6975,6 +7218,9 @@ public struct SetOrgSettings: Codable, Sendable {
     /// The server's `require_uppercase` field.
     public let requireUppercase: Bool
 
+    /// The server's `sensitive_scopes_enabled` field.
+    public let sensitiveScopesEnabled: Bool?
+
     /// The server's `webauthn_user_verification` field.
     public let webauthnUserVerification: String?
 
@@ -6982,6 +7228,7 @@ public struct SetOrgSettings: Codable, Sendable {
         accessTokenLifetimeSecs: Int,
         adminNotificationsEnabled: Bool,
         defaultCertValidityDays: Int,
+        defaultLocale: String? = nil,
         deletionGracePeriodDays: Int? = nil,
         emailVerificationGracePeriodHours: Int,
         emailVerificationRequired: Bool,
@@ -7003,11 +7250,13 @@ public struct SetOrgSettings: Codable, Sendable {
         requireLowercase: Bool,
         requireSymbols: Bool,
         requireUppercase: Bool,
+        sensitiveScopesEnabled: Bool? = nil,
         webauthnUserVerification: String? = nil
     ) {
         self.accessTokenLifetimeSecs = accessTokenLifetimeSecs
         self.adminNotificationsEnabled = adminNotificationsEnabled
         self.defaultCertValidityDays = defaultCertValidityDays
+        self.defaultLocale = defaultLocale
         self.deletionGracePeriodDays = deletionGracePeriodDays
         self.emailVerificationGracePeriodHours = emailVerificationGracePeriodHours
         self.emailVerificationRequired = emailVerificationRequired
@@ -7029,6 +7278,7 @@ public struct SetOrgSettings: Codable, Sendable {
         self.requireLowercase = requireLowercase
         self.requireSymbols = requireSymbols
         self.requireUppercase = requireUppercase
+        self.sensitiveScopesEnabled = sensitiveScopesEnabled
         self.webauthnUserVerification = webauthnUserVerification
     }
 
@@ -7036,6 +7286,7 @@ public struct SetOrgSettings: Codable, Sendable {
         case accessTokenLifetimeSecs = "access_token_lifetime_secs"
         case adminNotificationsEnabled = "admin_notifications_enabled"
         case defaultCertValidityDays = "default_cert_validity_days"
+        case defaultLocale = "default_locale"
         case deletionGracePeriodDays = "deletion_grace_period_days"
         case emailVerificationGracePeriodHours = "email_verification_grace_period_hours"
         case emailVerificationRequired = "email_verification_required"
@@ -7057,6 +7308,7 @@ public struct SetOrgSettings: Codable, Sendable {
         case requireLowercase = "require_lowercase"
         case requireSymbols = "require_symbols"
         case requireUppercase = "require_uppercase"
+        case sensitiveScopesEnabled = "sensitive_scopes_enabled"
         case webauthnUserVerification = "webauthn_user_verification"
     }
 
@@ -7065,6 +7317,7 @@ public struct SetOrgSettings: Codable, Sendable {
         self.accessTokenLifetimeSecs = try container.decode(Int.self, forKey: .accessTokenLifetimeSecs)
         self.adminNotificationsEnabled = try container.decode(Bool.self, forKey: .adminNotificationsEnabled)
         self.defaultCertValidityDays = try container.decode(Int.self, forKey: .defaultCertValidityDays)
+        self.defaultLocale = try container.decodeIfPresent(String.self, forKey: .defaultLocale)
         self.deletionGracePeriodDays = try container.decodeIfPresent(Int.self, forKey: .deletionGracePeriodDays)
         self.emailVerificationGracePeriodHours = try container.decode(Int.self, forKey: .emailVerificationGracePeriodHours)
         self.emailVerificationRequired = try container.decode(Bool.self, forKey: .emailVerificationRequired)
@@ -7086,6 +7339,7 @@ public struct SetOrgSettings: Codable, Sendable {
         self.requireLowercase = try container.decode(Bool.self, forKey: .requireLowercase)
         self.requireSymbols = try container.decode(Bool.self, forKey: .requireSymbols)
         self.requireUppercase = try container.decode(Bool.self, forKey: .requireUppercase)
+        self.sensitiveScopesEnabled = try container.decodeIfPresent(Bool.self, forKey: .sensitiveScopesEnabled)
         self.webauthnUserVerification = try container.decodeIfPresent(String.self, forKey: .webauthnUserVerification)
     }
 
@@ -7094,6 +7348,7 @@ public struct SetOrgSettings: Codable, Sendable {
         try container.encode(accessTokenLifetimeSecs, forKey: .accessTokenLifetimeSecs)
         try container.encode(adminNotificationsEnabled, forKey: .adminNotificationsEnabled)
         try container.encode(defaultCertValidityDays, forKey: .defaultCertValidityDays)
+        try container.encodeIfPresent(defaultLocale, forKey: .defaultLocale)
         try container.encodeIfPresent(deletionGracePeriodDays, forKey: .deletionGracePeriodDays)
         try container.encode(emailVerificationGracePeriodHours, forKey: .emailVerificationGracePeriodHours)
         try container.encode(emailVerificationRequired, forKey: .emailVerificationRequired)
@@ -7115,6 +7370,7 @@ public struct SetOrgSettings: Codable, Sendable {
         try container.encode(requireLowercase, forKey: .requireLowercase)
         try container.encode(requireSymbols, forKey: .requireSymbols)
         try container.encode(requireUppercase, forKey: .requireUppercase)
+        try container.encodeIfPresent(sensitiveScopesEnabled, forKey: .sensitiveScopesEnabled)
         try container.encodeIfPresent(webauthnUserVerification, forKey: .webauthnUserVerification)
     }
 }
@@ -7415,6 +7671,10 @@ public struct TenantSettingsOverride: Codable, Sendable {
     /// The server's `default_cert_validity_days` field.
     public let defaultCertValidityDays: Int?
 
+    /// The tenant's fallback UI language. Not ordered, therefore not validated against the
+    /// baseline and never clamped — see [`OidcPolicy`].
+    public let defaultLocale: String?
+
     /// The server's `deletion_grace_period_days` field.
     public let deletionGracePeriodDays: Int?
 
@@ -7478,6 +7738,9 @@ public struct TenantSettingsOverride: Codable, Sendable {
     /// The server's `require_uppercase` field.
     public let requireUppercase: Bool?
 
+    /// The server's `sensitive_scopes_enabled` field.
+    public let sensitiveScopesEnabled: Bool?
+
     /// The server's `webauthn_user_verification` field.
     public let webauthnUserVerification: String?
 
@@ -7485,6 +7748,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         accessTokenLifetimeSecs: Int? = nil,
         adminNotificationsEnabled: Bool? = nil,
         defaultCertValidityDays: Int? = nil,
+        defaultLocale: String? = nil,
         deletionGracePeriodDays: Int? = nil,
         emailVerificationGracePeriodHours: Int? = nil,
         emailVerificationRequired: Bool? = nil,
@@ -7506,11 +7770,13 @@ public struct TenantSettingsOverride: Codable, Sendable {
         requireLowercase: Bool? = nil,
         requireSymbols: Bool? = nil,
         requireUppercase: Bool? = nil,
+        sensitiveScopesEnabled: Bool? = nil,
         webauthnUserVerification: String? = nil
     ) {
         self.accessTokenLifetimeSecs = accessTokenLifetimeSecs
         self.adminNotificationsEnabled = adminNotificationsEnabled
         self.defaultCertValidityDays = defaultCertValidityDays
+        self.defaultLocale = defaultLocale
         self.deletionGracePeriodDays = deletionGracePeriodDays
         self.emailVerificationGracePeriodHours = emailVerificationGracePeriodHours
         self.emailVerificationRequired = emailVerificationRequired
@@ -7532,6 +7798,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         self.requireLowercase = requireLowercase
         self.requireSymbols = requireSymbols
         self.requireUppercase = requireUppercase
+        self.sensitiveScopesEnabled = sensitiveScopesEnabled
         self.webauthnUserVerification = webauthnUserVerification
     }
 
@@ -7539,6 +7806,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         case accessTokenLifetimeSecs = "access_token_lifetime_secs"
         case adminNotificationsEnabled = "admin_notifications_enabled"
         case defaultCertValidityDays = "default_cert_validity_days"
+        case defaultLocale = "default_locale"
         case deletionGracePeriodDays = "deletion_grace_period_days"
         case emailVerificationGracePeriodHours = "email_verification_grace_period_hours"
         case emailVerificationRequired = "email_verification_required"
@@ -7560,6 +7828,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         case requireLowercase = "require_lowercase"
         case requireSymbols = "require_symbols"
         case requireUppercase = "require_uppercase"
+        case sensitiveScopesEnabled = "sensitive_scopes_enabled"
         case webauthnUserVerification = "webauthn_user_verification"
     }
 
@@ -7568,6 +7837,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         self.accessTokenLifetimeSecs = try container.decodeIfPresent(Int.self, forKey: .accessTokenLifetimeSecs)
         self.adminNotificationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .adminNotificationsEnabled)
         self.defaultCertValidityDays = try container.decodeIfPresent(Int.self, forKey: .defaultCertValidityDays)
+        self.defaultLocale = try container.decodeIfPresent(String.self, forKey: .defaultLocale)
         self.deletionGracePeriodDays = try container.decodeIfPresent(Int.self, forKey: .deletionGracePeriodDays)
         self.emailVerificationGracePeriodHours = try container.decodeIfPresent(Int.self, forKey: .emailVerificationGracePeriodHours)
         self.emailVerificationRequired = try container.decodeIfPresent(Bool.self, forKey: .emailVerificationRequired)
@@ -7589,6 +7859,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         self.requireLowercase = try container.decodeIfPresent(Bool.self, forKey: .requireLowercase)
         self.requireSymbols = try container.decodeIfPresent(Bool.self, forKey: .requireSymbols)
         self.requireUppercase = try container.decodeIfPresent(Bool.self, forKey: .requireUppercase)
+        self.sensitiveScopesEnabled = try container.decodeIfPresent(Bool.self, forKey: .sensitiveScopesEnabled)
         self.webauthnUserVerification = try container.decodeIfPresent(String.self, forKey: .webauthnUserVerification)
     }
 
@@ -7597,6 +7868,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         try container.encodeIfPresent(accessTokenLifetimeSecs, forKey: .accessTokenLifetimeSecs)
         try container.encodeIfPresent(adminNotificationsEnabled, forKey: .adminNotificationsEnabled)
         try container.encodeIfPresent(defaultCertValidityDays, forKey: .defaultCertValidityDays)
+        try container.encodeIfPresent(defaultLocale, forKey: .defaultLocale)
         try container.encodeIfPresent(deletionGracePeriodDays, forKey: .deletionGracePeriodDays)
         try container.encodeIfPresent(emailVerificationGracePeriodHours, forKey: .emailVerificationGracePeriodHours)
         try container.encodeIfPresent(emailVerificationRequired, forKey: .emailVerificationRequired)
@@ -7618,6 +7890,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         try container.encodeIfPresent(requireLowercase, forKey: .requireLowercase)
         try container.encodeIfPresent(requireSymbols, forKey: .requireSymbols)
         try container.encodeIfPresent(requireUppercase, forKey: .requireUppercase)
+        try container.encodeIfPresent(sensitiveScopesEnabled, forKey: .sensitiveScopesEnabled)
         try container.encodeIfPresent(webauthnUserVerification, forKey: .webauthnUserVerification)
     }
 }
@@ -8081,9 +8354,15 @@ public struct UpdateNotificationRuleRequest: Codable, Sendable {
 
 /// The `UpdateOAuth2ClientRequest` schema.
 public struct UpdateOAuth2ClientRequest: Codable, Sendable {
+    /// The server's `authn_request_params` field.
+    public let authnRequestParams: AuthnRequestParamsMode?
+
     /// Pass an empty string to clear a previously registered URI — the one edit an operator
     /// makes when an RP is decommissioned.
     public let backchannelLogoutURI: String?
+
+    /// X7.3 — see [`CreateOAuth2ClientRequest::browser_sso`].
+    public let browserSSO: Bool?
 
     /// The server's `dpop_bound_access_tokens` field.
     public let dpopBoundAccessTokens: Bool?
@@ -8138,7 +8417,9 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
     public let tokenEndpointAuthMethod: ClientAuthMethod?
 
     public init(
+        authnRequestParams: AuthnRequestParamsMode? = nil,
         backchannelLogoutURI: String? = nil,
+        browserSSO: Bool? = nil,
         dpopBoundAccessTokens: Bool? = nil,
         dpopRequireNonce: Bool? = nil,
         grantTypes: [String]? = nil,
@@ -8157,7 +8438,9 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
         tlsClientCertificateBoundAccessTokens: Bool? = nil,
         tokenEndpointAuthMethod: ClientAuthMethod? = nil
     ) {
+        self.authnRequestParams = authnRequestParams
         self.backchannelLogoutURI = backchannelLogoutURI
+        self.browserSSO = browserSSO
         self.dpopBoundAccessTokens = dpopBoundAccessTokens
         self.dpopRequireNonce = dpopRequireNonce
         self.grantTypes = grantTypes
@@ -8178,7 +8461,9 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case authnRequestParams = "authn_request_params"
         case backchannelLogoutURI = "backchannel_logout_uri"
+        case browserSSO = "browser_sso"
         case dpopBoundAccessTokens = "dpop_bound_access_tokens"
         case dpopRequireNonce = "dpop_require_nonce"
         case grantTypes = "grant_types"
@@ -8200,7 +8485,9 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.authnRequestParams = try container.decodeIfPresent(AuthnRequestParamsMode.self, forKey: .authnRequestParams)
         self.backchannelLogoutURI = try container.decodeIfPresent(String.self, forKey: .backchannelLogoutURI)
+        self.browserSSO = try container.decodeIfPresent(Bool.self, forKey: .browserSSO)
         self.dpopBoundAccessTokens = try container.decodeIfPresent(Bool.self, forKey: .dpopBoundAccessTokens)
         self.dpopRequireNonce = try container.decodeIfPresent(Bool.self, forKey: .dpopRequireNonce)
         self.grantTypes = try container.decodeIfPresent([String].self, forKey: .grantTypes)
@@ -8222,7 +8509,9 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(authnRequestParams, forKey: .authnRequestParams)
         try container.encodeIfPresent(backchannelLogoutURI, forKey: .backchannelLogoutURI)
+        try container.encodeIfPresent(browserSSO, forKey: .browserSSO)
         try container.encodeIfPresent(dpopBoundAccessTokens, forKey: .dpopBoundAccessTokens)
         try container.encodeIfPresent(dpopRequireNonce, forKey: .dpopRequireNonce)
         try container.encodeIfPresent(grantTypes, forKey: .grantTypes)

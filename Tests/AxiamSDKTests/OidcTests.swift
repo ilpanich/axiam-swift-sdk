@@ -590,4 +590,119 @@ final class OidcTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - Contract 1.42 — the two RFC 8414 discovery members (§21.5)
+
+    func testDiscoveryParsesTheContract142Members() async throws {
+        let discovery: @Sendable (String) -> [String: Any] = { base in
+            var document = OidcTests.discoveryJSON(base: base)
+            document["code_challenge_methods_supported"] = ["S256"]
+            document["token_endpoint_auth_signing_alg_values_supported"] =
+                ["PS256", "ES256", "EdDSA"]
+            return document
+        }
+        let router: TestRouter = { request, _ in
+            if request.uri.contains("/.well-known/openid-configuration") {
+                return .json(200, discovery("http://\(request.header("Host") ?? "127.0.0.1")"))
+            }
+            return .json(404, [:])
+        }
+        try await withOidcClient(router: router) { client, _ in
+            let document = try await client.oidcDiscover()
+            XCTAssertEqual(document.codeChallengeMethodsSupported, ["S256"])
+            XCTAssertEqual(
+                document.tokenEndpointAuthSigningAlgValuesSupported,
+                ["PS256", "ES256", "EdDSA"])
+        }
+    }
+
+    /// Both members are modelled optional although `openapi.json` marks them required, and
+    /// this is the test that pins why: RFC 8414 defines no default for either, so their
+    /// **absence** does not mean `S256` — it means the OP did not say. Every AXIAM deployment
+    /// before contract 1.42 published neither, and so does any number of other OPs this same
+    /// code may be pointed at. Modelling them required would reject a document the SDK
+    /// accepts today.
+    func testADocumentWithoutTheContract142MembersStillParses() async throws {
+        try await withOidcClient(router: makeRouter(tokenBody: { _ in [:] })) { client, _ in
+            let document = try await client.oidcDiscover()
+            XCTAssertNil(document.codeChallengeMethodsSupported)
+            XCTAssertNil(document.tokenEndpointAuthSigningAlgValuesSupported)
+        }
+    }
+
+    // MARK: - Contract 1.42 — the tenant inside an advertised endpoint URL
+
+    /// The discovery document publishes `?tenant_id=<uuid>` on every endpoint that
+    /// authenticates a client whenever the discovery request named a tenant, or the deployment
+    /// sets `oauth2_default_tenant_id`. An SDK that *appended* its own would put the parameter
+    /// on the wire twice; this one replaces, and keeps every other parameter the endpoint
+    /// carried (RFC 6749 §3.2 — the endpoint's own query component is the server's, not the
+    /// client's to discard).
+    func testTheTenantQueryIsReplacedNotAppendedAndOtherParametersSurvive() async throws {
+        let signer = OidcTests.signer
+        let published = "99999999-9999-4999-8999-999999999999"
+        let discovery: @Sendable (String) -> [String: Any] = { base in
+            var document = OidcTests.discoveryJSON(base: base)
+            document["token_endpoint"] = "\(base)/oauth2/token?tenant_id=\(published)&audience=legacy"
+            return document
+        }
+        let router: TestRouter = { request, state in
+            if request.uri.hasSuffix("/oauth2/jwks") { return .json(200, signer.jwksJSON()) }
+            let base = "http://\(request.header("Host") ?? "127.0.0.1")"
+            if request.uri.contains("/.well-known/openid-configuration") {
+                return .json(200, discovery(base))
+            }
+            if request.uri.contains("/oauth2/token") {
+                state.increment("token")
+                return .json(200, OidcTests.tokenResponse(OidcTests.idClaims()))
+            }
+            return .json(404, [:])
+        }
+        try await withOidcClient(router: router) { client, server in
+            _ = try await client.oidcExchange(
+                code: "c", redirectURI: "https://app.test/cb",
+                codeVerifier: Sensitive("v"), nonce: Self.nonce)
+
+            let sent = try XCTUnwrap(server.state.requests(pathContaining: "/oauth2/token").last)
+            let items = try XCTUnwrap(
+                URLComponents(string: "http://host\(sent.uri)")?.queryItems)
+            XCTAssertEqual(items.filter { $0.name == "tenant_id" }.count, 1, sent.uri)
+            // The resolved tenant wins: it is the one this client authenticated against, and a
+            // silent mismatch between the two is worse than a deterministic answer.
+            XCTAssertEqual(items.first { $0.name == "tenant_id" }?.value, Self.tenantUUID)
+            XCTAssertEqual(items.first { $0.name == "audience" }?.value, "legacy")
+        }
+    }
+
+    // MARK: - Contract 1.42 — the ID token no longer carries tenant_id/org_id/email
+
+    /// OIDC Core §5.4: as of contract 1.42 AXIAM emits none of `tenant_id`, `org_id` or
+    /// `email` in an ID token. The claims stay modelled and stay parsed — another OP may still
+    /// send them, and this SDK must keep validating a token that does — but against AXIAM they
+    /// now read **absent**, not empty-string-as-present, and the rest of the claim set is
+    /// unaffected. An application needing the tenant reads it from the access token.
+    func testAnIdTokenWithoutTenantOrEmailValidatesAndReportsThemAbsent() async throws {
+        let router = makeRouter(tokenBody: { _ in
+            var claims = OidcTests.idClaims()
+            claims.removeValue(forKey: "tenant_id")
+            claims["preferred_username"] = "ada"
+            claims["roles"] = ["reader"]
+            return OidcTests.tokenResponse(claims)
+        })
+        try await withOidcClient(router: router) { client, _ in
+            let tokens = try await client.oidcExchange(
+                code: "c", redirectURI: "https://app.test/cb",
+                codeVerifier: Sensitive("v"), nonce: Self.nonce)
+
+            let claims = try XCTUnwrap(tokens.idClaims)
+            XCTAssertNil(claims.tenantID)
+            XCTAssertNil(claims.email)
+            XCTAssertEqual(claims.subject, "user-42")
+            XCTAssertEqual(claims.issuer, OidcTests.issuer)
+            XCTAssertEqual(claims.audience, [OidcTests.clientID])
+            XCTAssertEqual(claims.nonce, Self.nonce)
+            XCTAssertEqual(claims.preferredUsername, "ada")
+            XCTAssertEqual(claims.roles, ["reader"])
+        }
+    }
 }

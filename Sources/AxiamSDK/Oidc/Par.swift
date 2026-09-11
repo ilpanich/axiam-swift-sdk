@@ -26,6 +26,14 @@ extension AxiamClient {
     ///     second generator.
     ///   - redirectURI: the same redirect URI that will be sent at exchange time.
     ///   - scope: the requested scope. Must match what was pushed at `oidcBegin`.
+    ///   - dpopJkt: RFC 9449 §10.1 — the JWK SHA-256 thumbprint of the key the client will
+    ///     prove possession of at the token endpoint, binding the authorization code to that
+    ///     key from the moment it is issued rather than from first use. Sent **only when
+    ///     given**; omitting it is the unbound behaviour every release before contract 1.42
+    ///     had. **Caller-supplied, and it has to be**: CONTRACT.md §21.9 records this SDK as
+    ///     verifying DPoP proofs but not generating them, so it holds no client key and has
+    ///     no thumbprint of its own to offer. An application doing DPoP computes the
+    ///     thumbprint over its own key (RFC 7638) and passes it here.
     ///   - tenantID: a tenant override for the `?tenant_id=` query parameter.
     ///   - configuration: the discovery document, or `nil` to discover.
     /// - Throws: ``AxiamError/auth(_:)`` client-side, with **no wire call**, when the
@@ -35,6 +43,7 @@ extension AxiamClient {
         request: AuthorizationRequest,
         redirectURI: String,
         scope: String = "openid profile email",
+        dpopJkt: String? = nil,
         tenantID: String? = nil,
         configuration: OidcConfiguration? = nil
     ) async throws -> PushedAuthorizationRequest {
@@ -71,6 +80,19 @@ extension AxiamClient {
             "code_challenge_method": "S256",
         ]
         if let secret = config.oidcClientSecret { form["client_secret"] = secret.wrapped }
+        // RFC 9449 §10.1: present only when the caller supplied one. An empty or absent
+        // `dpop_jkt` is not the same as one bound to no key — the server reads the parameter's
+        // presence as "this code may only be redeemed with a proof of that key", and sending
+        // it speculatively would make every push demand a proof this SDK cannot produce
+        // (§21.9: verifies, does not generate).
+        if let dpopJkt { form["dpop_jkt"] = dpopJkt }
+
+        // `request_uri` is deliberately NOT a parameter of this method, although contract 1.42
+        // adds one to the `PushedAuthorizationRequest` wire schema. RFC 9126 §2.1 makes it the
+        // one authorization parameter a client MUST NOT push; the server models it so it can
+        // REFUSE it. A client able to send it is a client able to chain one pushed request into
+        // another, which is the confusion §26.2 rule 2 exists to stop — so the capability is
+        // not offered here at all.
 
         // 201, not 200. RFC 9126 §2.2 specifies Created, and this is the one thing an
         // implementation of this section gets wrong: a success predicate written == 200
@@ -90,21 +112,42 @@ extension AxiamClient {
             )
         }
 
-        // §26.2 rule 2: exactly two query parameters. The server REFUSES a request carrying
-        // both a request_uri and any inline authorization parameter rather than merging
-        // them: an attacker supplies the inline value they want and lets the pushed copy
-        // satisfy whichever check reads the other one. Re-adding them "for compatibility"
-        // restores the attack — which is why any query the discovered endpoint already
-        // carried is dropped here rather than merged.
+        // §26.2 rule 2: the two authorization parameters, and no others. The server REFUSES a
+        // request carrying both a request_uri and any inline authorization parameter rather
+        // than merging them: an attacker supplies the inline value they want and lets the
+        // pushed copy satisfy whichever check reads the other one. Re-adding them "for
+        // compatibility" restores the attack — which is why any query the discovered endpoint
+        // already carried is dropped here rather than merged.
+        //
+        // `tenant_id` is the single exception, and it is not an authorization parameter.
+        // AXIAM's discovery document publishes `authorization_endpoint` already scoped as
+        // `…/oauth2/authorize?tenant_id=<uuid>` (axiam-oauth2 `tenant_scoped`) whenever the
+        // discovery request named a tenant, or the deployment sets `oauth2_default_tenant_id`.
+        // It is routing — it picks the tenant whose session and client registry the request is
+        // resolved against — and dropping it sends the browser to an endpoint with no tenant,
+        // where a user agent carrying no session is answered `401` rather than a login page.
+        // Carrying it does not widen what a request can say: there is no pushed `tenant_id` for
+        // an inline one to disagree with, because the tenant travels on the PAR call's own
+        // query string rather than in its form body.
+        //
+        // The resolved tenant wins over whatever the advertised URL carried, for the reason it
+        // does on the back channel too: the push that just minted this `request_uri` went to
+        // that tenant, and a deterministic answer beats a silent mismatch. It is resolvable
+        // here because `oidcFormPost` above would have thrown, with no wire call, had it not
+        // been a UUID (§12.3 rule 4).
         guard var components = URLComponents(string: document.authorizationEndpoint) else {
             throw AxiamError.network(
                 NetworkError("invalid authorization_endpoint in the discovery document")
             )
         }
-        components.queryItems = [
+        var items = [
             URLQueryItem(name: "client_id", value: clientID),
             URLQueryItem(name: "request_uri", value: wire.request_uri),
         ]
+        if let tenant = tenantID ?? config.tenantID {
+            items.append(URLQueryItem(name: "tenant_id", value: tenant))
+        }
+        components.queryItems = items
         guard let url = components.url?.absoluteString else {
             throw AxiamError.network(
                 NetworkError("could not build the pushed authorization redirect URL")

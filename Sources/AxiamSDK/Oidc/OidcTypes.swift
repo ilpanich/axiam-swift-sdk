@@ -75,6 +75,20 @@ public struct OidcConfiguration: Sendable, Decodable, Equatable {
     public let scopesSupported: [String]?
     public let responseTypesSupported: [String]?
     public let idTokenSigningAlgValuesSupported: [String]?
+    /// RFC 8414 §2 / RFC 7636 §4.3 — the PKCE challenge methods the authorization endpoint
+    /// accepts (contract 1.42, §21.5). AXIAM publishes `["S256"]` and refuses `plain`.
+    ///
+    /// **Optional here although the server's schema marks it required**, and deliberately so:
+    /// RFC 8414 defines no default for this member, so its absence does not mean `S256` — it
+    /// means a conforming client cannot establish that PKCE is available at all. AXIAM itself
+    /// did not publish it until contract 1.42, and this SDK must keep parsing a document from
+    /// any other OP. Modelling it required would reject documents it accepts today.
+    public let codeChallengeMethodsSupported: [String]?
+    /// RFC 8414 §2 — the JWS algorithms the token endpoint accepts on a `private_key_jwt`
+    /// client assertion (contract 1.42, §21.5). AXIAM publishes `["PS256", "ES256", "EdDSA"]`.
+    ///
+    /// Optional for the same reason as ``codeChallengeMethodsSupported``.
+    public let tokenEndpointAuthSigningAlgValuesSupported: [String]?
     /// RFC 8705 §5 endpoint aliases for a deployment that terminates mutual TLS on a host
     /// other than the issuer's own (contract 1.40, §21.3 rule 2).
     ///
@@ -97,6 +111,9 @@ public struct OidcConfiguration: Sendable, Decodable, Equatable {
         case scopesSupported = "scopes_supported"
         case responseTypesSupported = "response_types_supported"
         case idTokenSigningAlgValuesSupported = "id_token_signing_alg_values_supported"
+        case codeChallengeMethodsSupported = "code_challenge_methods_supported"
+        case tokenEndpointAuthSigningAlgValuesSupported =
+            "token_endpoint_auth_signing_alg_values_supported"
         case mtlsEndpointAliases = "mtls_endpoint_aliases"
     }
 }
@@ -133,8 +150,25 @@ public struct IdTokenClaims: Sendable, Equatable {
     public let issuedAt: Date
     public let nonce: String?
     public let authorizedParty: String?
+    /// OIDC Core §5.1 `email`.
+    ///
+    /// **`nil` against AXIAM as of contract 1.42, on every login.** The server stopped putting
+    /// `email` in the ID token (OIDC Core §5.4: an ID token carries the standard claims only
+    /// when the `claims` request parameter or a response type without an access token asks for
+    /// them). The claim is still parsed, because another OP the same code is pointed at may
+    /// still send it, and removing the property would break callers on top of the behaviour
+    /// change. An application that needs the email address should read it from the identity a §5
+    /// login returns (``AxiamUser/email``), or from UserInfo.
     public let email: String?
     public let preferredUsername: String?
+    /// AXIAM's private `tenant_id` claim.
+    ///
+    /// **`nil` against AXIAM as of contract 1.42, on every login**, for the same reason as
+    /// ``email`` — and unlike `email` there is no standard claim to fall back on. The tenant is
+    /// still carried by the **access token**, so read ``AxiamUser/tenantID`` — from a §5 login
+    /// or from the §10 guard, both of which resolve it from access-token claims — or call
+    /// UserInfo, which still carries `tenant_id` and `org_id` as always-present members.
+    /// Parsing is retained for a non-AXIAM OP that emits it.
     public let tenantID: String?
     public let roles: [String]
 }

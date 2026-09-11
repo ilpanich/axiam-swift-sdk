@@ -9,9 +9,12 @@ import Foundation
 /// - `testASuccessfulPushAnswers201` — RFC 9126 §2.2 specifies *Created*. A success
 ///   predicate written `== 200` passes every other test in this file and treats every real
 ///   push as a failure.
-/// - `testTheRedirectUrlCarriesExactlyTwoParameters` — the server refuses a request that
-///   mixes a `request_uri` with inline authorization parameters rather than merging them,
-///   and merging is where parameter confusion lives (§26.2 rule 2).
+/// - `testTheRedirectUrlCarriesOnlyTheTwoAuthorizationParametersAndTheTenant` — the server
+///   refuses a request that mixes a `request_uri` with inline authorization parameters
+///   rather than merging them, and merging is where parameter confusion lives (§26.2
+///   rule 2). The tenant rides along because it is routing rather than an authorization
+///   parameter, and because since contract 1.42 the server publishes it on
+///   `authorization_endpoint` itself.
 final class ParTests: XCTestCase {
 
     private static let tenantUUID = "22222222-2222-2222-2222-222222222222"
@@ -216,7 +219,7 @@ final class ParTests: XCTestCase {
 
     // MARK: - §26.2 rule 2: the redirect URL
 
-    func testTheRedirectUrlCarriesExactlyTwoParameters() async throws {
+    func testTheRedirectUrlCarriesOnlyTheTwoAuthorizationParametersAndTheTenant() async throws {
         try await withParClient(router: router()) { client, _ in
             let config = try await client.oidcDiscover()
             let begun = try await client.oidcBegin(
@@ -229,10 +232,16 @@ final class ParTests: XCTestCase {
             let items = components.queryItems ?? []
             // The server REFUSES a request_uri mixed with inline parameters rather than
             // merging them — re-adding scope/state/redirect_uri here restores the
-            // parameter-confusion attack (§26.2 rule 2).
-            XCTAssertEqual(Set(items.map(\.name)), ["client_id", "request_uri"])
+            // parameter-confusion attack (§26.2 rule 2). `tenant_id` is not one of them: it
+            // is routing, it is what the server itself publishes on `authorization_endpoint`,
+            // and without it a browser with no session is answered 401 rather than a login
+            // page. This assertion was "exactly two" before contract 1.42; it is re-pointed
+            // rather than relaxed — the set is still closed, it has one more member, and that
+            // member is named.
+            XCTAssertEqual(Set(items.map(\.name)), ["client_id", "request_uri", "tenant_id"])
             XCTAssertEqual(items.first { $0.name == "client_id" }?.value, Self.clientID)
             XCTAssertEqual(items.first { $0.name == "request_uri" }?.value, Self.requestURI)
+            XCTAssertEqual(items.first { $0.name == "tenant_id" }?.value, Self.tenantUUID)
             XCTAssertEqual(components.path, "/oauth2/authorize")
         }
     }
@@ -240,6 +249,8 @@ final class ParTests: XCTestCase {
     func testTheRedirectUrlDropsAnyQueryTheDiscoveredEndpointCarried() async throws {
         // An authorization_endpoint that already carries a query is legal, and its
         // parameters are exactly the ones rule 2 forbids travelling alongside a request_uri.
+        // `tenant_id` in the expected set is the client's own, not one carried over from the
+        // endpoint — this document publishes none.
         let discovery: @Sendable (String, Bool) -> [String: Any] = {
             ParTests.discoveryJSON(base: $0, withPar: $1)
         }
@@ -265,7 +276,102 @@ final class ParTests: XCTestCase {
                 request: begun, redirectURI: Self.redirectURI, configuration: config)
 
             let items = try XCTUnwrap(URLComponents(string: pushed.url)?.queryItems)
-            XCTAssertEqual(Set(items.map(\.name)), ["client_id", "request_uri"])
+            XCTAssertEqual(Set(items.map(\.name)), ["client_id", "request_uri", "tenant_id"])
+            XCTAssertNil(items.first { $0.name == "audience" })
+            XCTAssertNil(items.first { $0.name == "scope" })
+        }
+    }
+
+    /// Contract 1.42: `authorization_endpoint` is published *already* carrying the tenant
+    /// (`axiam-oauth2` `tenant_scoped`) whenever the discovery request named one. Dropping it
+    /// with the rest of the query sends the browser to an endpoint with no tenant, which a
+    /// user agent carrying no session is answered `401` for. It is carried through, exactly
+    /// once, and the resolved tenant is the one that survives a disagreement.
+    func testTheRedirectUrlCarriesTheTenantExactlyOnceWhenTheEndpointPublishesOne() async throws {
+        let published = "99999999-9999-4999-8999-999999999999"
+        let discovery: @Sendable (String, Bool) -> [String: Any] = {
+            ParTests.discoveryJSON(base: $0, withPar: $1)
+        }
+        let scoped: TestRouter = { request, _ in
+            let base = "http://\(request.header("Host") ?? "127.0.0.1")"
+            if request.uri.contains("/.well-known/openid-configuration") {
+                var document = discovery(base, true)
+                document["authorization_endpoint"] =
+                    "\(base)/oauth2/authorize?tenant_id=\(published)"
+                return .json(200, document)
+            }
+            if request.uri.contains("/oauth2/par") {
+                return .json(201, ["request_uri": ParTests.requestURI, "expires_in": 90])
+            }
+            return .json(404, [:])
+        }
+
+        try await withParClient(router: scoped) { client, _ in
+            let config = try await client.oidcDiscover()
+            let begun = try await client.oidcBegin(
+                redirectURI: Self.redirectURI, configuration: config)
+
+            let pushed = try await client.oidcPar(
+                request: begun, redirectURI: Self.redirectURI, configuration: config)
+
+            let items = try XCTUnwrap(URLComponents(string: pushed.url)?.queryItems)
+            XCTAssertEqual(items.filter { $0.name == "tenant_id" }.count, 1, pushed.url)
+            XCTAssertEqual(items.first { $0.name == "tenant_id" }?.value, Self.tenantUUID)
+        }
+    }
+
+    // MARK: - §3b / RFC 9449 §10.1 — dpop_jkt
+
+    /// A caller-supplied thumbprint reaches the push form. CONTRACT.md §21.9 records this SDK
+    /// as verifying DPoP proofs but not generating them, so the value can only come from the
+    /// application's own key — there is no thumbprint for the SDK to compute.
+    func testACallerSuppliedDpopJktIsPushed() async throws {
+        let thumbprint = "0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I"
+        try await withParClient(router: router()) { client, server in
+            let config = try await client.oidcDiscover()
+            let begun = try await client.oidcBegin(
+                redirectURI: Self.redirectURI, configuration: config)
+
+            _ = try await client.oidcPar(
+                request: begun, redirectURI: Self.redirectURI, dpopJkt: thumbprint,
+                configuration: config)
+
+            let sent = try XCTUnwrap(server.state.requests(pathContaining: "/oauth2/par").first)
+            XCTAssertEqual(formFields(sent)["dpop_jkt"], thumbprint)
+        }
+    }
+
+    /// Absent when not given. The parameter's *presence* is what tells the server the code may
+    /// only be redeemed with a proof of that key, so sending an empty or invented one would
+    /// demand a proof this SDK cannot produce.
+    func testNoDpopJktIsSentWhenTheCallerSuppliesNone() async throws {
+        try await withParClient(router: router()) { client, server in
+            let config = try await client.oidcDiscover()
+            let begun = try await client.oidcBegin(
+                redirectURI: Self.redirectURI, configuration: config)
+
+            _ = try await client.oidcPar(
+                request: begun, redirectURI: Self.redirectURI, configuration: config)
+
+            let sent = try XCTUnwrap(server.state.requests(pathContaining: "/oauth2/par").first)
+            XCTAssertNil(formFields(sent)["dpop_jkt"])
+        }
+    }
+
+    /// RFC 9126 §2.1 — `request_uri` is the one authorization parameter a client MUST NOT
+    /// push. Contract 1.42 adds it to the wire schema so the server can refuse it; this SDK
+    /// offers no way to send it, and that is the assertion.
+    func testThePushNeverCarriesARequestUri() async throws {
+        try await withParClient(router: router()) { client, server in
+            let config = try await client.oidcDiscover()
+            let begun = try await client.oidcBegin(
+                redirectURI: Self.redirectURI, configuration: config)
+
+            _ = try await client.oidcPar(
+                request: begun, redirectURI: Self.redirectURI, configuration: config)
+
+            let sent = try XCTUnwrap(server.state.requests(pathContaining: "/oauth2/par").first)
+            XCTAssertNil(formFields(sent)["request_uri"])
         }
     }
 
