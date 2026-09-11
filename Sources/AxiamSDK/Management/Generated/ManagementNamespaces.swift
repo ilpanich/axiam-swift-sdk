@@ -4,7 +4,7 @@
 
 import Foundation
 
-// CONTRACT.md §27 namespace handles — 147 operations across 24 of them.
+// CONTRACT.md §27 namespace handles — 158 operations across 24 of them.
 //
 // §27.2 rule 1: a handle is cheap and stateless. It holds the client and a scope of two
 // optional strings, acquiring one performs no I/O, and every accessor below builds a fresh one
@@ -3888,6 +3888,71 @@ public struct PrivacyApi: Sendable {
             operation: "privacy.cancel_delete",
             method: .get,
             template: "/api/v1/auth/account/delete/cancel",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
+        // server that started sending one does not silently change what this returns.
+        _ = data
+    }
+
+    /// `GET /api/v1/account/consents` — the caller's own consent records.
+    ///
+    /// `GET /api/v1/account/consents`
+    public func listConsents() async throws -> [ConsentView] {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "privacy.list_consents",
+            method: .get,
+            template: "/api/v1/account/consents",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode([ConsentView].self, from: data)
+    }
+
+    /// `POST /api/v1/account/consents/oidc-scopes` — record a scope-release consent.
+    ///
+    /// `POST /api/v1/account/consents/oidc-scopes`
+    ///
+    /// - Parameter body: The request body.
+    public func grantScopeConsent(body: GrantScopeConsent) async throws {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "privacy.grant_scope_consent",
+            method: .post,
+            template: "/api/v1/account/consents/oidc-scopes",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
+        // server that started sending one does not silently change what this returns.
+        _ = data
+    }
+
+    /// `DELETE /api/v1/account/consents/oidc-scopes/{client_id}` — withdraw.
+    ///
+    /// `DELETE /api/v1/account/consents/oidc-scopes/{client_id}`
+    ///
+    /// - Parameter clientID: The `{client_id}` path parameter.
+    public func withdrawScopeConsent(clientID: String) async throws {
+        let pathParameters = ["client_id": clientID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "privacy.withdraw_scope_consent",
+            method: .delete,
+            template: "/api/v1/account/consents/oidc-scopes/{client_id}",
             pathParameters: pathParameters,
             query: query,
             body: payload,
