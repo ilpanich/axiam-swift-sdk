@@ -7,7 +7,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- **AXIAM no longer puts `tenant_id`, `org_id` or `email` in the ID token**
+  (server change, SDK contract 1.42, OIDC Core §5.4). This is a behaviour
+  change in the server, not an API change here, and it is listed as breaking
+  because code that compiles unchanged now reads `nil` where it used to read a
+  value: `IdTokenClaims.tenantID` and `IdTokenClaims.email` are `nil` on every
+  login against a 1.42 deployment.
+
+  **Neither property is removed and neither stops being parsed.** Another OP
+  this same code is pointed at may still emit them, and removing them would be
+  a source break stacked on top of a behavioural one. What changes is where an
+  application should read them from:
+
+  | wanted | read it from |
+  |---|---|
+  | the tenant | `AxiamUser.tenantID` — resolved from **access-token** claims by both a §5 login and the §10 guard, which still requires `tenant_id` and matches it against the configured tenant |
+  | the email | `AxiamUser.email` from a §5 login, or UserInfo |
+  | the org | UserInfo, which carries `tenant_id` and `org_id` as always-present members |
+
+  `OidcTests.testAnIdTokenWithoutTenantOrEmailValidatesAndReportsThemAbsent`
+  pins the new shape: a token carrying none of the three validates, reports the
+  two properties **absent** rather than empty-string-as-present, and leaves the
+  rest of the claim set intact.
+
+- **`oidcPar`'s redirect URL now carries `tenant_id`.** It previously cleared
+  the discovered `authorization_endpoint`'s query entirely when building the
+  `client_id` + `request_uri` redirect. Since contract 1.42 the server publishes
+  that endpoint already scoped as `…/oauth2/authorize?tenant_id=<uuid>`
+  (`axiam-oauth2` `tenant_scoped`) whenever the discovery request named a tenant
+  or the deployment sets `oauth2_default_tenant_id` — so clearing the query
+  stripped the tenant and sent a browser with no session to an endpoint that
+  answers `401` rather than a login page.
+
+  `tenant_id` is routing, not an authorization parameter, so carrying it does
+  not reopen the §26.2 rule 2 parameter confusion: every *authorization*
+  parameter the endpoint carried is still dropped. The resolved tenant — the one
+  the push itself authenticated against — wins over whatever the advertised URL
+  carried. Listed as breaking only because an assertion written against the old
+  two-parameter URL will now see three.
+
 ### Added
+
+- **Two RFC 8414 discovery members (SDK contract 1.42, CONTRACT.md §21.5).**
+  `OidcConfiguration` gains `codeChallengeMethodsSupported` (AXIAM publishes
+  `["S256"]`; the authorization endpoint refuses `plain`) and
+  `tokenEndpointAuthSigningAlgValuesSupported` (`["PS256", "ES256", "EdDSA"]` —
+  the JWS algorithms accepted on a `private_key_jwt` client assertion).
+
+  Both are **optional** although `openapi.json` marks them required, and
+  deliberately: RFC 8414 defines no default for either, so absence does not mean
+  `S256`, it means the OP did not say. AXIAM itself published neither before
+  1.42, and this model has to keep parsing a document from any other OP.
+  Modelling them required would reject documents the SDK accepts today.
+
+- **`oidcPar(…, dpopJkt:)` (RFC 9449 §10.1).** An optional, caller-supplied JWK
+  SHA-256 thumbprint, sent in the push form **only when given**, binding the
+  authorization code to that key from the moment it is issued. Caller-supplied
+  because CONTRACT.md §21.9 records this SDK as *verifying* DPoP proofs and not
+  generating them: it holds no client key and has no thumbprint of its own. No
+  proof generator was added.
+
+  `request_uri` is deliberately **not** offered as a push parameter, although
+  contract 1.42 adds it to the `PushedAuthorizationRequest` wire schema. RFC 9126
+  §2.1 makes it the one authorization parameter a client MUST NOT push; the
+  server models it so it can refuse it, and a client able to send it is a client
+  able to chain one pushed request into another. The other nine new optional PAR
+  members (`acr_values`, `claims`, `claims_locales`, `display`, `id_token_hint`,
+  `login_hint`, `max_age`, `prompt`, `ui_locales`) are additive 1.41 surface and
+  are not added either — nine new parameters is a feature, not a re-sync.
+
+- **A DPoP section in the README.** CONTRACT.md §21.9's row for this SDK reads
+  "no — see its README", and the README did not mention DPoP at all. It now
+  states the posture, what `DpopVerifier` does, and why no proof generator ships.
 
 - **RFC 8705 §5 `mtls_endpoint_aliases` (SDK contract 1.40, CONTRACT.md §21.3
   rule 2).** `OidcConfiguration` gains an optional `mtlsEndpointAliases`
@@ -33,6 +106,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   aliases, and §21.3 rule 2 is scoped to the OIDC discovery document.
 
 ### Changed
+
+- **Re-vendored `CONTRACT.md`, `openapi.json` and `management-registry.json`
+  from `ilpanich/axiam` at SDK contract 1.42** — two revisions in one step, 1.40
+  → 1.42. The registry grows from 155 to **158 operations across the same 24
+  namespaces**: `privacy.list_consents`, `privacy.grant_scope_consent` and
+  `privacy.withdraw_scope_consent`. The §27 surface is regenerated, not
+  hand-edited.
+
+  Generated model changes, all from the spec: new `ConsentView`,
+  `GrantScopeConsent`, `OidcPolicy` and `AuthnRequestParamsMode`;
+  `ClientAuthMethod` gains `client_secret_basic`; `CreateOAuth2ClientRequest`
+  and `UpdateOAuth2ClientRequest` gain optional `authnRequestParams` and
+  `browserSSO`; `SetOrgSettings` and `TenantSettingsOverride` gain optional
+  `defaultLocale` and `sensitiveScopesEnabled`.
 
 - Re-vendored `CONTRACT.md`, `openapi.json` and `management-registry.json` from
   `ilpanich/axiam` at SDK contract 1.40. The registry's 155 operations are
