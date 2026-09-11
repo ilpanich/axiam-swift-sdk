@@ -59,11 +59,16 @@ do {
     // a fresh push, which costs one round trip and cannot double-consume anything
     // (§26.2 rule 4).
 
-    // The URL carries EXACTLY client_id and request_uri. The server refuses a request that
-    // mixes a request_uri with inline authorization parameters rather than merging them —
-    // an attacker supplies the inline value they want and lets the pushed copy satisfy
-    // whichever check reads the other one. Re-adding scope "for compatibility" restores the
-    // attack (§26.2 rule 2).
+    // The URL carries client_id, request_uri and tenant_id, and nothing else. The server
+    // refuses a request that mixes a request_uri with inline authorization parameters rather
+    // than merging them — an attacker supplies the inline value they want and lets the pushed
+    // copy satisfy whichever check reads the other one. Re-adding scope "for compatibility"
+    // restores the attack (§26.2 rule 2).
+    //
+    // tenant_id is not one of those parameters: it is routing, it is what the server itself
+    // publishes on authorization_endpoint since contract 1.42, and a redirect that dropped it
+    // would send a browser with no session to an endpoint with no tenant — answered 401
+    // rather than a login page.
     print("redirect the browser to: \(pushed.url)")
     print("the handle expires in \(pushed.expiresIn)s")
 
