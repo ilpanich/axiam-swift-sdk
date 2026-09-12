@@ -7,48 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Breaking
-
-- **AXIAM no longer puts `tenant_id`, `org_id` or `email` in the ID token**
-  (server change, SDK contract 1.42, OIDC Core §5.4). This is a behaviour
-  change in the server, not an API change here, and it is listed as breaking
-  because code that compiles unchanged now reads `nil` where it used to read a
-  value: `IdTokenClaims.tenantID` and `IdTokenClaims.email` are `nil` on every
-  login against a 1.42 deployment.
-
-  **Neither property is removed and neither stops being parsed.** Another OP
-  this same code is pointed at may still emit them, and removing them would be
-  a source break stacked on top of a behavioural one. What changes is where an
-  application should read them from:
-
-  | wanted | read it from |
-  |---|---|
-  | the tenant | `AxiamUser.tenantID` — resolved from **access-token** claims by both a §5 login and the §10 guard, which still requires `tenant_id` and matches it against the configured tenant |
-  | the email | `AxiamUser.email` from a §5 login, or UserInfo |
-  | the org | UserInfo, which carries `tenant_id` and `org_id` as always-present members |
-
-  `OidcTests.testAnIdTokenWithoutTenantOrEmailValidatesAndReportsThemAbsent`
-  pins the new shape: a token carrying none of the three validates, reports the
-  two properties **absent** rather than empty-string-as-present, and leaves the
-  rest of the claim set intact.
-
-- **`oidcPar`'s redirect URL now carries `tenant_id`.** It previously cleared
-  the discovered `authorization_endpoint`'s query entirely when building the
-  `client_id` + `request_uri` redirect. Since contract 1.42 the server publishes
-  that endpoint already scoped as `…/oauth2/authorize?tenant_id=<uuid>`
-  (`axiam-oauth2` `tenant_scoped`) whenever the discovery request named a tenant
-  or the deployment sets `oauth2_default_tenant_id` — so clearing the query
-  stripped the tenant and sent a browser with no session to an endpoint that
-  answers `401` rather than a login page.
-
-  `tenant_id` is routing, not an authorization parameter, so carrying it does
-  not reopen the §26.2 rule 2 parameter confusion: every *authorization*
-  parameter the endpoint carried is still dropped. The resolved tenant — the one
-  the push itself authenticated against — wins over whatever the advertised URL
-  carried. Listed as breaking only because an assertion written against the old
-  two-parameter URL will now see three.
+## [1.0.0-beta13] - 2026-09-12
 
 ### Added
+
+- Accept a caller-supplied dpop_jkt, and stop stripping the tenant
+
+- Model the two contract 1.42 RFC 8414 discovery members
+
+- Prefer RFC 8705 §5 mtls_endpoint_aliases on mTLS calls
 
 - **Two RFC 8414 discovery members (SDK contract 1.42, CONTRACT.md §21.5).**
   `OidcConfiguration` gains `codeChallengeMethodsSupported` (AXIAM publishes
@@ -107,6 +74,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Record contract 1.42, the ID-token break, and the §21.9 DPoP posture
+
+- Re-vendor at SDK contract 1.42 and regenerate the §27 surface
+
 - **Re-vendored `CONTRACT.md`, `openapi.json` and `management-registry.json`
   from `ilpanich/axiam` at SDK contract 1.42** — two revisions in one step, 1.40
   → 1.42. The registry grows from 155 to **158 operations across the same 24
@@ -131,6 +102,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   until an operator sets `AXIAM__AUTH__OAUTH2_MTLS_BASE_URL`, so every existing
   consumer keeps working unchanged against every existing deployment. No public
   API was removed or renamed.
+
+### Breaking
+
+- **AXIAM no longer puts `tenant_id`, `org_id` or `email` in the ID token**
+  (server change, SDK contract 1.42, OIDC Core §5.4). This is a behaviour
+  change in the server, not an API change here, and it is listed as breaking
+  because code that compiles unchanged now reads `nil` where it used to read a
+  value: `IdTokenClaims.tenantID` and `IdTokenClaims.email` are `nil` on every
+  login against a 1.42 deployment.
+
+  **Neither property is removed and neither stops being parsed.** Another OP
+  this same code is pointed at may still emit them, and removing them would be
+  a source break stacked on top of a behavioural one. What changes is where an
+  application should read them from:
+
+  | wanted | read it from |
+  |---|---|
+  | the tenant | `AxiamUser.tenantID` — resolved from **access-token** claims by both a §5 login and the §10 guard, which still requires `tenant_id` and matches it against the configured tenant |
+  | the email | `AxiamUser.email` from a §5 login, or UserInfo |
+  | the org | UserInfo, which carries `tenant_id` and `org_id` as always-present members |
+
+  `OidcTests.testAnIdTokenWithoutTenantOrEmailValidatesAndReportsThemAbsent`
+  pins the new shape: a token carrying none of the three validates, reports the
+  two properties **absent** rather than empty-string-as-present, and leaves the
+  rest of the claim set intact.
+
+- **`oidcPar`'s redirect URL now carries `tenant_id`.** It previously cleared
+  the discovered `authorization_endpoint`'s query entirely when building the
+  `client_id` + `request_uri` redirect. Since contract 1.42 the server publishes
+  that endpoint already scoped as `…/oauth2/authorize?tenant_id=<uuid>`
+  (`axiam-oauth2` `tenant_scoped`) whenever the discovery request named a tenant
+  or the deployment sets `oauth2_default_tenant_id` — so clearing the query
+  stripped the tenant and sent a browser with no session to an endpoint that
+  answers `401` rather than a login page.
+
+  `tenant_id` is routing, not an authorization parameter, so carrying it does
+  not reopen the §26.2 rule 2 parameter confusion: every *authorization*
+  parameter the endpoint carried is still dropped. The resolved tenant — the one
+  the push itself authenticated against — wins over whatever the advertised URL
+  carried. Listed as breaking only because an assertion written against the old
+  two-parameter URL will now see three.
 
 ## [1.0.0-beta12] - 2026-09-06
 
