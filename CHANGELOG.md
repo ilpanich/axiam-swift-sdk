@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta14] - 2026-09-13
+
 ### Added
 
 - **CONTRACT.md §10.4 — an optional session-revocation feed poller (contract
@@ -44,6 +46,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exists for.
 
 ### Changed
+
+- Fix the test target: await the actor-isolated revocationFeed
+
+- Re-vendor CONTRACT.md: fill this SDK's §10.4.1 and §21.10 rows
+
+- R-6, R-8, R-4: §10.4 revocation feed, §21.3.1 vector C, T-262 retry tests
 
 - **A malformed `mtls_endpoint_aliases` entry now throws instead of falling back
   to the top-level endpoint** (CONTRACT.md §21.3.1 vector C, contract 1.43).
