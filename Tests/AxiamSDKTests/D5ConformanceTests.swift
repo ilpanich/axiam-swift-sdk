@@ -86,6 +86,40 @@ final class D5ConformanceTests: XCTestCase {
         XCTAssertEqual(transport.requestCount, 1)
     }
 
+    // MARK: - R-4 / AXIAM T-262, the contended-write answer
+
+    func testAContendedWriteAnswerIsRetriedAndSucceeds() async throws {
+        // T-262 changed a lost datastore race from `500` to `503` + `Retry-After: 1`, precisely
+        // so a client would come back rather than stop. This asserts the SDK takes that advice
+        // — and asserts it by COUNTING REQUESTS ON THE WIRE, because a retry helper that is
+        // exported, unit-tested and green while no production path calls it is the §16.7
+        // failure mode this whole suite exists to catch.
+        let transport = ScriptedTransport(statuses: [503, 200], retryAfter: "1")
+        let client = try await makeClient(transport: transport)
+
+        let result = try await client.checkAccess("read", resource: "r-1")
+
+        XCTAssertTrue(result.allowed)
+        XCTAssertEqual(transport.requestCount, 2)
+    }
+
+    func testAContendedWriteAnswerDoesNotReplayANonIdempotentCall() async throws {
+        // The other half, and the one that matters more. `Retry-After` is advice about WHEN to
+        // come back, never permission to replay a mutation: a login retried on a 503 may
+        // authenticate twice. The status and header are identical to the test above — only the
+        // idempotency of the call differs, which is the whole point.
+        let transport = ScriptedTransport(statuses: [503], retryAfter: "1")
+        let client = try await makeClient(transport: transport)
+
+        // Minted, not written down. A literal password in a test is indistinguishable, to a
+        // secret scanner, from a real one.
+        let password = "Fixture-\(UUID().uuidString)-aA1!"
+        await XCTAssertThrowsErrorAsync(
+            try await client.login(email: "someone@example.test", password: password))
+
+        XCTAssertEqual(transport.requestCount, 1)
+    }
+
     func testTheDelaySequenceWithJitterPinnedToMax() async throws {
         // §16.1: min(cap, base × 2^(attempt−1)) → 200 ms then 400 ms, both under the 5 s cap.
         let transport = ScriptedTransport(statuses: [503])

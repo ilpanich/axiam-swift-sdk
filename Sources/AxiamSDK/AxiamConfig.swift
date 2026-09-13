@@ -100,6 +100,24 @@ public struct AxiamConfig: Sendable {
     /// zero.
     public let oidcClockSkew: TimeInterval
 
+    /// Whether to poll the CONTRACT.md §10.4 session-revocation feed (contract 1.44).
+    ///
+    /// **Off by default**, and that default is the whole point: a client built before
+    /// contract 1.44 fetches nothing and behaves byte-for-byte as it did. Turning it on lets
+    /// a guard reject a revoked session within one poll interval rather than one token
+    /// lifetime, for one cacheable fetch per interval — and it can only ever turn an accept
+    /// into a reject. A deployment that does not publish the feed is unaffected: an
+    /// unreachable or unusable document behaves exactly as no feed at all.
+    public let revocationFeedEnabled: Bool
+
+    /// How long a fetched revocation set is served before a refetch is attempted.
+    ///
+    /// `nil` means ``RevocationFeed/defaultPollInterval`` (30 s). Clamped **up** to
+    /// ``RevocationFeed/minPollInterval`` (15 s) rather than refused: a caller who asks for
+    /// something faster gets the fastest thing on offer. Ignored when
+    /// ``revocationFeedEnabled`` is `false`.
+    public let revocationPollInterval: TimeInterval?
+
     /// Designated initializer.
     ///
     /// - Throws: ``AuthError`` if neither `tenantID` nor `tenantSlug` is supplied (§5), or if
@@ -122,7 +140,9 @@ public struct AxiamConfig: Sendable {
         oidcClientID: String? = nil,
         oidcClientSecret: Sensitive<String>? = nil,
         oidcDiscoveryTTL: TimeInterval = 300,
-        oidcClockSkew: TimeInterval = 60
+        oidcClockSkew: TimeInterval = 60,
+        revocationFeedEnabled: Bool = false,
+        revocationPollInterval: TimeInterval? = nil
     ) throws {
         // §5: a tenant identifier is non-optional and cannot be deferred.
         let hasTenant = (tenantID?.isBlank == false) || (tenantSlug?.isBlank == false)
@@ -187,6 +207,8 @@ public struct AxiamConfig: Sendable {
         // reported through a §19 event, so there is nothing to preserve the original value for.
         self.oidcDiscoveryTTL = max(oidcDiscoveryTTL, 300)
         self.oidcClockSkew = min(max(oidcClockSkew, 0), 60)
+        self.revocationFeedEnabled = revocationFeedEnabled
+        self.revocationPollInterval = revocationPollInterval
     }
 
     // MARK: - §6 transport-scheme guard

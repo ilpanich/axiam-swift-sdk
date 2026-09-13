@@ -40,6 +40,10 @@ public struct AxiamRequestContext: Sendable {
 /// as HTTP 401).
 public struct AxiamRequestAuthenticator: Sendable {
     let jwks: JwksVerifier
+    /// The CONTRACT.md §10.4 revocation feed, or `nil` when the caller did not opt in
+    /// (contract 1.44). `nil` — the default — is the feature off: nothing is fetched, and
+    /// this guard behaves byte-for-byte as it did before contract 1.44.
+    let revocationFeed: RevocationFeed?
     /// The configured tenant identifiers a verified session must belong to (§5/§10).
     ///
     /// The client may be configured with a tenant UUID, a tenant slug, or both, so the assertion
@@ -67,9 +71,11 @@ public struct AxiamRequestAuthenticator: Sendable {
         tenantID: String,
         tenantSlug: String? = nil,
         expectedIssuer: String? = nil,
-        expectedAudience: String? = nil
+        expectedAudience: String? = nil,
+        revocationFeed: RevocationFeed? = nil
     ) {
         self.jwks = jwks
+        self.revocationFeed = revocationFeed
         var tenants: [String] = []
         if !tenantID.isEmpty { tenants.append(tenantID) }
         if let tenantSlug, !tenantSlug.isEmpty, !tenants.contains(tenantSlug) { tenants.append(tenantSlug) }
@@ -347,6 +353,26 @@ public struct AxiamRequestAuthenticator: Sendable {
            !requestTenant.isEmpty,
            requestTenant != tokenTenant {
             throw AuthError("Token tenant does not match request X-Tenant-ID.")
+        }
+
+        // CONTRACT.md §10.4 (contract 1.44) — LAST, and only after every §10.1 rule above has
+        // already decided to accept. The feed "only ever rejects" (rule 4), so running it here
+        // rather than earlier is what makes that true: a token that fails a §10.1 rule is
+        // rejected whatever the feed says, and the feed is not consulted — nor fetched — for it
+        // at all.
+        //
+        // This sits in `authenticate` and NOT in `verifySignatureOnlyUnchecked`, so the §12.4
+        // ID-token path cannot reach it: an ID token carries no AXIAM session to revoke.
+        if let revocationFeed {
+            // Rule 6: a token with no `sid` — client credentials, an RPT, a token exchange —
+            // is never matched. Hashing `jti` instead would match nothing while looking like
+            // it worked.
+            if await revocationFeed.isRevoked(claims.sid) {
+                throw AuthError(
+                    "AXIAM session has been revoked (CONTRACT.md §10.4). The session behind this "
+                        + "token no longer exists; the token itself is still validly signed and "
+                        + "unexpired, which is exactly the window the revocation feed narrows.")
+            }
         }
 
         return AxiamUser(

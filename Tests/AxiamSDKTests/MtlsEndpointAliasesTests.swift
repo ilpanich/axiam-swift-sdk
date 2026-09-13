@@ -314,4 +314,171 @@ final class MtlsEndpointAliasesTests: XCTestCase {
             XCTAssertFalse(document.issuer.contains(":\(mtlsPort)"))
         }
     }
+
+    // MARK: - Vector C: an unusable alias is REFUSED, never fallen back from
+    // MARK: (CONTRACT.md §21.3.1, contract 1.43)
+
+    /// One listener publishing a discovery document whose `mtls_endpoint_aliases` is exactly
+    /// `aliases`, and whose top-level members `overrides` replaces.
+    ///
+    /// Deliberately not built on ``withTwoListeners(mtls:aliases:partialAliases:withoutDeviceEndpoint:body:)``:
+    /// vector C is about a document no well-formed deployment would publish, so the fixture
+    /// has to be able to say something that helper cannot express.
+    private func withPublishedAliases(
+        _ aliases: [String: String],
+        overrides: [String: String] = [:],
+        mtls: Bool = true,
+        body: (AxiamClient, TestHTTPServer) async throws -> Void
+    ) async throws {
+        let aliasData = TestResponse.jsonBody(aliases)
+        let overrideData = TestResponse.jsonBody(overrides)
+
+        let router: TestRouter = { request, state in
+            if request.uri.contains("/.well-known/openid-configuration") {
+                state.increment("discovery")
+                let base = "http://\(request.header("Host") ?? "127.0.0.1")"
+                var document = Self.discoveryJSON(base: base, mtlsBase: nil, partial: false)
+                document["mtls_endpoint_aliases"] =
+                    (try? JSONSerialization.jsonObject(with: aliasData)) as? [String: Any] ?? [:]
+                if let overrides = (try? JSONSerialization.jsonObject(with: overrideData))
+                    as? [String: Any]
+                {
+                    for (key, value) in overrides { document[key] = value }
+                }
+                return .json(200, document)
+            }
+            return Self.oauth2Router()(request, state)
+        }
+
+        let server = TestHTTPServer(router: router)
+        let port = try server.start()
+
+        let identity = mtls ? OpenSSLPKI.generateSelfSigned() : nil
+        if mtls, identity == nil {
+            server.stop()
+            throw XCTSkip("openssl is required to generate the §6.1 test client identity")
+        }
+
+        let client = try AxiamClient(config: AxiamConfig(
+            baseURL: URL(string: "http://127.0.0.1:\(port)")!,
+            tenantID: Self.tenantUUID,
+            clientCertificate: identity.map {
+                ClientCertificate.pem(certificate: $0.certificatePEM, privateKey: $0.keyPEM)
+            },
+            requestTimeout: 10,
+            oidcClientID: Self.clientID,
+            oidcClientSecret: Sensitive("client-secret")))
+
+        do {
+            try await body(client, server)
+        } catch {
+            try? await client.shutdown()
+            server.stop()
+            throw error
+        }
+        try? await client.shutdown()
+        server.stop()
+    }
+
+    func testARelativeAliasIsRefusedAndNeverFallsBack() async throws {
+        // Vector C defect 1. A relative alias resolves against nothing the client holds, and
+        // the one base that might seem obvious — the issuer's host — is precisely the host the
+        // alias exists to name a different one from.
+        try await withPublishedAliases(["token_endpoint": "/oauth2/token"]) { client, server in
+            do {
+                _ = try await client.loginClientCredentials()
+                XCTFail("an unusable alias must be refused, not fallen back from")
+            } catch let AxiamError.auth(error) {
+                XCTAssertTrue(
+                    error.message.contains("/oauth2/token"), "message was: \(error.message)")
+                XCTAssertTrue(
+                    error.message.contains("§21.3.1"), "message was: \(error.message)")
+            }
+
+            // The refusal is the point: NOTHING was sent. Falling back would have presented
+            // the client certificate to the front-channel host, which authenticates nothing
+            // while appearing to work.
+            XCTAssertEqual(server.state.count("token"), 0)
+        }
+    }
+
+    func testASchemeDowngradingAliasIsRefusedAndNeverFallsBack() async throws {
+        // Vector C defect 2. The top-level endpoint is https and the alias is cleartext;
+        // mutual TLS over cleartext is a contradiction. The https endpoint need not exist —
+        // the refusal happens before anything is sent, which is exactly what is asserted.
+        try await withPublishedAliases(
+            ["token_endpoint": "http://mtls.axiam.test/oauth2/token"],
+            overrides: ["token_endpoint": "https://api.axiam.test/oauth2/token"]
+        ) { client, server in
+            do {
+                _ = try await client.loginClientCredentials()
+                XCTFail("a scheme downgrade must be refused, not fallen back from")
+            } catch let AxiamError.auth(error) {
+                XCTAssertTrue(error.message.contains("http"), "message was: \(error.message)")
+                XCTAssertTrue(
+                    error.message.contains("§21.3.1"), "message was: \(error.message)")
+            }
+
+            XCTAssertEqual(server.state.count("token"), 0)
+        }
+    }
+
+    func testTheRefusalIsAnAuthErrorNotANetworkError() async throws {
+        // Not a stylistic choice. §16.3 retries NetworkError and ONLY NetworkError, so
+        // classifying this as one would attempt a permanent, deterministic operator
+        // misconfiguration three times and then report it as transient.
+        try await withPublishedAliases(["token_endpoint": "/oauth2/token"]) { client, _ in
+            do {
+                _ = try await client.loginClientCredentials()
+                XCTFail("expected a refusal")
+            } catch let AxiamError.network(error) {
+                XCTFail("must not be a NetworkError: \(error.message)")
+            } catch let AxiamError.auth(error) {
+                XCTAssertFalse(error.message.isEmpty)
+            }
+        }
+    }
+
+    func testLikeForLikeCleartextIsAcceptedNotADowngrade() async throws {
+        // The I4 twin for the downgrade rule. A development deployment served over http
+        // publishes http aliases; that is not a downgrade, and AXIAM's own build_mtls_aliases
+        // produces exactly this. Refusing it would break a supported configuration in the
+        // name of a rule about downgrades.
+        //
+        // This suite's own harness IS such a deployment — every listener here is http — so
+        // the alias simply names this same server.
+        try await withTwoListeners(mtls: true, aliases: true) { client, _, mtlsServer, _ in
+            _ = try await client.loginClientCredentials()
+
+            // It reached the alias host over cleartext rather than being refused.
+            XCTAssertEqual(mtlsServer.state.count("token"), 1)
+        }
+    }
+
+    func testAMalformedAliasIsInertForAClientNotDoingMtls() async throws {
+        // The I4 twin for the whole vector. A client with no §6.1 identity never reaches an
+        // alias at all, so an operator publishing a broken one cannot break it. This is what
+        // "configured as today behaves as today" means for the majority of callers.
+        try await withPublishedAliases(
+            ["token_endpoint": "/oauth2/token"],
+            mtls: false
+        ) { client, server in
+            _ = try await client.loginClientCredentials()
+
+            XCTAssertEqual(server.state.count("token"), 1)
+        }
+    }
+
+    func testAnUnusableAliasForOneEndpointDoesNotPoisonAnother() async throws {
+        // Only the member actually used is validated. An operator who breaks
+        // `introspection_endpoint` has not thereby broken the token endpoint — the refusal is
+        // scoped to the call that would have used the bad alias.
+        try await withPublishedAliases([
+            "introspection_endpoint": "/oauth2/introspect"
+        ]) { client, server in
+            _ = try await client.loginClientCredentials()
+
+            XCTAssertEqual(server.state.count("token"), 1)
+        }
+    }
 }

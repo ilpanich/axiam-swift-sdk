@@ -87,13 +87,16 @@ extension AxiamClient {
     /// A `nil` result for a conditionally-advertised endpoint still means "this server does
     /// not support the feature" — the caller raises that, and never concatenates a URL onto
     /// the issuer.
+    /// - Throws: ``AxiamError/auth(_:)`` when the document publishes an alias this client
+    ///   cannot use — see ``assertUsableMtlsAlias(_:replaces:)``.
     func preferredEndpoint(
         _ document: OidcConfiguration,
         _ pick: (MtlsEndpointAliases) -> String?,
         _ topLevel: String?
-    ) -> String? {
+    ) throws -> String? {
         if presentsClientCertificate, let aliases = document.mtlsEndpointAliases,
            let alias = pick(aliases), !alias.isEmpty {
+            try Self.assertUsableMtlsAlias(alias, replaces: topLevel)
             return alias
         }
         return topLevel
@@ -104,8 +107,66 @@ extension AxiamClient {
         _ document: OidcConfiguration,
         _ pick: (MtlsEndpointAliases) -> String?,
         required topLevel: String
-    ) -> String {
-        preferredEndpoint(document, pick, topLevel) ?? topLevel
+    ) throws -> String {
+        try preferredEndpoint(document, pick, topLevel) ?? topLevel
+    }
+
+    /// Refuses an `mtls_endpoint_aliases` entry that cannot carry a client certificate
+    /// (CONTRACT.md §21.3.1 vector C, contract 1.43).
+    ///
+    /// Falling back to the top-level endpoint looks like the safe answer and is the dangerous
+    /// one: the caller asked to authenticate with a certificate, the operator published
+    /// something unusable, and sending the certificate to the front-channel host
+    /// authenticates nothing while appearing to work.
+    ///
+    /// Two defects, each a refusal on its own:
+    ///
+    /// - **Not an absolute URL.** A relative alias resolves against nothing the client holds,
+    ///   and the one base that might seem obvious — the issuer's host — is precisely the host
+    ///   the alias exists to name a different one from.
+    /// - **A scheme weaker than the endpoint it replaces.** An alias substitutes for exactly
+    ///   one top-level endpoint, so that is what it is compared against: `https` → `http` is a
+    ///   downgrade, while `http` → `http` is a development deployment, which AXIAM's own
+    ///   `build_mtls_aliases` supports.
+    ///
+    /// The refusal is an ``AuthError``, matching every other "the discovery document
+    /// advertises something this client cannot use" in this SDK. It also matters
+    /// operationally: §16.3 retries ``NetworkError`` and only ``NetworkError``, so the other
+    /// choice would have attempted a permanent, deterministic misconfiguration three times
+    /// and reported it as transient.
+    ///
+    /// - Throws: ``AxiamError/auth(_:)`` when `alias` is relative, or downgrades the scheme
+    ///   of the endpoint it replaces.
+    static func assertUsableMtlsAlias(_ alias: String, replaces topLevel: String?) throws {
+        guard let parsed = URL(string: alias),
+              let scheme = parsed.scheme?.lowercased(),
+              let host = parsed.host, !host.isEmpty
+        else {
+            throw AxiamError.auth(AuthError(
+                "mtls_endpoint_aliases publishes \"\(alias)\", which is not an absolute URL. "
+                    + "Refusing rather than falling back to the top-level endpoint: this call "
+                    + "presents a client certificate, and sending it to the front-channel host "
+                    + "would authenticate nothing while appearing to work "
+                    + "(CONTRACT.md §21.3.1 vector C)."
+            ))
+        }
+
+        let replacedIsTLS: Bool = {
+            guard let topLevel, !topLevel.isEmpty,
+                  let replaced = URL(string: topLevel),
+                  let replacedScheme = replaced.scheme?.lowercased()
+            else { return false }
+            return replacedScheme == "https"
+        }()
+
+        if replacedIsTLS, scheme != "https" {
+            throw AxiamError.auth(AuthError(
+                "mtls_endpoint_aliases publishes \"\(alias)\", whose scheme is \"\(scheme)\", in "
+                    + "place of an https endpoint. That is a downgrade, and mutual TLS over "
+                    + "cleartext is a contradiction; refusing rather than falling back to the "
+                    + "top-level endpoint (CONTRACT.md §21.3.1 vector C)."
+            ))
+        }
     }
 
     // MARK: - The token endpoint
@@ -139,7 +200,7 @@ extension AxiamClient {
         document: OidcConfiguration,
         tenantID: String?
     ) async throws -> TokenResponseWire {
-        let endpoint = preferredEndpoint(document, { $0.tokenEndpoint }, required: document.tokenEndpoint)
+        let endpoint = try preferredEndpoint(document, { $0.tokenEndpoint }, required: document.tokenEndpoint)
         let response = try await oidcFormPost(endpoint, form: form, tenantID: tenantID)
         guard (200..<300).contains(response.status) else { throw oidcMapGrantError(response) }
         return try oidcDecode(TokenResponseWire.self, response.body, "token response")

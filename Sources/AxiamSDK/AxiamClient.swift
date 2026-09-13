@@ -24,6 +24,9 @@ public actor AxiamClient {
     let config: AxiamConfig
     private let transport: HTTPTransport
     let jwks: JwksVerifier
+    /// The CONTRACT.md §10.4 revocation feed, or `nil` when the caller did not opt in
+    /// (contract 1.44). `nil` is the default and means the feature is off entirely.
+    let revocationFeed: RevocationFeed?
 
     // Session state (actor-isolated).
     private var cookieJar = CookieJar()
@@ -98,6 +101,17 @@ public actor AxiamClient {
             tenantHeaderValue: config.tenantHeaderValue,
             requestTimeout: config.requestTimeout
         )
+        // CONTRACT.md §10.4 (contract 1.44). Built only when the caller opted in, so a client
+        // that did not ask for it holds no poller and issues no fetch — "default off" is a
+        // structural property here, not a branch taken at verification time.
+        self.revocationFeed = config.revocationFeedEnabled
+            ? RevocationFeed(
+                transport: transport,
+                baseURL: config.baseURL,
+                pollInterval: config.revocationPollInterval,
+                requestTimeout: config.requestTimeout
+            )
+            : nil
         self.telemetry = TelemetryDispatcher(config.telemetryHook)
         self.memo = DecisionMemo(requestedTTL: config.decisionMemoTtl)
 
@@ -320,7 +334,8 @@ public actor AxiamClient {
             tenantID: config.tenantHeaderValue,
             tenantSlug: config.tenantSlug,
             expectedIssuer: config.expectedIssuer,
-            expectedAudience: config.expectedAudience
+            expectedAudience: config.expectedAudience,
+            revocationFeed: revocationFeed
         )
     }
 

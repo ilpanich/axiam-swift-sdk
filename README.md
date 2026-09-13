@@ -332,6 +332,72 @@ The **UMA 2.0 ticket grant is deliberately untouched**: it reads its token endpo
 separate `Uma2Configuration` document (`/.well-known/uma2-configuration`), which carries no
 aliases, and §21.3 rule 2 is scoped to the OIDC discovery document.
 
+#### An unusable alias is refused, never fallen back from (§21.3.1 vector C, contract 1.43)
+
+A published alias that cannot carry a client certificate throws `AxiamError.auth` naming the
+member. It does **not** quietly fall back to the top-level endpoint.
+
+Falling back looks like the safe answer and is the dangerous one. The caller asked to
+authenticate with a certificate; the operator published something unusable; presenting the
+certificate to the front-channel host authenticates nothing while appearing to work. A
+refusal is loud, local to one endpoint, and fixable by the operator who caused it.
+
+Two defects, each a refusal on its own:
+
+- **Not an absolute URL.** A relative alias resolves against nothing the client holds, and
+  the one base that might seem obvious — the issuer's host — is precisely the host the alias
+  exists to name a different one from.
+- **A scheme weaker than the endpoint it replaces.** An alias substitutes for exactly one
+  top-level endpoint, so that is what it is compared against. `https` → `http` is a downgrade
+  and mutual TLS over cleartext is a contradiction; `http` → `http` is a development
+  deployment, which AXIAM's own `build_mtls_aliases` supports, and it is accepted.
+
+It is `.auth` rather than `.network` deliberately. Nothing failed in transport, and §16.3
+retries `NetworkError` and only `NetworkError` — classifying this as one would attempt a
+permanent, deterministic misconfiguration three times and then report it as transient.
+
+The check is scoped to the alias actually used, so a broken `introspectionEndpoint` leaves the
+token endpoint working, and a client with no certificate never reads the member at all.
+
+## The session-revocation feed (CONTRACT.md §10.4, contract 1.44, opt-in)
+
+The §10 guard proves a token was issued by this deployment and has not expired. It cannot
+prove the session behind it still exists — so a logout, a role removal or an account disable
+does not reach a token already in a caller's hands until that token expires, up to fifteen
+minutes later. §10.2 records this, and its standing answer is to route the decision through
+gRPC introspection, which is correct and costs a round trip **per request**.
+
+A deployment may instead publish `GET /oauth2/revocations`: the base64url-unpadded SHA-256 of
+every session id revoked within the last access-token lifetime. Polling it narrows the window
+to **one poll interval**, for one cacheable fetch per interval.
+
+```swift
+let config = try AxiamConfig(
+    baseURL: URL(string: "https://axiam.example.com")!,
+    tenantID: tenantID,
+    revocationFeedEnabled: true          // default false — omit it and nothing below happens
+)
+let client = try AxiamClient(config: config)
+let user = try await client.makeAuthenticator().authenticate(context)
+```
+
+Five properties, each of which is a test in `Tests/AxiamSDKTests/RevocationFeedTests.swift`:
+
+| Rule | What it means here |
+|---|---|
+| **Default off** | `revocationFeedEnabled` defaults to `false`, and when it is `false` **no poller is constructed at all** — there is nothing to call, not a poller that declines to fetch. Asserted by counting requests on the wire. |
+| **Never on the request path** | `authenticate` answers from the cached set and refreshes at most once per interval. A revoked session is rejected *after one poll and not before*. |
+| **Never fails closed** | Unreachable, non-`200`, unparseable, unknown `alg`, or more than `maxEntries` entries — every one behaves exactly as no feed at all, and specifically **not** as an empty list, which would assert that nothing has been revoked. A failed poll leaves the last good set in place. |
+| **Only ever rejects** | Every §10.1 rule runs first and still decides. A token that fails one is rejected whatever the feed says, and the feed is not consulted — nor fetched — for it. |
+| **No `sid`, never matched** | A client-credentials token, an RPT or a token exchange has no session behind it. There is no `jti` fallback: hashing `jti` would match nothing while looking like it worked. |
+
+The poll interval defaults to 30 s and is **clamped** to a 15 s floor rather than refused, so a
+caller who asks for something faster gets the fastest thing on offer. The feed is an `actor`,
+so every guard built from one client polls once between them.
+
+This is a narrowing, not a control. It shortens the window in which a revoked session is still
+accepted; it does not close it, and a deployment that does not publish the feed is unaffected.
+
 ## Sensitive values (§7)
 
 Secret material (the MFA challenge token, the mTLS private key) is wrapped in `Sensitive<T>`,
