@@ -14,6 +14,8 @@ extension AxiamClient {
         static let authenticateFinish = "api/v1/auth/webauthn/authenticate/finish"
         static let discoverableStart = "api/v1/auth/webauthn/authenticate/discoverable/start"
         static let discoverableFinish = "api/v1/auth/webauthn/authenticate/discoverable/finish"
+        static let setupRegisterStart = "api/v1/auth/webauthn/setup/register/start"
+        static let setupRegisterFinish = "api/v1/auth/webauthn/setup/register/finish"
     }
 
     /// `POST /api/v1/auth/webauthn/register/start` (CONTRACT.md §24.1) — begin enrolling a
@@ -58,7 +60,7 @@ extension AxiamClient {
         )
         let http = try await webauthnRawSend(path: WebauthnPath.registerFinish, body: body)
         guard http.status == 200 || http.status == 201 else {
-            throw webauthnRegisterFinishError(http)
+            throw webauthnFinishErrorSurfacingPolicyMessage(http, operation: "webauthnRegisterFinish")
         }
 
         let wire = try webauthnDecode(WebauthnCredentialResponse.self, http)
@@ -148,11 +150,79 @@ extension AxiamClient {
         )
     }
 
+    /// `POST /api/v1/auth/webauthn/setup/register/start` (CONTRACT.md §24.1, contract 1.45)
+    /// — the WebAuthn twin of ``mfaSetupEnroll(setupToken:)``: begin enrolling a passkey or
+    /// security key as the **first** factor a forced-enrolment login demanded.
+    ///
+    /// Reached the same way ``mfaSetupEnroll(setupToken:)`` is: `login` answered
+    /// `.mfaSetupRequired` and handed back a `setupToken`. **Takes no session** — the setup
+    /// token is the only credential, it travels in the body, and this call MUST NOT (and does
+    /// not) require a session or attach one, even when this client happens to hold one
+    /// (§24.1, §24.8). The server refuses an account that already has a factor with the same
+    /// `400` `mfa_setup_enroll` gives — a setup token adds a first factor, never a second.
+    public func webauthnSetupRegisterStart(
+        setupToken: Sensitive<String>
+    ) async throws -> WebauthnChallenge {
+        try ensureOpen()
+        let body = try Self.webauthnJSONObject(["setup_token": setupToken.expose()])
+        let http = try await setupTokenRawSend(path: WebauthnPath.setupRegisterStart, body: body)
+        return try parseWebauthnStartResponse(http)
+    }
+
+    /// `POST /api/v1/auth/webauthn/setup/register/finish` (CONTRACT.md §24.1, contract 1.45)
+    /// — finish enrolling the factor ``webauthnSetupRegisterStart(setupToken:)`` began, and
+    /// with it complete the login that was interrupted.
+    ///
+    /// **Adopts credentials exactly as ``mfaSetupConfirm(setupToken:totpCode:)`` does**
+    /// (§25.2 rule 2): both are the completion of the same interrupted login, both answer
+    /// `LoginSuccessResponse`, and a caller must end up authenticated the same way regardless
+    /// of which factor the user chose. Like ``webauthnSetupRegisterStart(setupToken:)``, this
+    /// call carries **no** session credential of its own, in either direction on the request.
+    @discardableResult
+    public func webauthnSetupRegisterFinish(
+        setupToken: Sensitive<String>,
+        stateToken: Sensitive<String>,
+        credentialName: String,
+        response: String
+    ) async throws -> AxiamUser {
+        try ensureOpen()
+        clearDecisionMemo() // §25.2 rule 2 → §24.3 rule 4
+
+        let body = try Self.webauthnFinishBody(
+            stateToken: stateToken,
+            response: response,
+            operation: "webauthnSetupRegisterFinish",
+            extraFields: [
+                "setup_token": setupToken.expose(),
+                "credential_name": credentialName,
+            ]
+        )
+        let http = try await setupTokenRawSend(path: WebauthnPath.setupRegisterFinish, body: body)
+        guard http.status == 200 else {
+            throw webauthnFinishErrorSurfacingPolicyMessage(http, operation: "webauthnSetupRegisterFinish")
+        }
+
+        let success = try webauthnDecode(LoginSuccessResponse.self, http)
+        let user = success.toUser()
+        adoptSessionAfterCeremony(user: user)
+        return user
+    }
+
     // MARK: - Shared mechanics
 
-    /// Runs either `*_start` call and returns the options untouched.
+    /// Runs either session-bearing `*_start` call and returns the options untouched.
     private func webauthnStart(path: String, body: Data) async throws -> WebauthnChallenge {
         let http = try await webauthnRawSend(path: path, body: body)
+        return try parseWebauthnStartResponse(http)
+    }
+
+    /// Parses a `*_start` response into a ``WebauthnChallenge``. Shared by every entry point
+    /// that reaches this wire shape regardless of which transport carried the request — the
+    /// four session-bearing starts through `webauthnRawSend`, and
+    /// ``webauthnSetupRegisterStart(setupToken:)`` (contract 1.45) through
+    /// ``AxiamClient/setupTokenRawSend(path:body:)``, which withholds this client's own
+    /// session credential.
+    private func parseWebauthnStartResponse(_ http: HTTPResponseData) throws -> WebauthnChallenge {
         guard http.status == 200 else { throw webauthnMapError(http, "webauthn start failed") }
 
         guard
@@ -282,14 +352,18 @@ extension AxiamClient {
         }
     }
 
-    /// §24.4 rule 1: the `403` from `register/finish` is the one whose *body* matters.
+    /// §24.4 rule 1: the `403` from `register/finish` — and, identically, from
+    /// `setup/register/finish` (contract 1.45) — is the one whose *body* matters.
     ///
-    /// The generic §2 mapping would raise an ``AuthzError`` reading
-    /// "webauthnRegisterFinish failed", which tells the person holding the key nothing they
-    /// can act on. The tenant's attestation policy rejected *this* authenticator, and the
-    /// server's message is the only place that says which one would be accepted.
-    private func webauthnRegisterFinishError(_ http: HTTPResponseData) -> AxiamError {
-        var context = "webauthnRegisterFinish failed"
+    /// The generic §2 mapping would raise an ``AuthzError`` reading "<operation> failed",
+    /// which tells the person holding the key nothing they can act on. The tenant's
+    /// attestation policy rejected *this* authenticator, and the server's message is the
+    /// only place that says which one would be accepted.
+    private func webauthnFinishErrorSurfacingPolicyMessage(
+        _ http: HTTPResponseData,
+        operation: String
+    ) -> AxiamError {
+        var context = "\(operation) failed"
         if http.status == 403,
            let root = try? JSONSerialization.jsonObject(with: http.body) as? [String: Any],
            let message = root["message"] as? String,

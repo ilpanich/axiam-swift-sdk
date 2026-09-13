@@ -81,6 +81,42 @@ extension AxiamClient {
         )
     }
 
+    /// The `setup/register/*` pair with the ceremony between them, in one call — the
+    /// setup-token twin of ``webauthnRegister(credentialName:anchor:attachment:)``
+    /// (contract 1.45).
+    ///
+    /// **Not one of §24.1's three named composed helpers** (`webauthn_register`,
+    /// `webauthn_login`, `webauthn_discoverable_login`) — the contract does not canonicalize
+    /// a fourth for the setup pair, and this SDK is not required to ship it. It is added
+    /// anyway, additively (§24.6b rule 1), because it invents nothing: the ceremony is the
+    /// same `WebauthnCeremony.performRegistration` `webauthnRegister` already drives, and
+    /// without this a caller on the one platform this SDK links an authenticator API for
+    /// would have the composed convenience for every WebAuthn flow except the one this exact
+    /// change (M-3) exists to unblock — choosing a passkey at forced first-login enrolment.
+    /// ``webauthnSetupRegisterStart(setupToken:)`` and
+    /// ``webauthnSetupRegisterFinish(setupToken:stateToken:credentialName:response:)`` stay
+    /// public for the same reason the other pairs' pieces do.
+    @discardableResult
+    public func webauthnSetupRegister(
+        setupToken: Sensitive<String>,
+        credentialName: String,
+        anchor: WebauthnPresentationAnchorProviding,
+        attachment: WebauthnAttachment? = nil
+    ) async throws -> AxiamUser {
+        let challenge = try await webauthnSetupRegisterStart(setupToken: setupToken)
+        let response = try await WebauthnCeremony.performRegistration(
+            requestJson: challenge.requestJson,
+            anchor: anchor,
+            attachment: attachment
+        )
+        return try await webauthnSetupRegisterFinish(
+            setupToken: setupToken,
+            stateToken: challenge.stateToken,
+            credentialName: credentialName,
+            response: response
+        )
+    }
+
     /// `webauthn_login` (CONTRACT.md §24.1) — the second-factor authenticate pair, composed.
     ///
     /// Continues a ``login(email:password:)`` that answered `.mfaRequired`; pass `nil` to

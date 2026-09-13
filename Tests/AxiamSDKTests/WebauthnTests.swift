@@ -546,6 +546,172 @@ final class WebauthnTests: XCTestCase {
         XCTAssertTrue(WebauthnFailure.cancelled.message.contains("cancelled or timed out"))
     }
 
+    // MARK: - §24.1 / §24.8 / §25.2 rule 2 — `setup/register/*` (contract 1.45)
+
+    private static let setupToken = "setup-token-fixture-do-not-log"
+
+    func testSetupRegisterStartSendsOnlyTheSetupToken() async throws {
+        try await withClient(router: { _, _ in
+            .json(200, Self.challengeBody(Self.minimalCreationChallenge))
+        }) { client, server in
+            // No `login()` call at all — unlike `webauthnRegisterStart`, there is no session
+            // to have first (§24.1: "takes no session at all").
+            _ = try await client.webauthnSetupRegisterStart(setupToken: Sensitive(Self.setupToken))
+
+            let sent = try XCTUnwrap(
+                server.state.requests(pathContaining: "setup/register/start").first
+            )
+            let body = try XCTUnwrap(JSONSerialization.jsonObject(with: sent.body) as? [String: Any])
+            XCTAssertEqual(body["setup_token"] as? String, Self.setupToken)
+            XCTAssertEqual(body.count, 1, "no user_id, no tenant_id — the token names the account")
+        }
+    }
+
+    func testSetupRegisterFinishSendsSetupTokenStateTokenAndCredentialName() async throws {
+        try await withClient(router: { _, _ in
+            .json(200, TestKit.loginSuccessBody())
+        }) { client, server in
+            _ = try await client.webauthnSetupRegisterFinish(
+                setupToken: Sensitive(Self.setupToken),
+                stateToken: Sensitive(Self.stateToken),
+                credentialName: "Alice's key",
+                response: Self.registrationResponse
+            )
+
+            let sent = try XCTUnwrap(
+                server.state.requests(pathContaining: "setup/register/finish").first
+            )
+            let body = try XCTUnwrap(JSONSerialization.jsonObject(with: sent.body) as? [String: Any])
+            XCTAssertEqual(body["setup_token"] as? String, Self.setupToken)
+            XCTAssertEqual(body["state_token"] as? String, Self.stateToken)
+            XCTAssertEqual(body["credential_name"] as? String, "Alice's key")
+
+            let sentString = String(decoding: sent.body, as: UTF8.self)
+            XCTAssertTrue(
+                sentString.contains(Self.registrationResponse),
+                "the authenticator response must reach the wire byte for byte (§24.6a rule 2)"
+            )
+        }
+    }
+
+    func testSetupRegisterFinishAdoptsTheSessionExactlyAsMfaSetupConfirmDoes() async throws {
+        // §24.8 / §25.2 rule 2: the two completions of a forced-enrolment login must leave
+        // the client in the same state, or a caller's next request succeeds or fails
+        // depending on which factor the user happened to choose. This runs the exact
+        // adoption assertions `testACompletedCeremonyLeavesTheClientAuthenticated` and
+        // `AccountLifecycleTests.testMfaSetupConfirmAdoptsTheSessionLikeALogin` make,
+        // against `webauthnSetupRegisterFinish`, plus the state-changing follow-up §24.8
+        // asks for explicitly.
+        try await withClient(router: { request, _ in
+            if request.uri.hasSuffix("setup/register/finish") {
+                return .json(200, TestKit.loginSuccessBody(), headers: [
+                    ("Set-Cookie", "axiam_access=tok-setup-webauthn; Path=/; HttpOnly"),
+                    ("X-CSRF-Token", "csrf-setup-webauthn"),
+                ])
+            }
+            // The follow-up state-changing call, reached only once the client believes it
+            // has a session — `mfaEnroll` refuses client-side with no wire call otherwise.
+            return .json(200, ["secret_base32": "SECRET", "totp_uri": "otpauth://totp/x"])
+        }) { client, server in
+            let user = try await client.webauthnSetupRegisterFinish(
+                setupToken: Sensitive(Self.setupToken),
+                stateToken: Sensitive(Self.stateToken),
+                credentialName: "Alice's key",
+                response: Self.registrationResponse
+            )
+
+            XCTAssertEqual(user.userID, "user-uuid-1")
+            let hasSession = await client._hasSession()
+            XCTAssertTrue(hasSession)
+            let csrf = await client._csrfToken()
+            XCTAssertEqual(csrf, "csrf-setup-webauthn")
+
+            // The state-changing call made immediately afterwards carries the captured
+            // CSRF token — the assertion §24.8 requires, not just that the jar holds one.
+            _ = try await client.mfaEnroll()
+            let followUp = try XCTUnwrap(server.state.requests(pathContaining: "mfa/enroll").last)
+            XCTAssertEqual(followUp.header("X-CSRF-Token"), "csrf-setup-webauthn")
+        }
+    }
+
+    func testSetupRegisterCarriesNoSessionCredentialEvenWithOneConfigured() async throws {
+        // §24.1 / §24.8: an SDK MUST NOT attach its session credential to `setup/register/*`
+        // even when one is configured. Sign in first, so this client's own jar genuinely
+        // holds a session — a stale one, or an unrelated caller's — and then run both
+        // `setup/register/*` calls with a setup token. Neither request may carry the
+        // session's cookie (this SDK's session credential; it never sends an Authorization
+        // header at all, so that half of the contract's wording holds trivially).
+        try await withClient(router: { request, _ in
+            if request.uri.hasSuffix("/auth/login") { return Self.signInResponse() }
+            if request.uri.hasSuffix("setup/register/start") {
+                return .json(200, Self.challengeBody(Self.minimalCreationChallenge))
+            }
+            return .json(200, TestKit.loginSuccessBody())
+        }) { client, server in
+            _ = try await client.login(email: "a@b.c", password: "pw")
+            let hasSession = await client._hasSession()
+            XCTAssertTrue(hasSession, "the session must genuinely be configured for this test to mean anything")
+
+            _ = try await client.webauthnSetupRegisterStart(setupToken: Sensitive(Self.setupToken))
+            _ = try await client.webauthnSetupRegisterFinish(
+                setupToken: Sensitive(Self.setupToken),
+                stateToken: Sensitive(Self.stateToken),
+                credentialName: "Alice's key",
+                response: Self.registrationResponse
+            )
+
+            let start = try XCTUnwrap(
+                server.state.requests(pathContaining: "setup/register/start").first
+            )
+            let finish = try XCTUnwrap(
+                server.state.requests(pathContaining: "setup/register/finish").first
+            )
+            for request in [start, finish] {
+                XCTAssertNil(request.header("Cookie"), "\(request.uri) sent the session cookie")
+                XCTAssertNil(
+                    request.header("Authorization"),
+                    "\(request.uri) sent an Authorization header"
+                )
+            }
+        }
+    }
+
+    func testSetupRegisterFinish403KeepsTheAttestationPolicyMessage() async throws {
+        try await withClient(router: { _, _ in
+            .json(403, ["message": "this security key is not FIDO certified"])
+        }) { client, _ in
+            do {
+                _ = try await client.webauthnSetupRegisterFinish(
+                    setupToken: Sensitive(Self.setupToken),
+                    stateToken: Sensitive(Self.stateToken),
+                    credentialName: "key",
+                    response: Self.registrationResponse
+                )
+                XCTFail("expected an authz error")
+            } catch let AxiamError.authz(error) {
+                XCTAssertTrue(
+                    error.message.contains("FIDO certified"),
+                    "the attestation policy message was lost: \(error.message)"
+                )
+            }
+        }
+    }
+
+    func testSetupRegisterStartRefusesASecondFactorWithTheSameAnswerAsMfaSetupEnroll() async throws {
+        // Rule 2: the account already has a factor. The server's answer is `400`, the same
+        // one `mfa_setup_enroll` gives — a setup token adds a first factor, never a second.
+        try await withClient(router: { _, _ in
+            .json(400, ["message": "this account already has a configured factor"])
+        }) { client, _ in
+            do {
+                _ = try await client.webauthnSetupRegisterStart(setupToken: Sensitive(Self.setupToken))
+                XCTFail("expected a network/validation error")
+            } catch AxiamError.network {
+                // expected
+            }
+        }
+    }
+
     func testFeatureDetectionAnswersRatherThanThrows() async throws {
         try await withClient(router: { _, _ in .json(200, [:]) }) { client, _ in
             // §24.6b rule 6: a query, not an exception, so a caller hides a button rather

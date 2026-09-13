@@ -621,6 +621,48 @@ final class ManagementSemanticsTests: XCTestCase {
         XCTAssertFalse(properties.contains("clientSecret"), "\(properties)")
     }
 
+    func testSignCsrsResponseTypeCarriesNoPrivateKeyFieldAtAll() async throws {
+        // C-1 / §27.1 / §27.5: `certificates.sign_csr` answers the existing `Certificate` —
+        // never `GeneratedCertificate`, whose `privateKeyPEM` is mandatory and would always
+        // be absent here, because AXIAM never held the key the CSR was built from. The
+        // absence is structural, the same way §27.5 rule 3 checks it for a one-time secret:
+        // `Mirror` over the decoded VALUE `signCSR` actually returned finds no key field to
+        // fetch, not merely a schema comment saying there should not be one.
+        let (client, _) = try await ManagementFixture.signedIn([
+            (status: 201, body: Self.certificateRow(boundServiceAccountID: nil)),
+        ])
+
+        let issued = try await client.certificates.signCSR(body: SignCertificateCsrRequest(
+            certType: .device,
+            csrPEM: "-----BEGIN CERTIFICATE REQUEST-----",
+            issuerCAID: Self.uuid,
+            validityDays: 365))
+
+        let properties = Mirror(reflecting: issued).children.compactMap { $0.label }
+        XCTAssertFalse(properties.contains("privateKeyPEM"), "\(properties)")
+        XCTAssertFalse(properties.contains { $0.lowercased().contains("privatekey") }, "\(properties)")
+
+        // The contrast that makes the absence meaningful: `certificates.generate` answers a
+        // DIFFERENT type that legitimately carries the key, decoded from a body shaped like
+        // the real `generate` response (with `private_key_pem` present, unlike the fixture
+        // above). A regression that pointed `signCSR` at `GeneratedCertificate` would have
+        // already failed the call above outright — `GeneratedCertificate.privateKeyPEM` is
+        // mandatory, and the sign-csr fixture carries no such field to decode — so this is
+        // not what catches that regression. It documents the other half of the C-1 property
+        // instead: the type `generate` legitimately returns still has the field `sign_csr`'s
+        // must never have, so nobody "fixes" `Certificate` by adding one back.
+        let generated = try JSONDecoder().decode(GeneratedCertificate.self, from: Data("""
+            {"cert_type": "Device", "created_at": "2026-08-26T00:00:00Z", "fingerprint": "aa:bb", \
+            "id": "\(Self.uuid)", "issuer_ca_id": "\(Self.uuid)", "key_algorithm": "Ed25519", \
+            "metadata": {}, "not_after": "2027-08-26T00:00:00Z", "not_before": "2026-08-26T00:00:00Z", \
+            "private_key_pem": "example", \
+            "public_cert_pem": "example", "status": "Active", \
+            "subject": "CN=device-001", "tenant_id": "\(Self.uuid)"}
+            """.utf8))
+        let generatedProperties = Mirror(reflecting: generated).children.compactMap { $0.label }
+        XCTAssertTrue(generatedProperties.contains("privateKeyPEM"), "\(generatedProperties)")
+    }
+
     /// A minimal `Tenant` row as the server would send it. `kind` is the bare wire value,
     /// or `nil` to leave the property out entirely.
     private static func tenantRow(slug: String, kind: String?) -> String {
