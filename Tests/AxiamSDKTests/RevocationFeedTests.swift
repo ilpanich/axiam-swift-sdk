@@ -254,7 +254,7 @@ final class RevocationFeedTests: XCTestCase {
             } catch is AuthError {}
 
             // Force the interval to have elapsed, so the next verification really re-polls.
-            if let feed = client.revocationFeed {
+            if let feed = await client.revocationFeed {
                 await feed.setClock { Date().addingTimeInterval(600) }
             } else {
                 XCTFail("the feed should have been built when enabled")
@@ -350,7 +350,7 @@ final class RevocationFeedTests: XCTestCase {
             enabled: true,
             feed: { _ in TestResponse(status: 200, body: Data()) }
         ) { client, _ in
-            let feed = client.revocationFeed
+            let feed = await client.revocationFeed
             XCTAssertNotNil(feed)
             // The default, since withFeedClient does not name one.
             let interval = await feed?.effectivePollInterval
@@ -382,7 +382,7 @@ final class RevocationFeedTests: XCTestCase {
             enabled: false,
             feed: { _ in TestResponse(status: 200, body: Data()) }
         ) { client, _ in
-            let feed = client.revocationFeed
+            let feed = await client.revocationFeed
             XCTAssertNil(feed)
         }
     }

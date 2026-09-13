@@ -388,7 +388,7 @@ final class MtlsEndpointAliasesTests: XCTestCase {
             do {
                 _ = try await client.loginClientCredentials()
                 XCTFail("an unusable alias must be refused, not fallen back from")
-            } catch let AxiamError.auth(error) {
+            } catch AxiamError.auth(let error) {
                 XCTAssertTrue(
                     error.message.contains("/oauth2/token"), "message was: \(error.message)")
                 XCTAssertTrue(
@@ -413,7 +413,7 @@ final class MtlsEndpointAliasesTests: XCTestCase {
             do {
                 _ = try await client.loginClientCredentials()
                 XCTFail("a scheme downgrade must be refused, not fallen back from")
-            } catch let AxiamError.auth(error) {
+            } catch AxiamError.auth(let error) {
                 XCTAssertTrue(error.message.contains("http"), "message was: \(error.message)")
                 XCTAssertTrue(
                     error.message.contains("§21.3.1"), "message was: \(error.message)")
@@ -431,9 +431,9 @@ final class MtlsEndpointAliasesTests: XCTestCase {
             do {
                 _ = try await client.loginClientCredentials()
                 XCTFail("expected a refusal")
-            } catch let AxiamError.network(error) {
+            } catch AxiamError.network(let error) {
                 XCTFail("must not be a NetworkError: \(error.message)")
-            } catch let AxiamError.auth(error) {
+            } catch AxiamError.auth(let error) {
                 XCTAssertFalse(error.message.isEmpty)
             }
         }
