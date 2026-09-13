@@ -4,7 +4,7 @@
 
 import Foundation
 
-// CONTRACT.md §27 namespace handles — 158 operations across 24 of them.
+// CONTRACT.md §27 namespace handles — 159 operations across 24 of them.
 //
 // §27.2 rule 1: a handle is cheap and stateless. It holds the client and a scope of two
 // optional strings, acquiring one performs no I/O, and every accessor below builds a fresh one
@@ -483,6 +483,25 @@ public struct UsersApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decode([RoleAssignment].self, from: data)
+    }
+
+    /// `GET /api/v1/users/{user_id}/sessions`
+    ///
+    /// - Parameter userID: The `{user_id}` path parameter.
+    public func listSessions(userID: String) async throws -> [SessionResponse] {
+        let pathParameters = ["user_id": userID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "users.list_sessions",
+            method: .get,
+            template: "/api/v1/users/{user_id}/sessions",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode([SessionResponse].self, from: data)
     }
 
 }

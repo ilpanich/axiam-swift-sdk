@@ -105,7 +105,7 @@ extension AxiamClient {
         if let audience { form["audience"] = audience }
         if let resource { form["resource"] = resource }
 
-        let endpoint = preferredEndpoint(document, { $0.tokenEndpoint }, required: document.tokenEndpoint)
+        let endpoint = try preferredEndpoint(document, { $0.tokenEndpoint }, required: document.tokenEndpoint)
         let response = try await oidcFormPost(endpoint, form: form, tenantID: tenantID)
         guard (200..<300).contains(response.status) else {
             // Dispatches on the `error` field before the status mapping (§15.3), and surfaces it

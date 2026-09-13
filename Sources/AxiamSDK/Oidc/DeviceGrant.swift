@@ -39,7 +39,7 @@ extension AxiamClient {
         // §21.3 rule 2: prefer the mTLS alias when this call presents a client certificate.
         // `nil` at BOTH levels still means "unsupported" — never a cue to build the URL by
         // concatenation (§14.1).
-        guard let endpoint = preferredEndpoint(
+        guard let endpoint = try preferredEndpoint(
             document, { $0.deviceAuthorizationEndpoint }, document.deviceAuthorizationEndpoint
         ) else {
             throw AxiamError.network(NetworkError(

@@ -488,6 +488,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(transport.last?.path, "/api/v1/users/11111111-1111-4111-8111-111111111111/roles")
     }
 
+    func testUsersListSessionsReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "[{\"amr\": [\"example\"], \"authenticated_at\": \"example\", \"created_at\": \"example\", \"expires_at\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"refresh_replay_at\": \"example\", \"refresh_replay_grace_accepted\": 1, \"refresh_replay_refused\": 1, \"refresh_replay_verdict\": \"example\", \"user_agent\": \"example\"}]")])
+        _ = try await client.users.listSessions(userID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/users/11111111-1111-4111-8111-111111111111/sessions")
+    }
+
     func testGroupsListReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
             [(status: 200, body: "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
@@ -4244,6 +4254,32 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
+    func testSessionResponseRoundTripsWithoutLosingAField() throws {
+        let json = "{\"amr\": [\"example\"], \"authenticated_at\": \"example\", \"created_at\": \"example\", \"expires_at\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"refresh_replay_at\": \"example\", \"refresh_replay_grace_accepted\": 1, \"refresh_replay_refused\": 1, \"refresh_replay_verdict\": \"example\", \"user_agent\": \"example\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(SessionResponse.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(SessionResponse.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
     func testSetMtlsTrustAnchorRoundTripsWithoutLosingAField() throws {
         let json = "{\"enabled\": true}"
         let wire = try XCTUnwrap(
@@ -7290,6 +7326,36 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: fromDecoded))
     }
 
+    func testSessionResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"amr\": [\"example\"], \"authenticated_at\": \"example\", \"created_at\": \"example\", \"expires_at\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"refresh_replay_at\": \"example\", \"refresh_replay_grace_accepted\": 1, \"refresh_replay_refused\": 1, \"refresh_replay_verdict\": \"example\", \"user_agent\": \"example\"}"
+        let decoded = try JSONDecoder().decode(SessionResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SessionResponse(
+            amr: decoded.amr,
+            authenticatedAt: decoded.authenticatedAt,
+            createdAt: decoded.createdAt,
+            expiresAt: decoded.expiresAt,
+            id: decoded.id,
+            ipAddress: decoded.ipAddress,
+            refreshReplayAt: decoded.refreshReplayAt,
+            refreshReplayGraceAccepted: decoded.refreshReplayGraceAccepted,
+            refreshReplayRefused: decoded.refreshReplayRefused,
+            refreshReplayVerdict: decoded.refreshReplayVerdict,
+            userAgent: decoded.userAgent)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
     func testSetMtlsTrustAnchorMemberwiseInitializerAssignsEveryProperty() throws {
         let json = "{\"enabled\": true}"
         let decoded = try JSONDecoder().decode(SetMtlsTrustAnchor.self, from: Data(json.utf8))
@@ -8795,7 +8861,7 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
-    // §27.9: this file covers 158 operations, 121 models (121 of them also through their
+    // §27.9: this file covers 159 operations, 122 models (122 of them also through their
     // memberwise initializer) and 24 enums.
     //
     // The counts above are literals THIS generator wrote, so comparing them to each other would
@@ -8817,7 +8883,7 @@ final class ManagementGeneratedTests: XCTestCase {
         let declared = namespaces.values.reduce(into: 0) { total, namespace in
             total += (namespace["operations"] as? [String: Any])?.count ?? 0
         }
-        XCTAssertEqual(declared, 158,
+        XCTAssertEqual(declared, 159,
                        "the registry declares a different number of operations than this file covers — regenerate with Scripts/gen_management.py")
         XCTAssertEqual(namespaces.count, 24)
     }

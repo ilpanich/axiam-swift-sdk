@@ -72,6 +72,14 @@ struct JwtClaims: Decodable, Sendable {
     /// accepting it without proving the caller holds that key converts it straight back
     /// into a bearer token.
     let cnf: CnfClaim?
+    /// OIDC Core `sid` — the session this token was minted for (CONTRACT.md §10.4,
+    /// contract 1.44).
+    ///
+    /// Optional and frequently absent: a client-credentials token, an RPT and a token
+    /// exchange have no session behind them. That distinction is load-bearing — the
+    /// revocation feed never matches a token without one, and there is no `jti` fallback,
+    /// because hashing `jti` instead would match nothing while looking like it worked.
+    let sid: String?
 }
 
 /// RFC 7800 confirmation claim.

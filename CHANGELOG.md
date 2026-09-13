@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **CONTRACT.md §10.4 — an optional session-revocation feed poller (contract
+  1.44).** The new `RevocationFeed` actor, switched on with
+  `AxiamConfig.revocationFeedEnabled` (and paced by `revocationPollInterval`),
+  plus `RevocationFeed.entry(for:)` and the three bounds the contract names.
+
+  Local verification proves a token was issued and has not expired, never that
+  the session behind it still exists — so a logout or a role removal does not
+  reach a token already in a caller's hands until it expires, up to fifteen
+  minutes. A deployment that publishes `GET /oauth2/revocations` lets a guard
+  close that to **one poll interval**, for one cacheable fetch per interval.
+
+  Nothing changes unless you enable it: the flag defaults to `false`, and when
+  it is `false` **no poller is constructed at all** — "default off" is a
+  structural property here rather than a branch taken at verification time. It
+  never fetches on the request path after the first call; `authenticate` reads a
+  cached set. And it never fails closed: an unreachable feed, a non-`200`, an
+  unparseable body or an unknown `alg` all behave exactly as no feed at all, and
+  specifically **not** as an empty list, which would assert that nothing has
+  been revoked. A token with no `sid` is never matched against it, and there is
+  no fallback to `jti`. The feed is an `actor`, so one instance serves every
+  guard built from a client.
+
+- `JwtClaims.sid`, decoded from the OIDC Core `sid` claim; `nil` when the token
+  carries none, which keeps "no session behind this token" distinct from "a
+  session named the empty string".
+
+- Two tests pinning CONTRACT.md §16 against the server's new answer for a
+  contended write — `503` with `Retry-After: 1` (AXIAM T-262). No behaviour
+  changed: §16.3 already retried an eligible read and already honoured
+  `Retry-After` as a floor, and a non-idempotent call already made exactly one
+  attempt. Both halves are asserted through the public surface with a wire
+  count, because a retry policy nobody exercises that way is the failure §16.7
+  exists for.
+
+### Changed
+
+- **A malformed `mtls_endpoint_aliases` entry now throws instead of falling back
+  to the top-level endpoint** (CONTRACT.md §21.3.1 vector C, contract 1.43).
+
+  Falling back looks like the safe answer and is the dangerous one: the caller
+  asked to authenticate with a certificate, the operator published something
+  unusable, and sending the certificate to the front-channel host authenticates
+  nothing while appearing to work.
+
+  "Malformed" means not an absolute URL, or a scheme weaker than the top-level
+  endpoint the alias replaces — comparing like with like, so an `http` alias for
+  an `http` endpoint (a development deployment) is still accepted.
+
+  The refusal is an `AxiamError.auth`, not `.network`: nothing failed in
+  transport, and §16.3 retries `NetworkError` and only `NetworkError`, so the
+  other choice would have retried a permanent misconfiguration three times and
+  reported it as a transient one. It is per endpoint, so one malformed alias
+  leaves every other endpoint working, and a client built without
+  `clientCertificate` never reads the member at all.
+
+- Re-vendored `CONTRACT.md` (1.44), `openapi.json` and
+  `management-registry.json` from `axiam`, and regenerated the §27 management
+  surface. The surface gains `SessionResponse`, whose T-254 replay fields were
+  published server-side at 1.0.0-beta13.
+
 ## [1.0.0-beta13] - 2026-09-12
 
 ### Added

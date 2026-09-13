@@ -7057,6 +7057,118 @@ public struct ServiceAccountResponse: Codable, Sendable {
     }
 }
 
+/// One of a user's sessions, as an administrator sees it.
+public struct SessionResponse: Codable, Sendable {
+    /// RFC 8176 method references for that authentication.
+    public let amr: [String]
+
+    /// X7.2 — when the end user actually authenticated, which is not `created_at` on a session
+    /// produced by refresh rotation.
+    public let authenticatedAt: String
+
+    /// The server's `created_at` field.
+    public let createdAt: String
+
+    /// The server's `expires_at` field.
+    public let expiresAt: String
+
+    /// The server's `id` field.
+    public let id: String
+
+    /// The server's `ip_address` field.
+    public let ipAddress: String?
+
+    /// T-254 — when a refresh token of this session was last presented after it had already
+    /// been rotated. `None` if that has never happened.
+    public let refreshReplayAt: String?
+
+    /// T-254 — replays accepted under the FAPI 2.0 §5.3.2.1-9 grace window. Only ever non-zero
+    /// for a client registered `profile: fapi2`.
+    public let refreshReplayGraceAccepted: Int
+
+    /// T-254 — replays refused because there was no window to accept them in. Nothing a
+    /// conformant client does.
+    public let refreshReplayRefused: Int
+
+    /// T-254 — the badge: `none`, `fapi_grace_retry` or `refused`. Derived from the two
+    /// counters below rather than stored, so it cannot disagree with them. A refusal outranks
+    /// an accepted grace retry however the counts compare.
+    public let refreshReplayVerdict: String
+
+    /// The server's `user_agent` field.
+    public let userAgent: String?
+
+    public init(
+        amr: [String],
+        authenticatedAt: String,
+        createdAt: String,
+        expiresAt: String,
+        id: String,
+        ipAddress: String? = nil,
+        refreshReplayAt: String? = nil,
+        refreshReplayGraceAccepted: Int,
+        refreshReplayRefused: Int,
+        refreshReplayVerdict: String,
+        userAgent: String? = nil
+    ) {
+        self.amr = amr
+        self.authenticatedAt = authenticatedAt
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt
+        self.id = id
+        self.ipAddress = ipAddress
+        self.refreshReplayAt = refreshReplayAt
+        self.refreshReplayGraceAccepted = refreshReplayGraceAccepted
+        self.refreshReplayRefused = refreshReplayRefused
+        self.refreshReplayVerdict = refreshReplayVerdict
+        self.userAgent = userAgent
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case amr = "amr"
+        case authenticatedAt = "authenticated_at"
+        case createdAt = "created_at"
+        case expiresAt = "expires_at"
+        case id = "id"
+        case ipAddress = "ip_address"
+        case refreshReplayAt = "refresh_replay_at"
+        case refreshReplayGraceAccepted = "refresh_replay_grace_accepted"
+        case refreshReplayRefused = "refresh_replay_refused"
+        case refreshReplayVerdict = "refresh_replay_verdict"
+        case userAgent = "user_agent"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.amr = try container.decode([String].self, forKey: .amr)
+        self.authenticatedAt = try container.decode(String.self, forKey: .authenticatedAt)
+        self.createdAt = try container.decode(String.self, forKey: .createdAt)
+        self.expiresAt = try container.decode(String.self, forKey: .expiresAt)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.ipAddress = try container.decodeIfPresent(String.self, forKey: .ipAddress)
+        self.refreshReplayAt = try container.decodeIfPresent(String.self, forKey: .refreshReplayAt)
+        self.refreshReplayGraceAccepted = try container.decode(Int.self, forKey: .refreshReplayGraceAccepted)
+        self.refreshReplayRefused = try container.decode(Int.self, forKey: .refreshReplayRefused)
+        self.refreshReplayVerdict = try container.decode(String.self, forKey: .refreshReplayVerdict)
+        self.userAgent = try container.decodeIfPresent(String.self, forKey: .userAgent)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(amr, forKey: .amr)
+        try container.encode(authenticatedAt, forKey: .authenticatedAt)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(expiresAt, forKey: .expiresAt)
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(ipAddress, forKey: .ipAddress)
+        try container.encodeIfPresent(refreshReplayAt, forKey: .refreshReplayAt)
+        try container.encode(refreshReplayGraceAccepted, forKey: .refreshReplayGraceAccepted)
+        try container.encode(refreshReplayRefused, forKey: .refreshReplayRefused)
+        try container.encode(refreshReplayVerdict, forKey: .refreshReplayVerdict)
+        try container.encodeIfPresent(userAgent, forKey: .userAgent)
+    }
+}
+
 /// Body for `PUT .../ca-certificates/{id}/mtls-trust-anchor`.
 public struct SetMtlsTrustAnchor: Codable, Sendable {
     /// Whether this CA should be trusted for client-certificate authentication.

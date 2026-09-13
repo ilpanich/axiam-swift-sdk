@@ -52,7 +52,7 @@ extension AxiamClient {
         let clientID = try requireOidcClientID()
 
         guard
-            let endpoint = preferredEndpoint(
+            let endpoint = try preferredEndpoint(
                 document,
                 { $0.pushedAuthorizationRequestEndpoint },
                 document.pushedAuthorizationRequestEndpoint

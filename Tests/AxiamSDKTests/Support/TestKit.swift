@@ -10,7 +10,9 @@ enum TestKit {
         tenantID: String? = nil,
         orgSlug: String? = "globex",
         expectedIssuer: String? = nil,
-        expectedAudience: String? = nil
+        expectedAudience: String? = nil,
+        revocationFeedEnabled: Bool = false,
+        revocationPollInterval: TimeInterval? = nil
     ) throws -> AxiamConfig {
         try AxiamConfig(
             baseURL: URL(string: "http://127.0.0.1:\(port)")!,
@@ -19,7 +21,9 @@ enum TestKit {
             orgSlug: orgSlug,
             requestTimeout: 10,
             expectedIssuer: expectedIssuer,
-            expectedAudience: expectedAudience
+            expectedAudience: expectedAudience,
+            revocationFeedEnabled: revocationFeedEnabled,
+            revocationPollInterval: revocationPollInterval
         )
     }
 
