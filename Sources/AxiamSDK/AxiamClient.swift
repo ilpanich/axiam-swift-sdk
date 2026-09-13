@@ -990,6 +990,42 @@ extension AxiamClient {
         try await rawSend(method: .post, path: path, body: body)
     }
 
+    /// One JSON POST for the §24.1 `setup/register/*` pair (contract 1.45), which — unlike
+    /// every other call `webauthnRawSend` carries — MUST NOT ride this client's own session
+    /// credential, even when one is configured (§24.1, §24.8): the setup token in the body
+    /// is the only credential these two accept, and attaching a second one invites a server
+    /// that changes its mind about which to trust.
+    ///
+    /// Built like `rawSend` in every other respect. The §5 tenant header still goes out
+    /// (rule 2 admits no exceptions), and a `Set-Cookie` / `X-CSRF-Token` on the RESPONSE is
+    /// still captured into this client's jar — `setup/register/finish` completes a login,
+    /// and its own §24.3 adoption depends on that landing exactly as it does for every other
+    /// credential-adopting call. What is withheld is only what this client already holds
+    /// coming IN: no `Cookie` header is sent, and no `X-CSRF-Token` is echoed, so a session
+    /// already in the jar from an unrelated prior login can never ride alongside the setup
+    /// token.
+    func setupTokenRawSend(path: String, body: Data) async throws -> HTTPResponseData {
+        let url = config.baseURL.appendingPathComponent(path)
+        let headers: [(String, String)] = [
+            ("X-Tenant-ID", config.tenantHeaderValue), // §5: on every request
+            ("Accept", "application/json"),
+            ("Content-Type", "application/json"),
+        ]
+        let spec = HTTPRequestSpec(method: .post, url: url, headers: headers, body: body)
+        let response = try await transport.execute(spec, timeout: config.requestTimeout)
+
+        // §24.3 rule 2 / §24.8: a completed `finish` still adopts the session this response
+        // sets, exactly as every other §24/§25 credential-adopting call does.
+        let setCookies = response.allHeaders("set-cookie")
+        if !setCookies.isEmpty {
+            cookieJar.store(setCookieLines: setCookies, requestURL: url)
+        }
+        if let csrf = response.firstHeader("x-csrf-token") {
+            csrfToken = csrf
+        }
+        return response
+    }
+
     /// One JSON POST against this client's own base URL whose **response carries the session**.
     ///
     /// The two §12.1 federation completions (`sso_complete_oauth2`, `sso_complete_handoff`)

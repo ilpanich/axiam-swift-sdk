@@ -4,7 +4,7 @@
 
 import Foundation
 
-// CONTRACT.md §27 namespace handles — 159 operations across 24 of them.
+// CONTRACT.md §27 namespace handles — 160 operations across 24 of them.
 //
 // §27.2 rule 1: a handle is cheap and stateless. It holds the client and a scope of two
 // optional strings, acquiring one performs no I/O, and every accessor below builds a fresh one
@@ -1942,6 +1942,25 @@ public struct CertificatesApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decode(GeneratedCertificate.self, from: data)
+    }
+
+    /// `POST /api/v1/certificates/sign-csr`
+    ///
+    /// - Parameter body: The request body.
+    public func signCSR(body: SignCertificateCsrRequest) async throws -> Certificate {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "certificates.sign_csr",
+            method: .post,
+            template: "/api/v1/certificates/sign-csr",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(Certificate.self, from: data)
     }
 
     /// `GET /api/v1/certificates/{id}`

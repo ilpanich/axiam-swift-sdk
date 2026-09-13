@@ -7513,6 +7513,68 @@ public struct SignAuditBatchRequest: Codable, Sendable {
     }
 }
 
+/// Body of `POST /api/v1/certificates/sign-csr`. No `subject` and no `key_algorithm`: both are
+/// read out of the CSR, which is the only place they can be stated without the row and the
+/// certificate being able to disagree. No key is returned, so there is no key field anywhere on
+/// this exchange.
+public struct SignCertificateCsrRequest: Codable, Sendable {
+    /// The server's `cert_type` field.
+    public let certType: CertificateType
+
+    /// PEM-encoded PKCS#10 request — a `BEGIN CERTIFICATE REQUEST` block. The legacy OpenSSL
+    /// `BEGIN NEW CERTIFICATE REQUEST` header is not accepted.
+    public let csrPEM: String
+
+    /// The server's `issuer_ca_id` field.
+    public let issuerCAID: String
+
+    /// The server's `metadata` field.
+    public let metadata: ManagementJSON?
+
+    /// Validity duration in days.
+    public let validityDays: Int
+
+    public init(
+        certType: CertificateType,
+        csrPEM: String,
+        issuerCAID: String,
+        metadata: ManagementJSON? = nil,
+        validityDays: Int
+    ) {
+        self.certType = certType
+        self.csrPEM = csrPEM
+        self.issuerCAID = issuerCAID
+        self.metadata = metadata
+        self.validityDays = validityDays
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case certType = "cert_type"
+        case csrPEM = "csr_pem"
+        case issuerCAID = "issuer_ca_id"
+        case metadata = "metadata"
+        case validityDays = "validity_days"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.certType = try container.decode(CertificateType.self, forKey: .certType)
+        self.csrPEM = try container.decode(String.self, forKey: .csrPEM)
+        self.issuerCAID = try container.decode(String.self, forKey: .issuerCAID)
+        self.metadata = try container.decodeIfPresent(ManagementJSON.self, forKey: .metadata)
+        self.validityDays = try container.decode(Int.self, forKey: .validityDays)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(certType, forKey: .certType)
+        try container.encode(csrPEM, forKey: .csrPEM)
+        try container.encode(issuerCAID, forKey: .issuerCAID)
+        try container.encodeIfPresent(metadata, forKey: .metadata)
+        try container.encode(validityDays, forKey: .validityDays)
+    }
+}
+
 /// Body of `POST .../tenants/{tenant_id}/signing-cas/sign-csr`. Deliberately carries no key
 /// algorithm: it is the CSR's, read out of the request, because a caller who could state it
 /// separately could state one the key does not have.

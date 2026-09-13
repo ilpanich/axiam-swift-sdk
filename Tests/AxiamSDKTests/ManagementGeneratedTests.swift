@@ -213,6 +213,11 @@ final class ManagementGeneratedTests: XCTestCase {
         "{\"entry_ids\": [\"11111111-1111-4111-8111-111111111111\"]}",
         "SignAuditBatchRequest")
 
+    static let fixtureSignCertificateCsrRequest: SignCertificateCsrRequest = decodeFixture(
+        SignCertificateCsrRequest.self,
+        "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"validity_days\": 1}",
+        "SignCertificateCsrRequest")
+
     static let fixtureSignIntermediateCsrRequest: SignIntermediateCsrRequest = decodeFixture(
         SignIntermediateCsrRequest.self,
         "{\"csr_pem\": \"example\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}",
@@ -1066,6 +1071,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(transport.count, 1)
         XCTAssertEqual(transport.last?.method, "POST")
         XCTAssertEqual(transport.last?.path, "/api/v1/certificates")
+    }
+
+    func testCertificatesSignCsrReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}")])
+        _ = try await client.certificates.signCSR(body: Self.fixtureSignCertificateCsrRequest)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/certificates/sign-csr")
     }
 
     func testCertificatesGetReachesItsRoute() async throws {
@@ -4384,6 +4399,32 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
+    func testSignCertificateCsrRequestRoundTripsWithoutLosingAField() throws {
+        let json = "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"validity_days\": 1}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(SignCertificateCsrRequest.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(SignCertificateCsrRequest.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
     func testSignIntermediateCsrRequestRoundTripsWithoutLosingAField() throws {
         let json = "{\"csr_pem\": \"example\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}"
         let wire = try XCTUnwrap(
@@ -7466,6 +7507,30 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: fromDecoded))
     }
 
+    func testSignCertificateCsrRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"validity_days\": 1}"
+        let decoded = try JSONDecoder().decode(SignCertificateCsrRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SignCertificateCsrRequest(
+            certType: decoded.certType,
+            csrPEM: decoded.csrPEM,
+            issuerCAID: decoded.issuerCAID,
+            metadata: decoded.metadata,
+            validityDays: decoded.validityDays)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
     func testSignIntermediateCsrRequestMemberwiseInitializerAssignsEveryProperty() throws {
         let json = "{\"csr_pem\": \"example\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}"
         let decoded = try JSONDecoder().decode(SignIntermediateCsrRequest.self, from: Data(json.utf8))
@@ -8861,7 +8926,7 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
-    // §27.9: this file covers 159 operations, 122 models (122 of them also through their
+    // §27.9: this file covers 160 operations, 123 models (123 of them also through their
     // memberwise initializer) and 24 enums.
     //
     // The counts above are literals THIS generator wrote, so comparing them to each other would
@@ -8883,7 +8948,7 @@ final class ManagementGeneratedTests: XCTestCase {
         let declared = namespaces.values.reduce(into: 0) { total, namespace in
             total += (namespace["operations"] as? [String: Any])?.count ?? 0
         }
-        XCTAssertEqual(declared, 159,
+        XCTAssertEqual(declared, 160,
                        "the registry declares a different number of operations than this file covers — regenerate with Scripts/gen_management.py")
         XCTAssertEqual(namespaces.count, 24)
     }

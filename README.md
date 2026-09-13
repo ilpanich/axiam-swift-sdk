@@ -50,10 +50,10 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §16 bounded read-only retry, §17 decision memo, §18 `close()`, §19 telemetry hooks | ✅ implemented |
 | §12 OIDC/SSO relying-party helpers | ✅ implemented (contract 1.11; the four login-provider operations added at 1.37, rule 12a at 1.38) — the **thirteen** operations on `AxiamClient`, under the names §12.2 had reserved for Swift while the section was deferred |
 | §12.7 logout, §14 device grant, §15 token exchange | ✅ implemented (contract 1.11) — all three build on §12's discovery cache, token endpoint and ID-token validation, which is exactly why they land together with it |
-| §24 WebAuthn / passkeys | ✅ implemented (contract 1.28) — the six relying-party operations and §24.6a's JSON bridge on **every** target, plus §24.6b's linked-API ceremony helpers on iOS 16+ and macOS 13+. The Linux build keeps the RP layer and the bridge; `webauthnCeremonySupported` answers `false` there rather than throwing |
-| §25 account lifecycle & MFA enrolment | ✅ implemented (contract 1.28) — voluntary and forced TOTP enrolment, email verification, and the password-reset triple |
+| §24 WebAuthn / passkeys | ✅ implemented (contract 1.45) — the eight relying-party operations (register, authenticate, discoverable, and the setup-token pair added at 1.45 for forced first-login enrolment) and §24.6a's JSON bridge on **every** target, plus §24.6b's linked-API ceremony helpers on iOS 16+ and macOS 13+, including the setup-token composed helper. The Linux build keeps the RP layer and the bridge; `webauthnCeremonySupported` answers `false` there rather than throwing |
+| §25 account lifecycle & MFA enrolment | ✅ implemented (contract 1.45) — voluntary and forced TOTP enrolment, a passkey or security key as the first factor at forced enrolment (contract 1.45), email verification, and the password-reset triple |
 | §26 Pushed Authorization Requests (RFC 9126) | ✅ implemented (contract 1.28) — required for a FAPI 2.0 client, which cannot authorize any other way (§21.1) |
-| §27 management API | ✅ implemented — 158 operations across 24 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL |
+| §27 management API | ✅ implemented — 160 operations across 24 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL |
 | §20 UMA 2.0 Protection API + ticket grant | ✅ implemented, and it landed *before* §12 rather than waiting for it: UMA carries its own discovery document (`/.well-known/uma2-configuration`), the Protection API is ordinary bearer-authenticated REST, and the ticket grant returns an opaque RPT with no `id_token` to validate. That §20 could ship alone is part of what showed the §12 deferral was cutting across the wrong seam — see contract §12.6 |
 
 ## Installation
@@ -1189,8 +1189,10 @@ working against you and no SDK-level change fixes that.
 
 ## WebAuthn / passkeys (§24)
 
-Six wire operations, two ceremonies, and — on Apple platforms — three composed helpers that
-do the whole thing in one call.
+Eight wire operations (six session-bearing, plus the setup-token pair added at contract
+1.45, covered in the MFA enrolment section below), two ceremonies, and — on Apple
+platforms — three named composed helpers that do the whole thing in one call, plus a
+fourth this SDK adds for the setup-token pair.
 
 ```swift
 // Enrolment — requires a session (§24.1), refused client-side without one.
@@ -1247,7 +1249,7 @@ Conditional mediation (passkey autofill) may never settle — the user simply ma
 passkey — so cancel the enclosing `Task` to abandon it. That surfaces as
 `WebauthnFailure.cancelled`, **not** as an authentication failure (§24.6b rule 3).
 
-**The composed helpers are additive** (§24.6b rule 1): the six wire operations stay public,
+**The composed helpers are additive** (§24.6b rule 1): every wire operation stays public,
 because a caller running a virtual authenticator in a test, or holding a response produced
 on another device, needs the pieces.
 
@@ -1328,6 +1330,34 @@ as enabled when it is not.
 Both halves of an `MfaEnrollment` are `Sensitive`, and the second one matters: the
 `otpauth://` URI *contains* the secret (§25.3). Wrapping the bare secret and then logging
 the URI leaks the same bytes.
+
+### A passkey instead of TOTP at forced enrolment (§24.1, §25.2, contract 1.45)
+
+The `mfaSetupRequired` branch above is not TOTP-only. `webauthnSetupRegisterStart` /
+`webauthnSetupRegisterFinish` are the WebAuthn twin of `mfaSetupEnroll` / `mfaSetupConfirm` —
+same setup token, same **no session at all**, same completion of the interrupted login:
+
+```swift
+case let .mfaSetupRequired(setupToken):
+    let challenge = try await client.webauthnSetupRegisterStart(setupToken: setupToken)
+    // ... run the ceremony, or hand challenge.requestJson to a platform API ...
+    let user = try await client.webauthnSetupRegisterFinish(
+        setupToken: setupToken,
+        stateToken: challenge.stateToken,
+        credentialName: "Alice's laptop",
+        response: platformResponseJSON
+    )
+```
+
+`webauthnSetupRegisterFinish` adopts credentials exactly as `mfaSetupConfirm` does (§25.2
+rule 2) — both are completions of the same interrupted login, and a caller ends up
+authenticated the same way whichever factor the user chose. Neither call requires a session,
+and neither attaches one of its own: the setup token is the only credential these two take,
+even when this client happens to be signed in to something else already.
+
+On iOS 16+ / macOS 13+, `webauthnSetupRegister(setupToken:credentialName:anchor:attachment:)`
+composes the pair with a ceremony in one call, the same way `webauthnRegister` does for the
+session-bearing pair — additive, and not one of §24.1's three named composed helpers.
 
 ### Password reset, and the two things it will not tell you
 
@@ -1533,7 +1563,7 @@ including a transport skeleton: [`Examples/Reactor`](Examples/Reactor/main.swift
 
 ## Management API (§27)
 
-158 operations across 24 namespaces, reached through namespace handles that sit directly on
+160 operations across 24 namespaces, reached through namespace handles that sit directly on
 the client — the form §27.3's Swift row specifies (property, camelCase, `async`):
 
 ```swift
