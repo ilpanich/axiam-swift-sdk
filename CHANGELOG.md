@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta15] - 2026-09-15
+
 ### Added
+
+- Setup-token passkey enrolment and CSR-signed certificates (contract 1.45) (#61)
 
 - **Re-vendored `CONTRACT.md`, `openapi.json` and `management-registry.json` to
   contract 1.45** (upstream `ilpanich/axiam` `3d5b279`).
@@ -62,6 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   closes the one gap where the composed convenience this SDK ships for every
   other WebAuthn flow would otherwise be missing for the flow M-3 exists to
   unblock. Absent on Linux, like every §24.6b helper.
+
+### Changed
+
+- Re-vendor CONTRACT.md at 1.46
 
 ## [1.0.0-beta14] - 2026-09-13
 
