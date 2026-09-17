@@ -88,7 +88,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   change, and pulling it in here would fail this repository's §27 management drift-check gate
   (`Scripts/gen_management.py --check`) with ~800 lines of generated-code diff that has nothing to
   do with this section. `proto/` is unchanged — byte-identical to the vendored copy already
-  committed.
+  committed. **That deferred re-sync now has a name and a schedule: F-28-01 below.** The T21.9
+  T9d cross-SDK review upheld this decision and made it the rule for all eleven SDKs.
+
+### Changed
+
+- **Contract conformance statement corrected** (CONTRACT.md Closing Notes, §28.11 row R-3,
+  T21.9 T9d). The statement did not name §28 at all, although this SDK's §28 support shipped
+  with the vendored contract 1.48. The contract's own rule is that the statement follows the
+  code, never the contract's expectation of it; it now names §28 and says what this SDK's §28
+  surface is — REST only, guard-side, with no first-party Vapor adapter, matching the
+  framework-agnostic shape its §10/§11 guard already has.
+
+### Deferred
+
+- **F-28-01 — the vendored `openapi.json` and `CONTRACT.md` re-sync.** This repository declined
+  the `openapi.json` re-sync during T21.9 T9c, for the reason stated above, and the T9d
+  cross-SDK review found that decision **correct and now normative** — though not for the
+  reason this port gave. It followed the TypeScript reference; what it was actually joining was
+  a four-repository minority, since seven of the eleven SDKs *did* re-sync, from
+  `ilpanich/axiam`'s `claude/t21-2a-public-clients` phase branch. That branch kept moving, so
+  those seven were stale against it within hours, and none of the eleven matches
+  `ilpanich/axiam`'s current tree. Between them the eleven held five distinct byte-states of
+  `CONTRACT.md` and two of `openapi.json`, all calling themselves contract 1.48 (CONTRACT.md
+  §28.11 row R-1). Contract **1.49** states the rule that was missing: a vendored artefact is
+  re-synced from a **merged** `main`, never a phase branch. Both artefacts are therefore
+  re-synced here **once**, as F-28-01, after AXIAM Phase 21 lands on `main`, together with a
+  regeneration of the §27 management surface in the same commit. F-28-01 is recorded
+  identically in all eleven SDK repositories so that it cannot be lost.
 
 ## [1.0.0-beta15] - 2026-09-15
 

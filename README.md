@@ -13,8 +13,12 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
 > **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23,
-> §24, §25, §26 and §27 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes,
-> and the §23 OPAQUE login path — which needs `libaxiam_opaque_ffi` installed, see below).**
+> §24, §25, §26, §27 and §28 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason
+> codes, the §23 OPAQUE login path — which needs `libaxiam_opaque_ffi` installed, see below —
+> and §28's REST surface: `serveProtectedResourceMetadata` is not a function here, since this
+> SDK's core carries no Vapor dependency and its §10/§11 guard is likewise framework-agnostic,
+> so the route is a documented `AsyncMiddleware` wiring; §28.5 rule 8's gRPC/AMQP challenge
+> form does not apply, as this SDK's guard covers neither transport).**
 >
 > §22 is §22.1–§22.8 and §22.14 over a **caller-supplied transport**: this SDK vendors no AMQP
 > client, and you conform `ReactorTransport` over whichever one you already trust (§22.11).
