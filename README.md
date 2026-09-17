@@ -499,6 +499,122 @@ owns that key. Where a DPoP thumbprint has to travel, it is accepted as a parame
 computed: `oidcPar(…, dpopJkt:)` sends the caller's RFC 7638 thumbprint (RFC 9449 §10.1) and
 sends nothing when given nothing.
 
+## MCP resource-server helpers (CONTRACT.md §28, RFC 9728)
+
+The resource-server half of the Model Context Protocol authorization handshake: publishing the
+RFC 9728 *protected-resource metadata* document that tells an MCP client which authorization
+server guards your MCP server, and emitting the RFC 6750 `WWW-Authenticate` challenge that starts
+the client's discovery. AXIAM is the authorization server and implements none of this — your MCP
+server is the resource server, and §28 is its side.
+
+**Additive to §10/§11 and opt-in.** Nothing below changes what `authenticate(_:)` or
+`AxiamGuards` do; it adds one middleware option, `AxiamConfig.resourceMetadataUrl`. Leave it unset
+and every guard is byte-for-byte what it was before this section existed — no `WWW-Authenticate`
+header on any response, no status changed, no body changed.
+
+**No operation performs network I/O.** `protectedResourceMetadata` and `bearerChallenge` are pure
+local computation, like `oidcBegin` and `umaParseChallenge` — so neither §16's retry policy nor
+§9's single-flight refresh applies, and neither touches the client's own session. The *client*
+half of the handshake — parsing a challenge, fetching the document, deciding whether to trust the
+authorization server it names — is deliberately not shipped: a helper that read a 401 and acted on
+it would send a credential to whatever host the 401 asked it to.
+
+```swift
+let metadata = try AxiamClient.protectedResourceMetadata(
+    resource: "https://mcp.example.com/mcp",
+    authorizationServers: ["https://axiam.example.com"],
+    scopesSupported: ["mcp:read", "mcp:tools"]
+)
+metadata.metadataPath   // "/.well-known/oauth-protected-resource/mcp"
+metadata.metadataUrl    // "https://mcp.example.com/.well-known/oauth-protected-resource/mcp"
+
+let config = try AxiamConfig(
+    baseURL: URL(string: "https://id.example.com")!,
+    tenantID: "6f1c…-uuid",
+    expectedAudience: metadata.document.resource,   // MANDATORY once resourceMetadataUrl is set
+    resourceMetadataUrl: metadata.metadataUrl        // turns §28 on
+)
+```
+
+**`expectedAudience` is mandatory once `resourceMetadataUrl` is set**, and `AxiamConfig.init`
+refuses the configuration — naming both options — rather than publishing a document your guard
+does not honour: a resource server that announces "tokens for me carry this `aud`" and does not
+check `aud` is opened by a token minted for somebody else. This is §28's *only* audience option —
+it reuses `expectedAudience` rather than adding a second one.
+
+Once configured, every guard `AxiamGuards` returns picks up the challenge automatically:
+
+- `authenticate(_:)`'s `AuthError` (and `AxiamGuards.requireAuth()`/`requireRole(_:)`'s, which
+  wrap it) carries a formatted `WWW-Authenticate: Bearer …` value on `AuthError.challenge` — no
+  `error` parameter when the request carried no credential at all, `error="invalid_token"` for
+  every other rejection (expired, wrong tenant, wrong audience, bad signature, an unsatisfiable
+  `cnf`, a revoked session). The challenge never says which: every distinction a 401 draws for an
+  unauthenticated stranger is an oracle.
+- `requireAccess(_:resource:scope:)`'s `AuthzError.challenge` carries
+  `error="insufficient_scope", scope="…"` for exactly one case: the route named a `scope` and the
+  decision's `reasonCode` is `ReasonCode.noGrant`. A `deniedByRule` decision, an absent/unknown
+  reason code, and a denial with no `scope` argument all carry no header — `noGrant` means *ask
+  for more*, which is what a challenge invites; `deniedByRule` means *an administrator has already
+  decided*. A §20.3 `umaChallenge`, where configured, wins the tie — only one
+  `WWW-Authenticate` value is ever emitted.
+- A framework adapter that ignores `.challenge` gets exactly the 401/403 it always did: the JSON
+  shape this SDK's callers already build is unchanged, and `insufficient_scope` never appears
+  there — only inside the header value.
+
+### Wiring the route and the exemption into Vapor
+
+`serveProtectedResourceMetadata` is not a function in this SDK (no Vapor in the core, same
+reason the §10/§11 guard is framework-agnostic) — wire the route and the unauthenticated
+exemption into your `AsyncMiddleware` yourself:
+
+```swift
+import Vapor
+import AxiamSDK
+
+struct AxiamMiddleware: AsyncMiddleware {
+    let authenticator: AxiamRequestAuthenticator
+    let guardHandler: AxiamGuardHandler
+
+    func respond(to request: Request, chainingTo next: AsyncResponder) async throws -> Response {
+        // §28.3 rule 2: the metadata document MUST answer with no credential, even where this
+        // middleware is applied globally.
+        if authenticator.isProtectedResourceMetadataRequest(
+            method: request.method.rawValue, path: request.url.path
+        ) {
+            return try await next.respond(to: request)
+        }
+        do {
+            let user = try await guardHandler(AxiamRequestContext(/* … */))
+            request.storage[AxiamUserKey.self] = user
+            return try await next.respond(to: request)
+        } catch let error as AuthError {
+            var headers = HTTPHeaders()
+            if let challenge = error.challenge { headers.add(name: .wwwAuthenticate, value: challenge) }
+            throw Abort(.unauthorized, headers: headers)
+        } catch let error as AuthzError {
+            var headers = HTTPHeaders()
+            if let challenge = error.challenge { headers.add(name: .wwwAuthenticate, value: challenge) }
+            throw Abort(.forbidden, headers: headers)
+        } catch is NetworkError {
+            throw Abort(.serviceUnavailable)
+        }
+    }
+}
+
+// Registered on the bare app, never behind AxiamMiddleware — it serves itself unauthenticated.
+app.get("well-known", "oauth-protected-resource", "mcp") { _ -> Response in
+    var headers = HTTPHeaders()
+    headers.add(name: .contentType, value: "application/json")
+    headers.add(name: .cacheControl, value: "public, max-age=3600")
+    headers.add(name: "Access-Control-Allow-Origin", value: "*")
+    return Response(status: .ok, headers: headers, body: .init(data: metadata.jsonBody))
+}
+```
+
+`metadata.jsonBody` is the document serialized once at startup, so every caller — including a
+browser-based MCP client, which is what the `Access-Control-Allow-Origin: *` header is for —
+receives the identical bytes (§28.3 rule 4); nothing here reads the request.
+
 ## Decision reason codes (CONTRACT.md §11 rule 9)
 
 `AccessResult.reasonCode` distinguishes `no_grant` ("ask an admin for access") from

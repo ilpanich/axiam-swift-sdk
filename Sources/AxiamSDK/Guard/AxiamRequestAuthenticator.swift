@@ -60,6 +60,11 @@ public struct AxiamRequestAuthenticator: Sendable {
     /// rule 6).
     let expectedAudience: String?
 
+    /// CONTRACT.md §28.5's precomputed challenge values, or `nil` when
+    /// ``AxiamConfig/resourceMetadataUrl`` is unset — which is what keeps this guard byte-for-byte
+    /// identical to one built before §28 existed (§28.5 rule 1).
+    let mcpChallenges: McpChallenges?
+
     /// §10.1 rule 7 — the ONE named leeway applied to the `exp` and `nbf` comparisons.
     ///
     /// A constant, not an inline literal, and deliberately not settable: the contract forbids an
@@ -72,7 +77,8 @@ public struct AxiamRequestAuthenticator: Sendable {
         tenantSlug: String? = nil,
         expectedIssuer: String? = nil,
         expectedAudience: String? = nil,
-        revocationFeed: RevocationFeed? = nil
+        revocationFeed: RevocationFeed? = nil,
+        resourceMetadataUrl: String? = nil
     ) {
         self.jwks = jwks
         self.revocationFeed = revocationFeed
@@ -82,6 +88,9 @@ public struct AxiamRequestAuthenticator: Sendable {
         self.configuredTenants = tenants
         self.expectedIssuer = expectedIssuer
         self.expectedAudience = expectedAudience
+        // Not `throws`: `resourceMetadataUrl`, when non-`nil`, has already passed §28.4/§28.5's
+        // validation in `AxiamConfig.init` — the only place this SDK constructs one from.
+        self.mcpChallenges = resourceMetadataUrl.map { McpChallenges(resourceMetadataUrl: $0) }
     }
 
     /// The primary configured tenant identifier (the UUID form when one was configured).
@@ -135,10 +144,18 @@ public struct AxiamRequestAuthenticator: Sendable {
         let user = try await authenticate(context)
 
         guard let token = Self.extractToken(from: context) else {
-            throw AuthError("No AXIAM session: missing Authorization bearer token or axiam_access cookie.")
+            throw AuthError(
+                "No AXIAM session: missing Authorization bearer token or axiam_access cookie.",
+                challenge: mcpChallenges?.noCredential)
         }
-        let verified = try await jwks.verifySignatureOnlyUnchecked(token: token)
-        try Self.verifyCertificateBinding(verified.claims, presentedThumbprint: presentedThumbprint)
+        do {
+            let verified = try await jwks.verifySignatureOnlyUnchecked(token: token)
+            try Self.verifyCertificateBinding(verified.claims, presentedThumbprint: presentedThumbprint)
+        } catch let error as AuthError {
+            // §28.4: an unsatisfiable `cnf` is exactly as `invalid_token` as any other rejection
+            // (§28.6 — rule 9 is unchanged by §28, only the challenge it now carries).
+            throw AuthError(error.message, challenge: mcpChallenges?.invalidToken)
+        }
         return user
     }
 
@@ -304,9 +321,30 @@ public struct AxiamRequestAuthenticator: Sendable {
 
     public func authenticate(_ context: AxiamRequestContext) async throws -> AxiamUser {
         guard let token = Self.extractToken(from: context) else {
-            throw AuthError("No AXIAM session: missing Authorization bearer token or axiam_access cookie.")
+            // §28.4 vector 1: no credential is not a bad credential (RFC 6750 §3 — the automatic
+            // challenge names no `error` code for a request that carried none at all).
+            throw AuthError(
+                "No AXIAM session: missing Authorization bearer token or axiam_access cookie.",
+                challenge: mcpChallenges?.noCredential)
         }
+        do {
+            return try await authenticateVerifiedToken(token, context: context)
+        } catch let error as AuthError {
+            // §28.4 vector 2: a credential was presented and rejected. Expired, not yet valid,
+            // wrong tenant, wrong audience, bad signature, an unsatisfiable `cnf`, a revoked
+            // `sid` — every rejection below is `invalid_token`, indistinguishably; every
+            // distinction a 401 draws for an unauthenticated stranger is an oracle (§28.4, §28.8).
+            throw AuthError(
+                error.message, oauthError: error.oauthError, oauthErrorDescription: error.oauthErrorDescription,
+                challenge: mcpChallenges?.invalidToken)
+        }
+    }
 
+    /// Every §10.1 rule below rule 1's token extraction, given an already-extracted token.
+    /// Factored out of ``authenticate(_:)`` so that exactly one place attaches the §28.4
+    /// `invalid_token` challenge to whichever of these rules rejects, rather than repeating it at
+    /// each throw site.
+    private func authenticateVerifiedToken(_ token: String, context: AxiamRequestContext) async throws -> AxiamUser {
         // §10.1 rule 1. The primitive checks the signature only — every claim rule below is this
         // guard's job. A non-numeric `exp`/`nbf` or a wrong-typed `aud` already fails there, in
         // the strict claim decode.
@@ -429,6 +467,30 @@ public struct AxiamRequestAuthenticator: Sendable {
         guard tokenAudience.values.contains(expected) else {
             throw AuthError("Token aud does not contain the configured expected audience.")
         }
+    }
+
+    /// CONTRACT.md §28.3 rule 2 — true when this request is the unauthenticated `GET`/`HEAD` of
+    /// the protected-resource metadata document, the one path that MUST answer with no credential
+    /// even where this guard is applied globally.
+    ///
+    /// `false` unconditionally when ``AxiamConfig/resourceMetadataUrl`` is not configured (§28.5
+    /// rule 1): there is no path to exempt from a guard that has nothing to publish.
+    ///
+    /// A framework adapter applying this guard as global middleware — the README's Vapor
+    /// `AsyncMiddleware` example — calls this **first**, before extracting a credential, and skips
+    /// straight to the next responder when it returns `true`. A document that 401s cannot start
+    /// the handshake it exists to start.
+    ///
+    /// - Parameters:
+    ///   - method: the request's HTTP method, in any case.
+    ///   - path: the request's path component alone — no query string. Vapor's
+    ///     `request.url.path` is exactly this; a framework whose request URL includes the query
+    ///     (Express's `originalUrl`) must strip it before calling this.
+    public func isProtectedResourceMetadataRequest(method: String, path: String) -> Bool {
+        guard let mcpChallenges else { return false }
+        let verb = method.uppercased()
+        guard verb == "GET" || verb == "HEAD" else { return false }
+        return path == mcpChallenges.metadataPath
     }
 
     static func extractToken(from context: AxiamRequestContext) -> String? {

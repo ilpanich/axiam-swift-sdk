@@ -34,11 +34,26 @@ public struct AuthError: Error, Sendable, CustomStringConvertible {
     public let oauthError: String?
     /// The `error_description` field, when the server sent one.
     public let oauthErrorDescription: String?
+    /// A formatted `WWW-Authenticate: Bearer …` challenge value (CONTRACT.md §28.4), present only
+    /// when the guard that threw this error was configured with ``AxiamConfig/resourceMetadataUrl``
+    /// (§28.5). A framework adapter should copy it onto the 401 it already returns; one that
+    /// ignores it emits exactly the 401 it always did (§28.5 rule 1's off-by-default regression).
+    ///
+    /// Unlike ``AuthzError/challenge``, nothing in a §28 challenge is sensitive (§28.8) — it is
+    /// excluded from ``description`` anyway, for consistency with that field and because a
+    /// challenge belongs on a response header, not scrolled past in a log line.
+    public let challenge: String?
 
-    public init(_ message: String, oauthError: String? = nil, oauthErrorDescription: String? = nil) {
+    public init(
+        _ message: String,
+        oauthError: String? = nil,
+        oauthErrorDescription: String? = nil,
+        challenge: String? = nil
+    ) {
         self.message = message
         self.oauthError = oauthError
         self.oauthErrorDescription = oauthErrorDescription
+        self.challenge = challenge
     }
 
     public var description: String { "AuthError: \(message)" }

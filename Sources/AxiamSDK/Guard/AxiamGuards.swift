@@ -55,12 +55,17 @@ public struct AxiamGuards: Sendable {
                 subjectID: user.userID
             )
             guard result.allowed else {
+                // §20.3's UMA challenge wins where both apply: it is per-route opt-in and carries
+                // a live ticket for the exact authority just refused, where §28.5 rule 5's is the
+                // generic "ask for this scope" hint. Only one `WWW-Authenticate` value is ever
+                // emitted.
+                let uma = await Self.umaChallenge(umaChallenge, client: client, action: action, resource: resource)
                 throw AuthzError(
                     "Access denied for '\(action)'.",
                     action: action,
                     resourceID: resource,
-                    challenge: await Self.umaChallenge(
-                        umaChallenge, client: client, action: action, resource: resource)
+                    challenge: uma ?? Self.mcpInsufficientScopeChallenge(
+                        authenticator: authenticator, scope: scope, result: result)
                 )
             }
             return user
@@ -95,6 +100,19 @@ public struct AxiamGuards: Sendable {
         } catch {
             return nil
         }
+    }
+
+    /// CONTRACT.md §28.5 rule 5 — the one class of 403 that gains a `WWW-Authenticate` header:
+    /// a `require_access` denial whose route named a `scope` and whose decision's `reason_code`
+    /// is `no_grant`. Every other denial — `denied_by_rule`, an absent/unrecognised reason code,
+    /// or no `scope` argument at all — returns `nil` (§11.2 rule 9 already requires an unknown
+    /// code to leave the outcome, and here the header, alone).
+    private static func mcpInsufficientScopeChallenge(
+        authenticator: AxiamRequestAuthenticator, scope: String?, result: AccessResult
+    ) -> String? {
+        guard let scope, result.reasonCode == ReasonCode.noGrant, let mcpChallenges = authenticator.mcpChallenges
+        else { return nil }
+        return mcpChallenges.insufficientScope(forScope: scope)
     }
 
     /// `require_role(role...)` (§11, MAY): a local check that the verified token's roles contain

@@ -44,6 +44,20 @@ public struct AxiamConfig: Sendable {
     /// resource server guarding a user-facing API SHOULD set `axiam:user`.
     public let expectedAudience: String?
 
+    /// CONTRACT.md §28.5: the URL of this resource server's own RFC 9728 protected-resource
+    /// metadata document — normally the `metadataUrl` a prior call to
+    /// ``AxiamClient/protectedResourceMetadata(resource:authorizationServers:scopesSupported:bearerMethodsSupported:resourceDocumentation:)``
+    /// returned. Setting it is what turns §28 on (§28.5 rule 1). **`nil` by default**, which keeps
+    /// every guard byte-for-byte identical to a client built before §28 existed: no
+    /// `WWW-Authenticate` header on any response, no status changed, no body changed.
+    ///
+    /// **Requires ``expectedAudience`` to be set on this same config** (§28.5 rule 2) — a resource
+    /// server that publishes "tokens for me carry this `aud`" and does not check `aud` has
+    /// published a claim it does not honour, and a token minted for a *different* resource server
+    /// opens it. This is §28's only audience option: it reuses ``expectedAudience`` rather than
+    /// adding a second one, per §28.5 rule 2's explicit prohibition on that.
+    public let resourceMetadataUrl: String?
+
     /// Whether the §16 bounded read-only retry policy is active. **`true` by default.**
     ///
     /// There is deliberately no property for the attempt cap, the base delay or the delay cap:
@@ -122,7 +136,9 @@ public struct AxiamConfig: Sendable {
     ///
     /// - Throws: ``AuthError`` if neither `tenantID` nor `tenantSlug` is supplied (§5), or if
     ///   both `orgID` and `orgSlug` are supplied (they are mutually exclusive);
-    ///   ``NetworkError`` if `baseURL` is not `https` and its host is not loopback (§6).
+    ///   ``NetworkError`` if `baseURL` is not `https` and its host is not loopback (§6), or if
+    ///   `resourceMetadataUrl` is set without `expectedAudience` or is outside CONTRACT.md §28.4's
+    ///   syntax (§28.5 rule 2).
     public init(
         baseURL: URL,
         tenantID: String? = nil,
@@ -134,6 +150,7 @@ public struct AxiamConfig: Sendable {
         requestTimeout: TimeInterval = 30,
         expectedIssuer: String? = nil,
         expectedAudience: String? = nil,
+        resourceMetadataUrl: String? = nil,
         retryEnabled: Bool = true,
         decisionMemoTtl: TimeInterval? = nil,
         telemetryHook: TelemetryHook? = nil,
@@ -185,6 +202,34 @@ public struct AxiamConfig: Sendable {
         // §6: a plaintext base URL is refused up front (SEC-073).
         try Self.validateSecureBaseURL(baseURL)
 
+        // CONTRACT.md §28.5 rule 2: refused at construction, before either option can reach a
+        // guard. Both checks run only when `resourceMetadataUrl` is actually set — §28 stays
+        // opt-in, and a deployment that never sets it never reaches this branch.
+        if let resourceMetadataUrl {
+            guard let expectedAudience, !expectedAudience.isBlank else {
+                throw McpResourceServer.refuse(
+                    "AxiamConfig", "resourceMetadataUrl",
+                    "requires expectedAudience to be set on the same config (CONTRACT.md §28.5 rule 2) — "
+                        + "announcing a resource identifier obliges this server to check that an inbound "
+                        + "token's aud is that identifier, and a resource server that announces itself "
+                        + "without checking is opened by a token minted for somebody else"
+                )
+            }
+            // §28.4's own validation of `resource_metadata`: absolute URI (query/fragment
+            // permitted), https except on a loopback host, and no character the challenge cannot
+            // carry unescaped. Refusing here — at construction — is what makes an invalid value a
+            // startup failure rather than a surprise on the first 401.
+            _ = try McpResourceServer.requireAbsoluteUri(
+                "AxiamConfig", "resourceMetadataUrl", resourceMetadataUrl, .locator)
+            guard McpResourceServer.isAll(resourceMetadataUrl, McpResourceServer.isNqchar) else {
+                throw McpResourceServer.refuse(
+                    "AxiamConfig", "resourceMetadataUrl",
+                    "must carry no '\"', no '\\', no space and no control character (CONTRACT.md §28.4) — "
+                        + "a correctly encoded URL cannot, so one that does has not been encoded"
+                )
+            }
+        }
+
         self.baseURL = baseURL
         self.tenantID = tenantID
         self.tenantSlug = tenantSlug
@@ -195,6 +240,7 @@ public struct AxiamConfig: Sendable {
         self.requestTimeout = requestTimeout
         self.expectedIssuer = expectedIssuer
         self.expectedAudience = expectedAudience
+        self.resourceMetadataUrl = resourceMetadataUrl
         self.retryEnabled = retryEnabled
         // Stored UNCLAMPED. The clamp happens when the memo is built, so the §19 `configClamped`
         // event can report what the caller actually asked for rather than the value it was

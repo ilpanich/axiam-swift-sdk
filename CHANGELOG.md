@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- MCP resource-server helpers — RFC 9728 protected-resource metadata and the RFC 6750 bearer
+  challenge (CONTRACT.md §28, contract 1.48)
+
+- **The resource-server half of the Model Context Protocol authorization handshake.** Two new
+  operations, both pure local computation with no network I/O (like `oidcBegin` and
+  `umaParseChallenge`, so neither §16's retry policy nor §9's single-flight refresh applies):
+  `AxiamClient.protectedResourceMetadata(resource:authorizationServers:scopesSupported:bearerMethodsSupported:resourceDocumentation:)`
+  and `AxiamClient.bearerChallenge(resourceMetadataUrl:error:errorDescription:scope:)`, plus one
+  new `AxiamConfig` option, `resourceMetadataUrl`. AXIAM is the authorization server and
+  implements none of this; your MCP server is the resource server, and this is its side. The
+  *client* half of the handshake — parsing a challenge, fetching the document, deciding whether to
+  trust the authorization server it names — is deliberately not shipped.
+
+- **Opt-in and off by default, and a regression test proves it.** With `resourceMetadataUrl`
+  unset, `AxiamRequestAuthenticator` and every `AxiamGuards` factory behave byte-for-byte as they
+  did before this change: no `WWW-Authenticate` challenge on `AuthError`/`AuthzError`, no other
+  behaviour changed.
+
+- **`expectedAudience` is now mandatory when `resourceMetadataUrl` is set**, and
+  `AxiamConfig.init` refuses the configuration, naming both options, rather than publish a
+  document your guard does not honour. This is §28's only audience option — it reuses
+  `AxiamConfig.expectedAudience` rather than adding a second one. Nothing existing is affected:
+  `resourceMetadataUrl` is new, so there is no configuration that was valid before and is refused
+  now.
+
+- **Every 401 `authenticate(_:)` throws now carries the challenge on `AuthError.challenge`** once
+  configured — `AxiamGuards.requireAuth()` and `requireRole(_:)` inherit it for free, since both
+  wrap `authenticate(_:)`. No `error` parameter for a request that carried no credential at all
+  (RFC 6750 §3: no credential is not a bad credential); `error="invalid_token"` for every other
+  rejection — expired, not yet valid, wrong tenant, wrong audience, bad signature, an
+  unsatisfiable `cnf`, a revoked session — indistinguishably. The message `AuthError` already
+  carried is unchanged; only the new `challenge` field is added.
+
+- **One class of `AuthzError` from `requireAccess(_:resource:scope:umaChallenge:)` gains a
+  challenge, and only one.** A denial whose route named a `scope` and whose decision's
+  `reasonCode` is `ReasonCode.noGrant` now carries `AuthzError.challenge` set to
+  `error="insufficient_scope", scope="…"`. A `deniedByRule` decision, an absent or unrecognised
+  reason code, and a denial with no `scope` argument all carry `nil` — `noGrant` means *ask for
+  more*, which is what a challenge invites; `deniedByRule` means *an administrator has already
+  decided*. Where a §20.3 `umaChallenge` also applies, it wins the tie; exactly one challenge is
+  ever produced. `requireRole(_:)`'s own denial never carries one (§28.5 rule 5 scopes this to
+  `requireAccess` alone).
+
+- **The challenge never says why.** `bearerChallenge` refuses — rather than escapes — any `error`
+  outside `invalid_request`/`invalid_token`/`insufficient_scope`, any `errorDescription` or `scope`
+  containing a character RFC 6750 forbids, and any `resourceMetadataUrl` outside CONTRACT.md
+  §28.2's own rules, raising `NetworkError` with `isValidation` set (this SDK's rendering of the
+  contract's `ValidationError` — §28.6: no new error type). `AxiamConfig.init` applies the same
+  validation to `resourceMetadataUrl` at construction, so a malformed value is a startup failure
+  rather than a surprise on the first 401.
+
+- **`protectedResourceMetadata` validates and refuses; it never repairs** — absolute URI with no
+  query and no fragment, `https` except on `127.0.0.1`/`[::1]`/`localhost`, at least one
+  authorization server with no duplicates, `NQCHAR` scope tokens in caller order,
+  `bearerMethodsSupported` exactly `["header"]`. An empty `scopesSupported` and an absent
+  `resourceDocumentation` omit their members from the document rather than emitting `null`.
+  Nothing in the document may come from a request — there is no overload that builds one from a
+  request's `Host` header or URL.
+
+- **`AxiamRequestAuthenticator.isProtectedResourceMetadataRequest(method:path:)`** — the §28.3
+  rule 2 exemption a global-middleware integrator needs: `true` for the unauthenticated
+  `GET`/`HEAD` of the metadata document, `false` unconditionally when `resourceMetadataUrl` is
+  unset. The README's Vapor wiring example checks this before extracting a credential.
+
+- **Tests**: `Tests/AxiamSDKTests/McpResourceServerTests.swift` — §28.9's five required tests on
+  its own fixture (document shape and validation negatives; challenge quoting and its refusals;
+  401 with the challenge, including the unauthenticated metadata-document exemption; 403
+  `insufficient_scope` and the three cases that carry no header; a token whose `aud` is not the
+  resource, refused, alongside the matching-audience positive and the construction-time
+  negative), plus the off-by-default regression.
+
+- **Contract**: the vendored `CONTRACT.md` is re-synced to **1.48** (§28, and 1.47's two
+  additions) from `ilpanich/axiam` branch `claude/t21-2a-public-clients` — **ahead of
+  `ilpanich/axiam` `main` until Phase 21 lands**. `openapi.json`'s own 1.48-era diff (T21.3's RFC
+  8707 `resource` parameter, unrelated to §28) is **not** re-vendored in this change, matching the
+  TypeScript reference implementation's own scoping: §28 needs no AXIAM-side endpoint or schema
+  change, and pulling it in here would fail this repository's §27 management drift-check gate
+  (`Scripts/gen_management.py --check`) with ~800 lines of generated-code diff that has nothing to
+  do with this section. `proto/` is unchanged — byte-identical to the vendored copy already
+  committed.
+
 ## [1.0.0-beta15] - 2026-09-15
 
 ### Added
