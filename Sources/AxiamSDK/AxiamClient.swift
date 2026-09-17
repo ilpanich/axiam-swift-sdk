@@ -335,7 +335,8 @@ public actor AxiamClient {
             tenantSlug: config.tenantSlug,
             expectedIssuer: config.expectedIssuer,
             expectedAudience: config.expectedAudience,
-            revocationFeed: revocationFeed
+            revocationFeed: revocationFeed,
+            resourceMetadataUrl: config.resourceMetadataUrl
         )
     }
 

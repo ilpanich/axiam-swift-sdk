@@ -11,6 +11,7 @@ enum TestKit {
         orgSlug: String? = "globex",
         expectedIssuer: String? = nil,
         expectedAudience: String? = nil,
+        resourceMetadataUrl: String? = nil,
         revocationFeedEnabled: Bool = false,
         revocationPollInterval: TimeInterval? = nil
     ) throws -> AxiamConfig {
@@ -22,6 +23,7 @@ enum TestKit {
             requestTimeout: 10,
             expectedIssuer: expectedIssuer,
             expectedAudience: expectedAudience,
+            resourceMetadataUrl: resourceMetadataUrl,
             revocationFeedEnabled: revocationFeedEnabled,
             revocationPollInterval: revocationPollInterval
         )
