@@ -2685,6 +2685,11 @@ public struct Oauth2ClientsApi: Sendable {
 
     /// `POST /api/v1/oauth2-clients/registration-tokens`
     ///
+    /// **Returned once (§27.5 rule 3).** `initial_access_token` is not stored server-side and
+    /// no later `get` will return it again. A caller who discards this result because they can
+    /// "fetch it later" has destroyed the credential — the corresponding `get` returns the
+    /// non-secret projection with no indication anything is missing.
+    ///
     /// - Parameter body: The request body.
     public func createRegistrationToken(
         body: CreateRegistrationTokenRequest

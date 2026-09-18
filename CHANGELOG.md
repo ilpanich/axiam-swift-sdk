@@ -138,6 +138,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The README's conformance statement now names the contract version it vendors, **1.49**,
   as the Closing Notes require, and its two §27 operation counts read 162.
 
+### Breaking
+
+- **`CreateRegistrationTokenResponse.initialAccessToken` is now `Sensitive<String>`, was
+  `String`** (CONTRACT.md §27.5, contract **1.50**, `ilpanich/axiam#480`). The field carries the
+  plaintext RFC 7591 §1.2 initial access token a registering client presents as
+  `Authorization: Bearer` — returned **once**, never retrievable, exactly like
+  `scim_tokens.create`'s `provisioningToken`. T21.4 added the operation but never added
+  `("CreateRegistrationTokenResponse", "initial_access_token")` to the registry's curated
+  `(schema, field)` table, so `management-registry.json` published
+  `sensitive_response_fields: []` and this SDK's generator emitted a bare `String`: the one-time
+  credential appeared in the model's `description`/`debugDescription`, the leak §7 rule 1 and
+  §27.5 exist to prevent. It was found by the generator review during the F-28-01 re-sync.
+
+  **Migration — the explicit reveal.** Reading the token now goes through `.expose()`, at the one
+  point of use:
+
+  ```swift
+  let created = try await client.management.oauth2Clients.createRegistrationToken(body: req)
+  // before: let token = created.initialAccessToken
+  let token = created.initialAccessToken.expose()
+  ```
+
+  Construction takes the wrapper too — `CreateRegistrationTokenResponse(initialAccessToken:
+  Sensitive("…"), token: …)`. **No plain-`String` accessor is kept alongside it**: contract 1.50
+  forbids one, since the plain accessor is precisely the leak. Decoding and encoding are
+  unchanged on the wire — `openapi.json` and `proto/` do not move, only the SDK-side type does.
+
+- **The vendored contract artefacts are re-synced to contract 1.50**, from `ilpanich/axiam`
+  `main` @ `da94e1d04` (the merge of `ilpanich/axiam#481`, which closed `#480`), with the §27
+  regeneration in the same commit:
+
+  | Artefact | Git blob |
+  |---|---|
+  | `CONTRACT.md` (contract **1.50**) | `28c163e32d25` |
+  | `openapi.json` | `b75e30eaa359` — unchanged |
+  | `management-registry.json` | `aab87fd79910` |
+
+  `proto/` was already byte-identical and is untouched. `management-registry.json` changes by
+  exactly one key, `oauth2_clients.create_registration_token`'s `sensitive_response_fields`, and
+  `Scripts/gen_management.py --check` is clean. The operation and namespace counts do not move
+  (162 operations, 24 namespaces); the generated `createRegistrationToken(body:)` gains §27.5
+  rule 3's *returned once* note at the call site. §27.5 now lists **fifteen** operations, and the
+  README's conformance statement names **1.50**.
+
 ## [1.0.0-beta15] - 2026-09-15
 
 ### Added
