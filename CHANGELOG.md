@@ -100,22 +100,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   surface is — REST only, guard-side, with no first-party Vapor adapter, matching the
   framework-agnostic shape its §10/§11 guard already has.
 
-### Deferred
+- **F-28-01 done — the vendored contract artefacts are re-synced from a merged `main`.** Deferred
+  during T21.9 T9c/T9d (contract 1.49's vendoring rule: re-sync from a **merged**
+  `ilpanich/axiam` `main`, never a phase branch), now run once, from `ilpanich/axiam` `main` @
+  `e4c62180e`, with the §27 regeneration in the same commit:
 
-- **F-28-01 — the vendored `openapi.json` and `CONTRACT.md` re-sync.** This repository declined
-  the `openapi.json` re-sync during T21.9 T9c, for the reason stated above, and the T9d
-  cross-SDK review found that decision **correct and now normative** — though not for the
-  reason this port gave. It followed the TypeScript reference; what it was actually joining was
-  a four-repository minority, since seven of the eleven SDKs *did* re-sync, from
-  `ilpanich/axiam`'s `claude/t21-2a-public-clients` phase branch. That branch kept moving, so
-  those seven were stale against it within hours, and none of the eleven matches
-  `ilpanich/axiam`'s current tree. Between them the eleven held five distinct byte-states of
-  `CONTRACT.md` and two of `openapi.json`, all calling themselves contract 1.48 (CONTRACT.md
-  §28.11 row R-1). Contract **1.49** states the rule that was missing: a vendored artefact is
-  re-synced from a **merged** `main`, never a phase branch. Both artefacts are therefore
-  re-synced here **once**, as F-28-01, after AXIAM Phase 21 lands on `main`, together with a
-  regeneration of the §27 management surface in the same commit. F-28-01 is recorded
-  identically in all eleven SDK repositories so that it cannot be lost.
+  | Artefact | Git blob |
+  |---|---|
+  | `CONTRACT.md` (contract **1.49**) | `2493348c3285` |
+  | `openapi.json` | `b75e30eaa359` |
+  | `management-registry.json` | `4619f441aac0` |
+
+  `proto/` was already byte-identical and is untouched. `Scripts/gen_management.py` regenerated
+  `ManagementModels.swift`, `ManagementNamespaces.swift` and `ManagementGeneratedTests.swift`
+  from the new registry (spec digest `sha256:45743915…`), and `--check` is clean. What it brought
+  in is Phase 21's server surface:
+  - **Two new operations, 160 → 162** (24 namespaces unchanged): `oauth2Clients`'
+    `createRegistrationToken(body:)` and `listRegistrationTokens()` — RFC 7591 dynamic client
+    registration initial access tokens — with the new models `CreateRegistrationTokenRequest`,
+    `CreateRegistrationTokenResponse` and `RegistrationTokenResponse`.
+  - **OAuth2 client fields**: `OAuth2ClientResponse` gains `allowedResources` (RFC 8707),
+    `lastAuthorizedAt`, and `managedBy` — a new `ManagedBy` enum, `admin` / `dcr` / `cimd`,
+    with the generator's usual `unknown` case for a value this copy of the spec does not list.
+    `CreateOAuth2ClientRequest` and `UpdateOAuth2ClientRequest` gain an optional
+    `allowedResources`.
+  - **DCR and CIMD policy**: `OidcPolicy`, `SetOrgSettings` and `TenantSettingsOverride` gain
+    `dynamicRegistration`, `dcrAllowedRedirectHosts`, `dcrAllowedScopes`, `dcrMaxClients`,
+    `dcrUnusedClientTTLDays`, `externalClientAllowedResources` and `cimd` — a new
+    `CimdPolicy` model for client ID metadata documents.
+  - **Source-breaking, from the spec, not a choice made here**:
+    `OAuth2ClientCreatedResponse.clientSecret` is now `Sensitive<String>?`, since a public
+    client (contract 1.47) is created without a secret. A caller that read it unconditionally
+    needs a `?` or an unwrap. `OAuth2ClientResponse`'s memberwise initializer also takes the
+    two new required members, `allowedResources` and `managedBy`, so decoding it needs a
+    server that sends them.
+
+  The README's conformance statement now names the contract version it vendors, **1.49**,
+  as the Closing Notes require, and its two §27 operation counts read 162.
 
 ## [1.0.0-beta15] - 2026-09-15
 

@@ -4,7 +4,7 @@
 
 import Foundation
 
-// CONTRACT.md §27 namespace handles — 160 operations across 24 of them.
+// CONTRACT.md §27 namespace handles — 162 operations across 24 of them.
 //
 // §27.2 rule 1: a handle is cheap and stateless. It holds the client and a scope of two
 // optional strings, acquiring one performs no I/O, and every accessor below builds a fresh one
@@ -2681,6 +2681,44 @@ public struct Oauth2ClientsApi: Sendable {
         // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
         // server that started sending one does not silently change what this returns.
         _ = data
+    }
+
+    /// `POST /api/v1/oauth2-clients/registration-tokens`
+    ///
+    /// - Parameter body: The request body.
+    public func createRegistrationToken(
+        body: CreateRegistrationTokenRequest
+    ) async throws -> CreateRegistrationTokenResponse {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "oauth2_clients.create_registration_token",
+            method: .post,
+            template: "/api/v1/oauth2-clients/registration-tokens",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(CreateRegistrationTokenResponse.self, from: data)
+    }
+
+    /// `GET /api/v1/oauth2-clients/registration-tokens`
+    public func listRegistrationTokens() async throws -> [RegistrationTokenResponse] {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "oauth2_clients.list_registration_tokens",
+            method: .get,
+            template: "/api/v1/oauth2-clients/registration-tokens",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode([RegistrationTokenResponse].self, from: data)
     }
 
 }

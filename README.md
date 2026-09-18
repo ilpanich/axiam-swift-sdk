@@ -12,8 +12,8 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23,
-> §24, §25, §26, §27 and §28 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason
+> **This SDK conforms to CONTRACT.md 1.49 (the version vendored here) §1–§7, §9–§13, §14,
+> §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27 and §28 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason
 > codes, the §23 OPAQUE login path — which needs `libaxiam_opaque_ffi` installed, see below —
 > and §28's REST surface: `serveProtectedResourceMetadata` is not a function here, since this
 > SDK's core carries no Vapor dependency and its §10/§11 guard is likewise framework-agnostic,
@@ -57,7 +57,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §24 WebAuthn / passkeys | ✅ implemented (contract 1.45) — the eight relying-party operations (register, authenticate, discoverable, and the setup-token pair added at 1.45 for forced first-login enrolment) and §24.6a's JSON bridge on **every** target, plus §24.6b's linked-API ceremony helpers on iOS 16+ and macOS 13+, including the setup-token composed helper. The Linux build keeps the RP layer and the bridge; `webauthnCeremonySupported` answers `false` there rather than throwing |
 | §25 account lifecycle & MFA enrolment | ✅ implemented (contract 1.45) — voluntary and forced TOTP enrolment, a passkey or security key as the first factor at forced enrolment (contract 1.45), email verification, and the password-reset triple |
 | §26 Pushed Authorization Requests (RFC 9126) | ✅ implemented (contract 1.28) — required for a FAPI 2.0 client, which cannot authorize any other way (§21.1) |
-| §27 management API | ✅ implemented — 160 operations across 24 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL |
+| §27 management API | ✅ implemented — 162 operations across 24 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL |
 | §20 UMA 2.0 Protection API + ticket grant | ✅ implemented, and it landed *before* §12 rather than waiting for it: UMA carries its own discovery document (`/.well-known/uma2-configuration`), the Protection API is ordinary bearer-authenticated REST, and the ticket grant returns an opaque RPT with no `id_token` to validate. That §20 could ship alone is part of what showed the §12 deferral was cutting across the wrong seam — see contract §12.6 |
 
 ## Installation
@@ -1683,7 +1683,7 @@ including a transport skeleton: [`Examples/Reactor`](Examples/Reactor/main.swift
 
 ## Management API (§27)
 
-160 operations across 24 namespaces, reached through namespace handles that sit directly on
+162 operations across 24 namespaces, reached through namespace handles that sit directly on
 the client — the form §27.3's Swift row specifies (property, camelCase, `async`):
 
 ```swift
