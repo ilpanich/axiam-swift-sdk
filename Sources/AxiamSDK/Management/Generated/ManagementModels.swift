@@ -2748,13 +2748,13 @@ public struct CreateRegistrationTokenRequest: Codable, Sendable {
 public struct CreateRegistrationTokenResponse: Codable, Sendable {
     /// The plaintext handle, shown exactly once. Presented by the registering client as
     /// `Authorization: Bearer <this>`.
-    public let initialAccessToken: String
+    public let initialAccessToken: Sensitive<String>
 
     /// The token's metadata.
     public let token: RegistrationTokenResponse
 
     public init(
-        initialAccessToken: String,
+        initialAccessToken: Sensitive<String>,
         token: RegistrationTokenResponse
     ) {
         self.initialAccessToken = initialAccessToken
@@ -2768,13 +2768,13 @@ public struct CreateRegistrationTokenResponse: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.initialAccessToken = try container.decode(String.self, forKey: .initialAccessToken)
+        self.initialAccessToken = Sensitive(try container.decode(String.self, forKey: .initialAccessToken))
         self.token = try container.decode(RegistrationTokenResponse.self, forKey: .token)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(initialAccessToken, forKey: .initialAccessToken)
+        try container.encode(initialAccessToken.expose(), forKey: .initialAccessToken)
         try container.encode(token, forKey: .token)
     }
 }
