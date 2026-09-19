@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta16] - 2026-09-19
+
 ### Added
+
+- Resource-server helpers for RFC 9728 + RFC 6750 (CONTRACT.md §28, contract 1.48)
 
 - MCP resource-server helpers — RFC 9728 protected-resource metadata and the RFC 6750 bearer
   challenge (CONTRACT.md §28, contract 1.48)
@@ -93,6 +97,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- F-28-01 — re-sync CONTRACT.md 1.49, openapi.json and management-registry.json from axiam main @ e4c62180e
+
+- Name §28 in the conformance statement; record F-28-01 (T21.9 T9d)
+
 - **Contract conformance statement corrected** (CONTRACT.md Closing Notes, §28.11 row R-3,
   T21.9 T9d). The statement did not name §28 at all, although this SDK's §28 support shipped
   with the vendored contract 1.48. The contract's own rule is that the statement follows the
@@ -137,6 +145,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   The README's conformance statement now names the contract version it vendors, **1.49**,
   as the Closing Notes require, and its two §27 operation counts read 162.
+
+### Fixed
+
+- Re-sync to 1.50 — initial_access_token becomes Sensitive<String>
 
 ### Breaking
 
