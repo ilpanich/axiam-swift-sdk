@@ -336,7 +336,9 @@ print(session.tokenType, session.expiresIn)   // "Bearer", 900
 
 Reachable **only** on a client configured with a certificate: without one this refuses
 client-side with `AuthError` and **zero wire calls**, rather than sending a request the
-server would refuse anyway. On success the token is adopted as this client's credential —
+server would refuse anyway. This is §6.1 rule 7's run-time form: the compile-time
+form, a type with no `authenticateDevice()` unless a certificate is configured, is declined,
+because the certificate is one option on the single `AxiamConfig`. On success the token is adopted as this client's credential —
 every later REST call, including every `management()` operation, sends it as `Authorization:
 Bearer <token>` and **withholds this client's own cookie jar**, so a session cookie from an
 earlier `login()` can never ride alongside it (the server reads `axiam_access` before
