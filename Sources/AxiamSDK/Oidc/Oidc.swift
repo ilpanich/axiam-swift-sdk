@@ -292,15 +292,20 @@ extension AxiamClient {
     /// The session arrives as `Set-Cookie` and lands in this client's §4 cookie jar; the
     /// returned value carries **no token material** (§12.1 note 6). The server recovers the full
     /// context from the single-use `state`, so no tenant or org argument is needed here.
+    ///
+    /// Routed through `completeFederationSession` (§12.1's `sso_complete_oauth2` /
+    /// `sso_complete_handoff` share it) rather than the generic `oidcJSONPost`: this is a
+    /// SESSION-ESTABLISHING call whose `Set-Cookie` must land in this client's §4 jar and
+    /// whose completion must reset the §5.2 acting-tenant gate and the §17 memo exactly as
+    /// the other two do (`oidcJSONPost` goes through `umaSendAbsolute`, which deliberately
+    /// attaches and captures no cookie at all — correct for the §20 discovery calls it
+    /// otherwise serves, wrong for a call whose entire point is the cookie it gets back).
     public func ssoComplete(code: String, state: String) async throws -> SsoCompleteResult {
         try ensureOpen()
-        let wire: SsoCompleteWire = try await oidcJSONPost(
-            "api/v1/auth/federation/oidc/callback",
+        return try await completeFederationSession(
+            path: "api/v1/auth/federation/oidc/callback",
             body: ["code": code, "state": state],
             context: "sso complete")
-        return SsoCompleteResult(
-            userID: wire.user_id, sessionID: wire.session_id, expiresIn: wire.expires_in,
-            redirectURI: wire.redirect_uri)
     }
 
     // MARK: - §12.1 sso_providers / sso_start_oauth2 / sso_complete_oauth2 / sso_complete_handoff
@@ -451,6 +456,18 @@ extension AxiamClient {
         let response = try await federationSessionPost(path: path, body: payload)
         guard (200..<300).contains(response.status) else { throw oidcMapError(response) }
         let wire: SsoCompleteWire = try oidcDecode(SsoCompleteWire.self, response.body, context)
+
+        // §17.1 rule 9 / §5.2 rule 1: this completes a NEW session — the subject may be a
+        // different principal than whatever this client held before, so the decision memo
+        // is cleared and the acting-tenant gate is reset. `SsoCompleteWire` carries no
+        // `LoginUserInfo` (§12.1 note 6: only `user_id`/`session_id`/`expires_in`/
+        // `redirect_uri`), so `adoptSessionAfterCeremony()` with no user is the SAFE
+        // reading: the gate becomes "unknown" rather than carrying forward whatever a
+        // PREVIOUS session's principal was. A refused completion (the guard above) never
+        // reaches here, so the gate is left exactly as it was on failure.
+        clearDecisionMemo()
+        adoptSessionAfterCeremony()
+
         return SsoCompleteResult(
             userID: wire.user_id, sessionID: wire.session_id, expiresIn: wire.expires_in,
             redirectURI: wire.redirect_uri)

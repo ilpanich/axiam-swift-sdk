@@ -50,17 +50,17 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureAssignRoleToGroupRequest: AssignRoleToGroupRequest = decodeFixture(
         AssignRoleToGroupRequest.self,
-        "{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}",
+        "{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}",
         "AssignRoleToGroupRequest")
 
     static let fixtureAssignRoleToServiceAccountRequest: AssignRoleToServiceAccountRequest = decodeFixture(
         AssignRoleToServiceAccountRequest.self,
-        "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}",
+        "{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}",
         "AssignRoleToServiceAccountRequest")
 
     static let fixtureAssignRoleToUserRequest: AssignRoleToUserRequest = decodeFixture(
         AssignRoleToUserRequest.self,
-        "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user_id\": \"11111111-1111-4111-8111-111111111111\"}",
+        "{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user_id\": \"11111111-1111-4111-8111-111111111111\"}",
         "AssignRoleToUserRequest")
 
     static let fixtureBindCertificate: BindCertificate = decodeFixture(
@@ -75,7 +75,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureCreateCertificateRequest: CreateCertificateRequest = decodeFixture(
         CreateCertificateRequest.self,
-        "{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"validity_days\": 1}",
+        "{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"subject_alt_names\": [{\"dns\": \"example\"}], \"validity_days\": 1}",
         "CreateCertificateRequest")
 
     static let fixtureCreateFederationConfigRequest: CreateFederationConfigRequest = decodeFixture(
@@ -210,7 +210,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureSetOrgSettings: SetOrgSettings = decodeFixture(
         SetOrgSettings.self,
-        "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"webauthn_user_verification\": \"example\"}",
+        "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}",
         "SetOrgSettings")
 
     static let fixtureSignAuditBatchRequest: SignAuditBatchRequest = decodeFixture(
@@ -220,7 +220,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureSignCertificateCsrRequest: SignCertificateCsrRequest = decodeFixture(
         SignCertificateCsrRequest.self,
-        "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"validity_days\": 1}",
+        "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"subject_alt_names\": [{\"dns\": \"example\"}], \"validity_days\": 1}",
         "SignCertificateCsrRequest")
 
     static let fixtureSignIntermediateCsrRequest: SignIntermediateCsrRequest = decodeFixture(
@@ -230,7 +230,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureTenantSettingsOverride: TenantSettingsOverride = decodeFixture(
         TenantSettingsOverride.self,
-        "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"webauthn_user_verification\": \"example\"}",
+        "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}",
         "TenantSettingsOverride")
 
     static let fixtureUpdateFederationConfigRequest: UpdateFederationConfigRequest = decodeFixture(
@@ -490,7 +490,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testUsersListRolesReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
+            [(status: 200, body: "[{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
         _ = try await client.users.listRoles(userID: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -590,7 +590,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testGroupsListRolesReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
+            [(status: 200, body: "[{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
         _ = try await client.groups.listRoles(groupID: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -680,7 +680,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testRolesListUsersReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}]")])
+            [(status: 200, body: "[{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}]")])
         _ = try await client.roles.listUsers(roleID: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -710,7 +710,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testRolesListGroupsReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "[{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
+            [(status: 200, body: "[{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
         _ = try await client.roles.listGroups(roleID: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -770,7 +770,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testRolesListServiceAccountsReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
+            [(status: 200, body: "[{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
         _ = try await client.roles.listServiceAccounts(roleID: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -1040,7 +1040,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testServiceAccountsListRolesReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
+            [(status: 200, body: "[{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]")])
         _ = try await client.serviceAccounts.listRoles(serviceAccountID: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -1610,7 +1610,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testSettingsGetOrgReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
+            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
         _ = try await client.settings.getOrg()
 
         XCTAssertEqual(transport.count, 1)
@@ -1620,7 +1620,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testSettingsSetOrgReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
+            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
         _ = try await client.settings.setOrg(body: Self.fixtureSetOrgSettings)
 
         XCTAssertEqual(transport.count, 1)
@@ -1630,7 +1630,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testSettingsGetEffectiveReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
+            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
         _ = try await client.settings.getEffective()
 
         XCTAssertEqual(transport.count, 1)
@@ -1640,7 +1640,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testSettingsSetEffectiveReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
+            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
         _ = try await client.settings.setEffective(body: Self.fixtureTenantSettingsOverride)
 
         XCTAssertEqual(transport.count, 1)
@@ -1650,7 +1650,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testSettingsGetTenantOverrideReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"webauthn_user_verification\": \"example\"}")])
+            [(status: 200, body: "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}")])
         _ = try await client.settings.getTenantOverride()
 
         XCTAssertEqual(transport.count, 1)
@@ -1660,7 +1660,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testSettingsSetTenantOverrideReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"webauthn_user_verification\": \"example\"}")])
+            [(status: 200, body: "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}")])
         _ = try await client.settings.setTenantOverride(body: Self.fixtureTenantSettingsOverride)
 
         XCTAssertEqual(transport.count, 1)
@@ -2007,7 +2007,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testAssignRoleToGroupRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let json = "{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -2033,7 +2033,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testAssignRoleToServiceAccountRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let json = "{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -2059,7 +2059,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testAssignRoleToUserRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let json = "{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -2189,7 +2189,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCertificatePolicyRoundTripsWithoutLosingAField() throws {
-        let json = "{\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}"
+        let json = "{\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -2319,7 +2319,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCreateCertificateRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"validity_days\": 1}"
+        let json = "{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"subject_alt_names\": [{\"dns\": \"example\"}], \"validity_days\": 1}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4139,7 +4139,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testRoleAssignmentRoundTripsWithoutLosingAField() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let json = "{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4165,7 +4165,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testRoleGroupAssignmentRoundTripsWithoutLosingAField() throws {
-        let json = "{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let json = "{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4191,7 +4191,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testRoleServiceAccountAssignmentRoundTripsWithoutLosingAField() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let json = "{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4217,7 +4217,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testRoleUserAssignmentRoundTripsWithoutLosingAField() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}"
+        let json = "{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4321,7 +4321,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSecuritySettingsRoundTripsWithoutLosingAField() throws {
-        let json = "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}"
+        let json = "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4477,7 +4477,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSetOrgSettingsRoundTripsWithoutLosingAField() throws {
-        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"webauthn_user_verification\": \"example\"}"
+        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4529,7 +4529,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSignCertificateCsrRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"validity_days\": 1}"
+        let json = "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"subject_alt_names\": [{\"dns\": \"example\"}], \"validity_days\": 1}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4659,7 +4659,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testTenantSettingsOverrideRoundTripsWithoutLosingAField() throws {
-        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"webauthn_user_verification\": \"example\"}"
+        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -5291,7 +5291,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testAssignRoleToGroupRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let json = "{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let decoded = try JSONDecoder().decode(AssignRoleToGroupRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -5300,6 +5300,7 @@ final class ManagementGeneratedTests: XCTestCase {
         // constructs one by hand.
         let rebuilt = AssignRoleToGroupRequest(
             groupID: decoded.groupID,
+            inherit: decoded.inherit,
             resourceID: decoded.resourceID,
             tenantScope: decoded.tenantScope)
 
@@ -5313,7 +5314,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testAssignRoleToServiceAccountRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let json = "{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let decoded = try JSONDecoder().decode(AssignRoleToServiceAccountRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -5321,6 +5322,7 @@ final class ManagementGeneratedTests: XCTestCase {
         // decode-only test cannot see -- the JSON round trip above would pass, because it never
         // constructs one by hand.
         let rebuilt = AssignRoleToServiceAccountRequest(
+            inherit: decoded.inherit,
             resourceID: decoded.resourceID,
             serviceAccountID: decoded.serviceAccountID,
             tenantScope: decoded.tenantScope)
@@ -5335,7 +5337,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testAssignRoleToUserRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let json = "{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
         let decoded = try JSONDecoder().decode(AssignRoleToUserRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -5343,6 +5345,7 @@ final class ManagementGeneratedTests: XCTestCase {
         // decode-only test cannot see -- the JSON round trip above would pass, because it never
         // constructs one by hand.
         let rebuilt = AssignRoleToUserRequest(
+            inherit: decoded.inherit,
             resourceID: decoded.resourceID,
             tenantScope: decoded.tenantScope,
             userID: decoded.userID)
@@ -5474,7 +5477,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCertificatePolicyMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}"
+        let json = "{\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}"
         let decoded = try JSONDecoder().decode(CertificatePolicy.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -5483,7 +5486,8 @@ final class ManagementGeneratedTests: XCTestCase {
         // constructs one by hand.
         let rebuilt = CertificatePolicy(
             defaultCertValidityDays: decoded.defaultCertValidityDays,
-            maxCertValidityDays: decoded.maxCertValidityDays)
+            maxCertValidityDays: decoded.maxCertValidityDays,
+            serverCertAllowedNames: decoded.serverCertAllowedNames)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -5597,7 +5601,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCreateCertificateRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"validity_days\": 1}"
+        let json = "{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"subject_alt_names\": [{\"dns\": \"example\"}], \"validity_days\": 1}"
         let decoded = try JSONDecoder().decode(CreateCertificateRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -5610,6 +5614,7 @@ final class ManagementGeneratedTests: XCTestCase {
             keyAlgorithm: decoded.keyAlgorithm,
             metadata: decoded.metadata,
             subject: decoded.subject,
+            subjectAltNames: decoded.subjectAltNames,
             validityDays: decoded.validityDays)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
@@ -7352,7 +7357,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testRoleAssignmentMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let json = "{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let decoded = try JSONDecoder().decode(RoleAssignment.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7360,6 +7365,7 @@ final class ManagementGeneratedTests: XCTestCase {
         // decode-only test cannot see -- the JSON round trip above would pass, because it never
         // constructs one by hand.
         let rebuilt = RoleAssignment(
+            inherit: decoded.inherit,
             resourceID: decoded.resourceID,
             role: decoded.role,
             tenantScope: decoded.tenantScope)
@@ -7374,7 +7380,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testRoleGroupAssignmentMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let json = "{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let decoded = try JSONDecoder().decode(RoleGroupAssignment.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7383,6 +7389,7 @@ final class ManagementGeneratedTests: XCTestCase {
         // constructs one by hand.
         let rebuilt = RoleGroupAssignment(
             group: decoded.group,
+            inherit: decoded.inherit,
             resourceID: decoded.resourceID,
             tenantScope: decoded.tenantScope)
 
@@ -7396,7 +7403,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testRoleServiceAccountAssignmentMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
+        let json = "{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}"
         let decoded = try JSONDecoder().decode(RoleServiceAccountAssignment.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7404,6 +7411,7 @@ final class ManagementGeneratedTests: XCTestCase {
         // decode-only test cannot see -- the JSON round trip above would pass, because it never
         // constructs one by hand.
         let rebuilt = RoleServiceAccountAssignment(
+            inherit: decoded.inherit,
             resourceID: decoded.resourceID,
             serviceAccount: decoded.serviceAccount,
             tenantScope: decoded.tenantScope)
@@ -7418,7 +7426,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testRoleUserAssignmentMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}"
+        let json = "{\"inherit\": true, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}"
         let decoded = try JSONDecoder().decode(RoleUserAssignment.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7426,6 +7434,7 @@ final class ManagementGeneratedTests: XCTestCase {
         // decode-only test cannot see -- the JSON round trip above would pass, because it never
         // constructs one by hand.
         let rebuilt = RoleUserAssignment(
+            inherit: decoded.inherit,
             resourceID: decoded.resourceID,
             tenantScope: decoded.tenantScope,
             user: decoded.user)
@@ -7515,7 +7524,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSecuritySettingsMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}"
+        let json = "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}"
         let decoded = try JSONDecoder().decode(SecuritySettings.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7679,7 +7688,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSetOrgSettingsMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"webauthn_user_verification\": \"example\"}"
+        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}"
         let decoded = try JSONDecoder().decode(SetOrgSettings.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7720,6 +7729,7 @@ final class ManagementGeneratedTests: XCTestCase {
             requireSymbols: decoded.requireSymbols,
             requireUppercase: decoded.requireUppercase,
             sensitiveScopesEnabled: decoded.sensitiveScopesEnabled,
+            serverCertAllowedNames: decoded.serverCertAllowedNames,
             webauthnUserVerification: decoded.webauthnUserVerification)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
@@ -7752,7 +7762,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSignCertificateCsrRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"validity_days\": 1}"
+        let json = "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"subject_alt_names\": [{\"dns\": \"example\"}], \"validity_days\": 1}"
         let decoded = try JSONDecoder().decode(SignCertificateCsrRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7764,6 +7774,7 @@ final class ManagementGeneratedTests: XCTestCase {
             csrPEM: decoded.csrPEM,
             issuerCAID: decoded.issuerCAID,
             metadata: decoded.metadata,
+            subjectAltNames: decoded.subjectAltNames,
             validityDays: decoded.validityDays)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
@@ -7874,7 +7885,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testTenantSettingsOverrideMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"webauthn_user_verification\": \"example\"}"
+        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}"
         let decoded = try JSONDecoder().decode(TenantSettingsOverride.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7915,6 +7926,7 @@ final class ManagementGeneratedTests: XCTestCase {
             requireSymbols: decoded.requireSymbols,
             requireUppercase: decoded.requireUppercase,
             sensitiveScopesEnabled: decoded.sensitiveScopesEnabled,
+            serverCertAllowedNames: decoded.serverCertAllowedNames,
             webauthnUserVerification: decoded.webauthnUserVerification)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
@@ -8598,13 +8610,15 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCertificateTypeMapsEveryValueBothWays() throws {
-        XCTAssertEqual(CertificateType.allCases.count, 4)
+        XCTAssertEqual(CertificateType.allCases.count, 5)
         XCTAssertEqual(CertificateType.user.rawValue, "User")
         XCTAssertEqual(CertificateType(rawValue: "User"), CertificateType.user)
         XCTAssertEqual(CertificateType.service.rawValue, "Service")
         XCTAssertEqual(CertificateType(rawValue: "Service"), CertificateType.service)
         XCTAssertEqual(CertificateType.device.rawValue, "Device")
         XCTAssertEqual(CertificateType(rawValue: "Device"), CertificateType.device)
+        XCTAssertEqual(CertificateType.server.rawValue, "Server")
+        XCTAssertEqual(CertificateType(rawValue: "Server"), CertificateType.server)
 
         // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
         // case happens to be first. Code that parses a raw string keeps its check.
@@ -8621,6 +8635,7 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(CertificateType.unknown, CertificateType.user)
         XCTAssertNotEqual(CertificateType.unknown, CertificateType.service)
         XCTAssertNotEqual(CertificateType.unknown, CertificateType.device)
+        XCTAssertNotEqual(CertificateType.unknown, CertificateType.server)
         XCTAssertEqual(CertificateType.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([CertificateType.user])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"User\"]")

@@ -99,30 +99,17 @@ public struct AxiamRequestAuthenticator: Sendable {
     /// Names of the access-token cookie and bearer scheme.
     static let accessCookieName = "axiam_access"
 
-    /// Authenticate an inbound request, returning the verified identity.
+    /// ``authenticate(_:presentedProofs:)`` with a single certificate thumbprint,
+    /// CONTRACT.md §10.1 **rule 9** (RFC 8705 §3 / RFC 7800, contract 1.15).
     ///
-    /// Applies the §10.1 minimum local-verification set listed on the type. A raw signature check
-    /// (``JwksVerifier/verifySignatureOnlyUnchecked(token:)``) is deliberately *not* a substitute
-    /// for this method.
-    ///
-    /// - Throws: ``AuthError`` when no credential is present, the JWT is malformed, the
-    ///   algorithm is not EdDSA, the signature is invalid, `exp` is absent/non-numeric/past,
-    ///   `nbf` is in the future, the token does not belong to the configured tenant, the tenant
-    ///   does not match the request's `X-Tenant-ID`, or a configured issuer/audience does not
-    ///   match.
-    /// ``authenticate(_:)`` plus CONTRACT.md §10.1 **rule 9** — the sender constraint
-    /// (RFC 8705 §3 / RFC 7800, contract 1.15).
-    ///
-    /// This is the guard entry point for a resource server that accepts
-    /// **certificate-bound** access tokens. `presentedThumbprint` is the RFC 8705 §3.1
-    /// `x5t#S256` of the client certificate on the current connection, or `nil` when
-    /// there is none; ``AxiamRequestAuthenticator/certificateThumbprintS256(der:)``
+    /// This is the guard entry point for a resource server that accepts only
+    /// **certificate-bound** access tokens (no DPoP). `presentedThumbprint` is the RFC
+    /// 8705 §3.1 `x5t#S256` of the client certificate on the current connection, or
+    /// `nil` when there is none; ``AxiamRequestAuthenticator/certificateThumbprintS256(der:)``
     /// computes it from DER bytes.
     ///
-    /// A separate method rather than a parameter on ``authenticate(_:)`` because the two
-    /// have different *inputs*: most integrations have no transport-level certificate to
-    /// offer, and folding the thumbprint in would force every caller to thread a `nil`
-    /// they do not have — which reads as "no certificate" and rejects every bound token.
+    /// A convenience over the general form because most callers with certificate
+    /// evidence have exactly one thumbprint, not a full ``PresentedProofs``.
     ///
     /// **An unbound token is still accepted** here, with or without a certificate. Rule 9
     /// constrains tokens that claim a constraint; it does not make certificates mandatory.
@@ -132,31 +119,13 @@ public struct AxiamRequestAuthenticator: Sendable {
     /// controls. Never from a caller-settable request header: a forgeable input makes the
     /// whole mechanism decorative.
     ///
-    /// - Throws: ``AuthError`` on everything ``authenticate(_:)`` throws, plus the three
-    ///   rejecting rows of ``verifyCertificateBinding(_:presentedThumbprint:)``.
+    /// - Throws: ``AuthError`` on everything ``authenticate(_:presentedProofs:)`` throws.
     public func authenticateSenderConstrained(
         _ context: AxiamRequestContext,
         presentedThumbprint: String?
     ) async throws -> AxiamUser {
-        // Rules 1-8 first: rule 9 reports a fact about the token's binding, and reporting
-        // that before the token is known valid at all would answer a question the caller
-        // has not earned.
-        let user = try await authenticate(context)
-
-        guard let token = Self.extractToken(from: context) else {
-            throw AuthError(
-                "No AXIAM session: missing Authorization bearer token or axiam_access cookie.",
-                challenge: mcpChallenges?.noCredential)
-        }
-        do {
-            let verified = try await jwks.verifySignatureOnlyUnchecked(token: token)
-            try Self.verifyCertificateBinding(verified.claims, presentedThumbprint: presentedThumbprint)
-        } catch let error as AuthError {
-            // §28.4: an unsatisfiable `cnf` is exactly as `invalid_token` as any other rejection
-            // (§28.6 — rule 9 is unchanged by §28, only the challenge it now carries).
-            throw AuthError(error.message, challenge: mcpChallenges?.invalidToken)
-        }
-        return user
+        let proofs = presentedThumbprint.map(PresentedProofs.certificate) ?? .none
+        return try await authenticate(context, presentedProofs: proofs)
     }
 
     /// CONTRACT.md §10.1 **rule 9** — enforce a token's sender constraint against the
@@ -319,7 +288,34 @@ public struct AxiamRequestAuthenticator: Sendable {
             .replacingOccurrences(of: "=", with: "")
     }
 
-    public func authenticate(_ context: AxiamRequestContext) async throws -> AxiamUser {
+    /// Authenticate an inbound request, returning the verified identity.
+    ///
+    /// Applies the full §10.1 minimum local-verification set, **including rule 9**
+    /// (contract 1.51): a token carrying `cnf` is not a bearer token and MUST NOT be
+    /// accepted as one. `presentedProofs` is what the caller proved on **this**
+    /// connection — a certificate the transport verified, a DPoP proof the caller
+    /// itself verified, or both.
+    ///
+    /// **`presentedProofs` defaults to `.none`,** which is the correct value for the
+    /// overwhelming majority of callers: this SDK ships no HTTP server of its own, so a
+    /// caller with nothing to prove passes nothing. Rule 9's own first row is "absent
+    /// `cnf` → returns", so an **unbound** token — every token before §6.1 existed, and
+    /// every one a non-mTLS deployment will ever mint — verifies exactly as before. A
+    /// **bound** token — notably a §6.1 device login's token — is now refused at this
+    /// default entry point unless the caller threads through the evidence it holds.
+    ///
+    /// Before contract 1.51 this method applied rules 1-8 only and never rule 9, so a
+    /// certificate-bound token lifted off a device and replayed as a bearer credential
+    /// was accepted here — the defect §10.1 rule 9 exists to close. Every route guard in
+    /// this SDK (``AxiamGuards``, the §11 helpers, the §28 MCP guard) reaches this
+    /// method, so the fix is here rather than duplicated at each call site.
+    ///
+    /// A raw signature-only primitive (``JwksVerifier/verifySignatureOnlyUnchecked(token:)``)
+    /// is deliberately *not* a substitute for this method.
+    public func authenticate(
+        _ context: AxiamRequestContext,
+        presentedProofs: PresentedProofs = .none
+    ) async throws -> AxiamUser {
         guard let token = Self.extractToken(from: context) else {
             // §28.4 vector 1: no credential is not a bad credential (RFC 6750 §3 — the automatic
             // challenge names no `error` code for a request that carried none at all).
@@ -328,7 +324,7 @@ public struct AxiamRequestAuthenticator: Sendable {
                 challenge: mcpChallenges?.noCredential)
         }
         do {
-            return try await authenticateVerifiedToken(token, context: context)
+            return try await authenticateVerifiedToken(token, context: context, presentedProofs: presentedProofs)
         } catch let error as AuthError {
             // §28.4 vector 2: a credential was presented and rejected. Expired, not yet valid,
             // wrong tenant, wrong audience, bad signature, an unsatisfiable `cnf`, a revoked
@@ -344,7 +340,11 @@ public struct AxiamRequestAuthenticator: Sendable {
     /// Factored out of ``authenticate(_:)`` so that exactly one place attaches the §28.4
     /// `invalid_token` challenge to whichever of these rules rejects, rather than repeating it at
     /// each throw site.
-    private func authenticateVerifiedToken(_ token: String, context: AxiamRequestContext) async throws -> AxiamUser {
+    private func authenticateVerifiedToken(
+        _ token: String,
+        context: AxiamRequestContext,
+        presentedProofs: PresentedProofs
+    ) async throws -> AxiamUser {
         // §10.1 rule 1. The primitive checks the signature only — every claim rule below is this
         // guard's job. A non-numeric `exp`/`nbf` or a wrong-typed `aud` already fails there, in
         // the strict claim decode.
@@ -392,6 +392,17 @@ public struct AxiamRequestAuthenticator: Sendable {
            requestTenant != tokenTenant {
             throw AuthError("Token tenant does not match request X-Tenant-ID.")
         }
+
+        // §10.1 rule 9 (contract 1.51): a token carrying `cnf` is not a bearer token and
+        // MUST NOT be accepted as one without evidence the caller holds the named key.
+        // `presentedProofs` defaults to `.none` at every public entry point that does not
+        // thread through real transport evidence, which is the SAFE reading: rule 9's own
+        // first row is "absent cnf -> returns", so an unbound token is unaffected, and a
+        // bound token presented with no (or the wrong) evidence is refused here rather than
+        // silently accepted as bearer. Placed after the claim checks above (an expired-but-
+        // bound token reports "expired", not "unverifiable constraint") and before §10.4's
+        // revocation check, which is a narrower rejection layered on an otherwise-valid token.
+        try Self.verifyTokenBinding(claims, proofs: presentedProofs)
 
         // CONTRACT.md §10.4 (contract 1.44) — LAST, and only after every §10.1 rule above has
         // already decided to accept. The feed "only ever rejects" (rule 4), so running it here

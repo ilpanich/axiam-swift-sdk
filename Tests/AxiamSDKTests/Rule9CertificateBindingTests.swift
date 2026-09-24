@@ -192,4 +192,76 @@ final class Rule9CertificateBindingTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - Rule 9 at the DEFAULT entry point (contract 1.51 fix)
+    //
+    // The defect this section pins: `authenticate(_:)` — the §10 guard entry point that
+    // `AxiamGuards`, the §11 helpers and the §28 MCP guard all reach — applied §10.1
+    // rules 1-8 and never rule 9. A device login's token (§6.1 rules 6/9,
+    // `cnf.x5t#S256`) was therefore accepted here as an ordinary bearer token, with no
+    // check that the caller held the named key. A token lifted off a device and replayed
+    // as a bearer credential opened every guarded route.
+    //
+    // The fix: `authenticate(_:presentedProofs:)` gained a `presentedProofs` parameter
+    // defaulting to `.none`, and now calls `verifyTokenBinding` after the §10.1 claim
+    // checks. An unbound token is unaffected (rule 9's first row); a bound token is
+    // refused UNLESS the caller threads through what it proved on this connection.
+
+    /// **This is the test that pins the fix.** Reverting the `verifyTokenBinding` call in
+    /// `authenticateVerifiedToken` turns this red: a device token, presented through the
+    /// DEFAULT `authenticate(_:)` call with no evidence, must not be accepted as an
+    /// ordinary bearer token.
+    func testDefaultAuthenticateRefusesABoundTokenWithNoEvidence() async throws {
+        let jwt = signer.makeJWT(claims: claims(cnf: ["x5t#S256": Self.thumbprint]))
+        try await withGuardClient { client, _ in
+            let auth = client.makeAuthenticator()
+            let ctx = AxiamRequestContext(cookies: ["axiam_access": jwt])
+            do {
+                _ = try await auth.authenticate(ctx)
+                XCTFail("expected the default authenticate(_:) to refuse a bound token")
+            } catch is AuthError { /* ok */ }
+        }
+    }
+
+    /// The I4 twin: an ordinary unbound token — every token before §6.1 existed, and every
+    /// one a non-mTLS deployment will ever mint — verifies exactly as it always did through
+    /// the default entry point.
+    func testDefaultAuthenticateAcceptsAnUnboundToken() async throws {
+        let jwt = signer.makeJWT(claims: claims())
+        try await withGuardClient { client, _ in
+            let auth = client.makeAuthenticator()
+            let user = try await auth.authenticate(AxiamRequestContext(cookies: ["axiam_access": jwt]))
+            XCTAssertEqual(user.userID, "user-42")
+        }
+    }
+
+    /// A caller that DOES have evidence threads it through `presentedProofs` explicitly,
+    /// and the same token that was refused above is accepted.
+    func testDefaultAuthenticateAcceptsABoundTokenWhenProofsAreSupplied() async throws {
+        let jwt = signer.makeJWT(claims: claims(cnf: ["x5t#S256": Self.thumbprint]))
+        try await withGuardClient { client, _ in
+            let auth = client.makeAuthenticator()
+            let user = try await auth.authenticate(
+                AxiamRequestContext(cookies: ["axiam_access": jwt]),
+                presentedProofs: .certificate(Self.thumbprint)
+            )
+            XCTAssertEqual(user.userID, "user-42")
+        }
+    }
+
+    /// The wrong certificate is still a refusal through the default entry point, not
+    /// merely "no certificate".
+    func testDefaultAuthenticateRefusesABoundTokenWithWrongProofs() async throws {
+        let jwt = signer.makeJWT(claims: claims(cnf: ["x5t#S256": Self.thumbprint]))
+        try await withGuardClient { client, _ in
+            let auth = client.makeAuthenticator()
+            do {
+                _ = try await auth.authenticate(
+                    AxiamRequestContext(cookies: ["axiam_access": jwt]),
+                    presentedProofs: .certificate(Self.otherThumbprint)
+                )
+                XCTFail("expected the default authenticate(_:) to refuse the wrong certificate")
+            } catch is AuthError { /* ok */ }
+        }
+    }
 }

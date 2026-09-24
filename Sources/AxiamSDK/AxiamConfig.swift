@@ -30,6 +30,25 @@ public struct AxiamConfig: Sendable {
     public let clientCertificate: ClientCertificate?
     public let requestTimeout: TimeInterval
 
+    /// The tenant an **organization-level** principal acts on, sent as `X-Axiam-Tenant`
+    /// (CONTRACT.md §5.2 rule 1, contract 1.51).
+    ///
+    /// `nil` by default, which is what keeps a client built before contract 1.51 sending
+    /// byte-for-byte the same headers it always did: the header is sent only when this
+    /// (or ``AxiamClient/actingTenant(_:)``) has set a value. A `UUID`, never a `String`
+    /// — the server parses the header as a UUID and silently ignores a value that does
+    /// not parse, so typing this as `UUID` is what makes "refuse a non-UUID client-side,
+    /// before any wire call" (§5.2 rule 1) a property of the type rather than a runtime
+    /// check this SDK has to remember to perform.
+    ///
+    /// Meaningful only for an organization-level principal — see
+    /// ``AxiamUser/organizationLevel``. Set here, before any login exists to gate
+    /// against, this value is sent as asked and the server's `403` is the answer for a
+    /// principal it does not fit (§5.2 rule 1: "gate it on what the SDK knows"). It is
+    /// REST-only: this SDK ships no gRPC transport, so §5.2 rule 1 has nothing else to
+    /// reach.
+    public let actingTenant: UUID?
+
     /// The `iss` the §10 guard requires an inbound access token to carry (CONTRACT.md §10.1
     /// rule 5).
     ///
@@ -147,6 +166,7 @@ public struct AxiamConfig: Sendable {
         orgSlug: String? = nil,
         customCA: Data? = nil,
         clientCertificate: ClientCertificate? = nil,
+        actingTenant: UUID? = nil,
         requestTimeout: TimeInterval = 30,
         expectedIssuer: String? = nil,
         expectedAudience: String? = nil,
@@ -237,6 +257,7 @@ public struct AxiamConfig: Sendable {
         self.orgSlug = orgSlug
         self.customCA = customCA
         self.clientCertificate = clientCertificate
+        self.actingTenant = actingTenant
         self.requestTimeout = requestTimeout
         self.expectedIssuer = expectedIssuer
         self.expectedAudience = expectedAudience

@@ -220,6 +220,43 @@ def discriminated(schema: Any) -> tuple[str, list[tuple[str, Any]]] | None:
     return (tag or "", arms)
 
 
+def externally_tagged(schema: Any) -> list[tuple[str, Any]] | None:
+    """Detect an EXTERNALLY-tagged ``oneOf`` and return ``[(wire_key, value_schema), ...]``.
+
+    CONTRACT.md §27.13 S-7's ``SubjectAltName`` is the one schema in this shape:
+    ``{"dns": "..."}`` or ``{"ip": "..."}`` — the variant's *key itself* says which
+    case it is, with no shared discriminator property beside a payload (that is
+    ``discriminated()``, above). Each variant here is an object with exactly one
+    required property, and that property's name is the tag.
+
+    A generator that does not recognise this shape falls through to ``flatten()``,
+    which only understands ``allOf``/``properties`` — ``oneOf`` alone yields an
+    object with no properties at all, so the emitted struct is empty and
+    serializes as ``{}`` on EVERY case. That was this generator's own defect
+    before contract 1.51's re-vendor exposed it (C-1 EXECUTED item 2; every port
+    that regenerated against 1.51 found the same bug independently).
+    """
+    variants = schema.get("oneOf") if isinstance(schema, dict) else None
+    if not isinstance(variants, list) or len(variants) < 2:
+        return None
+    arms: list[tuple[str, Any]] = []
+    seen: set[str] = set()
+    for variant in variants:
+        resolved = resolve_ref(variant) if isinstance(variant, dict) and "$ref" in variant else variant
+        if not isinstance(resolved, dict):
+            return None
+        props = resolved.get("properties") or {}
+        required = resolved.get("required") or []
+        if len(props) != 1 or len(required) != 1:
+            return None
+        key = required[0]
+        if key not in props or key in seen:
+            return None
+        seen.add(key)
+        arms.append((key, props[key]))
+    return arms
+
+
 def sensitive_map() -> dict[str, set[str]]:
     """Which fields of which schemas carry a secret, per the registry."""
     out: dict[str, set[str]] = {}
@@ -268,8 +305,9 @@ def schema_closure() -> list[str]:
     return sorted(seen)
 
 
-def _classify() -> tuple[set[str], set[str]]:
-    """Split the spec's schemas into (enums, discriminated unions), by RENDERED name.
+def _classify() -> tuple[set[str], set[str], set[str]]:
+    """Split the spec's schemas into (enums, discriminated unions, externally-tagged
+    unions), by RENDERED name.
 
     Computed once, up front. A type's NAME never tells you its KIND, and an emitter that
     re-guesses from a name is how a sibling port shipped `Enum::fromArray()` on a backed
@@ -277,6 +315,7 @@ def _classify() -> tuple[set[str], set[str]]:
     """
     enums: set[str] = set()
     unions: set[str] = set()
+    external: set[str] = set()
     for name, schema in SCHEMAS.items():
         if not isinstance(schema, dict):
             continue
@@ -284,10 +323,12 @@ def _classify() -> tuple[set[str], set[str]]:
             enums.add(pascal(name))
         elif discriminated(schema):
             unions.add(pascal(name))
-    return enums, unions
+        elif externally_tagged(schema):
+            external.add(pascal(name))
+    return enums, unions, external
 
 
-ENUMS, UNIONS = _classify()
+ENUMS, UNIONS, EXTERNAL_UNIONS = _classify()
 
 
 # ---------------------------------------------------------------------------
@@ -557,10 +598,20 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
     out: list[dict[str, Any]] = []
     for wire, sub in props.items():
         info = swift_field(sub, secret=wire in secrets)
+        # §27.13 S-10 rule 3 (C-1 EXECUTED item 2): `inherit` is ALWAYS decoded as
+        # optional, whatever the schema's own `required` array says. The three
+        # role-side listings (`RoleGroupAssignment`/`RoleServiceAccountAssignment`/
+        # `RoleUserAssignment`) mark it schema-required — correct for a contract-1.51
+        # server, which always sends it — but a naive `Bool` (non-optional) decode
+        # would fail the WHOLE listing against a pre-1.51 server that omits it, the
+        # exact defect the contract calls out. `Bool?` plus the `inherits` computed
+        # property (emitted in `emit_models`) is what reads an absent value as `true`
+        # rather than failing the decode or silently reading `false`.
+        is_inherit = wire == "inherit"
         out.append({
             "wire": wire, "name": field(wire), "decl": info["decl"], "kind": info["kind"],
-            "ref": info["ref"], "required": wire in required, "schema": sub,
-            "secret": wire in secrets,
+            "ref": info["ref"], "required": False if is_inherit else wire in required,
+            "schema": sub, "secret": wire in secrets,
             "description": sub.get("description") if isinstance(sub, dict) else None,
         })
     return out, description
@@ -591,7 +642,7 @@ def modelled() -> list[tuple[str, str, list[dict[str, Any]]]]:
     out = []
     for name in schema_closure():
         rendered = pascal(name)
-        if rendered in ENUMS:
+        if rendered in ENUMS or rendered in EXTERNAL_UNIONS:
             continue
         fields, _desc = fields_of(name, secrets.get(name, set()))
         out.append((name, rendered, fields))
@@ -747,6 +798,10 @@ def example_for(name: str, depth: int = 0) -> Any:
         for k, sub in (resolved.get("properties") or {}).items():
             out[k] = example_json(sub, depth + 1)
         return out
+    external = externally_tagged(schema)
+    if external:
+        key, value_schema = external[0]
+        return {key: example_json(value_schema, depth + 1)}
     props, _, _ = flatten(name)
     return {k: example_json(v, depth + 1) for k, v in props.items()}
 
@@ -923,11 +978,80 @@ def emit_models() -> str:
         out.append("}")
         out.append("")
 
+    # ---- externally-tagged unions (§27.13 S-7: SubjectAltName) ----
+    #
+    # `{"dns": "api.example.internal"}` / `{"ip": "10.0.0.5"}` — the variant's own key
+    # says which case it is; there is no discriminator field beside a payload the way
+    # `discriminated()`'s internally-tagged unions have. A generic Swift `enum` with
+    # associated values and hand-written `Codable` is the natural shape (C-1 EXECUTED
+    # item 2), NOT the empty struct this generator emitted before this fix — that
+    # struct decoded any input and encoded as `{}` on every case, which is
+    # indistinguishable from every other case and from no name at all.
+    for name in schema_closure():
+        rendered = pascal(name)
+        if rendered not in EXTERNAL_UNIONS:
+            continue
+        arms = externally_tagged(SCHEMAS.get(name) or {})
+        assert arms is not None
+        description = (SCHEMAS.get(name) or {}).get("description")
+        out.extend(doc(escape(description) if description else f"The `{name}` schema."))
+        out.extend(doc(""))
+        out.extend(doc(
+            "An externally-tagged one-of: exactly one wire key is present at a time, "
+            "never a shared discriminator field beside a payload. Encoding always "
+            "produces exactly one key — never `{}`, which is what an empty struct "
+            "(this generator's defect before contract 1.51's re-vendor exposed it) "
+            "would have serialized as for every case."))
+        out.append(f"public enum {rendered}: Codable, Sendable, Equatable {{")
+        cases: list[str] = []
+        for key, value_schema in arms:
+            case = ident(swift_case(key))
+            cases.append(case)
+            info = swift_field(value_schema)
+            out.extend(doc(f"The `{key}` variant.", "    "))
+            out.append(f"    case {case}({info['decl']})")
+            out.append("")
+        out.append("    private enum CodingKeys: String, CodingKey {")
+        for key, _ in arms:
+            out.append(f'        case {ident(swift_case(key))} = "{key}"')
+        out.append("    }")
+        out.append("")
+        out.append("    public init(from decoder: any Decoder) throws {")
+        out.append("        let container = try decoder.container(keyedBy: CodingKeys.self)")
+        for i, (key, value_schema) in enumerate(arms):
+            case = ident(swift_case(key))
+            info = swift_field(value_schema)
+            keyword = "if" if i == 0 else "} else if"
+            out.append(
+                f"        {keyword} let value = try container.decodeIfPresent("
+                f"{info['decl']}.self, forKey: .{case}) {{")
+            out.append(f"            self = .{case}(value)")
+        out.append("        } else {")
+        out.append("            throw DecodingError.dataCorruptedError(")
+        out.append(f"                forKey: CodingKeys.{cases[0]}, in: container,")
+        out.append(
+            f'                debugDescription: "{rendered}: none of '
+            f"{[k for k, _ in arms]} present\")")
+        out.append("        }")
+        out.append("    }")
+        out.append("")
+        out.append("    public func encode(to encoder: any Encoder) throws {")
+        out.append("        var container = encoder.container(keyedBy: CodingKeys.self)")
+        out.append("        switch self {")
+        for key, _ in arms:
+            case = ident(swift_case(key))
+            out.append(f"        case let .{case}(value):")
+            out.append(f"            try container.encode(value, forKey: .{case})")
+        out.append("        }")
+        out.append("    }")
+        out.append("}")
+        out.append("")
+
     # ---- structs ----
     secrets = sensitive_map()
     for name in schema_closure():
         rendered = pascal(name)
-        if rendered in ENUMS:
+        if rendered in ENUMS or rendered in EXTERNAL_UNIONS:
             continue
         fields, description = fields_of(name, secrets.get(name, set()))
         rendered = model_type(name)
@@ -939,6 +1063,19 @@ def emit_models() -> str:
         for f in fields:
             out.extend(doc(field_doc(f), "    "))
             out.append(f"    public let {f['name']}: {declared(f)}")
+            out.append("")
+
+        if any(f["wire"] == "inherit" for f in fields):
+            # §27.13 S-10 rule 3 (C-1 EXECUTED item 2): the wire value is `Bool?` (see
+            # `fields_of`) so decoding never fails against a pre-1.51 server that omits
+            # the key. This is where "absent means true" actually lives — every reader
+            # of this type MUST use `inherits`, never `inherit ?? false` and never a
+            # raw `inherit!`.
+            out.extend(doc(
+                "`inherit`, read the way the server means it: absent means `true` "
+                "(CONTRACT.md §27.13 S-10 rule 3), never `false`. Prefer this over "
+                "`inherit` directly.", "    "))
+            out.append("    public var inherits: Bool { inherit ?? true }")
             out.append("")
 
         # memberwise init — Swift synthesises one, but only `internal`, and a public struct

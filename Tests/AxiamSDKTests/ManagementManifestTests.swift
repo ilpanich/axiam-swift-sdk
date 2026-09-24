@@ -516,10 +516,15 @@ final class ManagementManifestTests: XCTestCase {
     }
 
     /// A resource declared with no type gets the default rather than an empty string.
-    func testAResourceWithNoDeclaredTypeGetsTheDefault() async throws {
+    /// **Inverted for §13 row 17** (was `testAResourceWithNoDeclaredTypeGetsTheDefault`,
+    /// which pinned the pre-1.51 defect: an unstated `resourceType` was silently sent as
+    /// `"folder"` — a default CONTRACT.md never stated, per §27.10's per-SDK posture
+    /// table. The fix refuses client-side instead of guessing. See
+    /// `ManifestNestedResourceTests.testEntityWithNoStatedResourceTypeIsRejected` for the
+    /// full assertion (zero wire calls beyond the read `plan` already made).
+    func testAResourceWithNoDeclaredTypeIsRefusedNotDefaulted() async throws {
         let (client, transport) = try await ManagementFixture.signedIn([
             (status: 200, body: Self.emptyPage),
-            (status: 201, body: Self.resourceObject),
         ])
         let manifest = Manifest(entities: [
             // Built by hand rather than through `Declare.resource`, whose own default would
@@ -527,12 +532,12 @@ final class ManagementManifestTests: XCTestCase {
             ManifestEntity(kind: .resource, key: "root", name: "documents"),
         ])
 
-        _ = try await client.manifest.apply(manifest)
-
-        // An empty `resource_type` is a 422 from the server, and a manifest that omitted the
-        // field is a manifest that did not care — "folder" is what it means.
-        XCTAssertEqual(
-            try XCTUnwrap(transport.last?.jsonBody)["resource_type"] as? String, "folder")
+        let report = try await client.manifest.apply(manifest)
+        XCTAssertFalse(report.isComplete)
+        XCTAssertTrue(report.failure.contains("resourceType"), report.failure)
+        // The read already happened (plan sends only reads); no CREATE — carrying a
+        // silently substituted "folder" or otherwise — was ever sent.
+        XCTAssertEqual(transport.count, 1)
     }
 
     /// A role's `isGlobal` reaches the create body.

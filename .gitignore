@@ -63,6 +63,7 @@ fastlane/test_output
 
 # AXIAM Swift SDK additions
 .build/
+.build-5.9/
 .swiftpm/
 Package.resolved
 *.xcodeproj
