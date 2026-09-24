@@ -67,6 +67,15 @@ final class ManagementStubTransport: HTTPTransport, @unchecked Sendable {
     /// The most recent management request.
     var last: Recorded? { requests.last }
 
+    /// Queue more replies onto the SAME transport — a second `plan`/`apply` phase
+    /// against server state a prior phase (in the same test) is presumed to have
+    /// produced, without constructing a second client.
+    func script(_ replies: [(status: Int, body: String)]) {
+        lock.locked {
+            self.replies.append(contentsOf: replies)
+        }
+    }
+
     func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval) async throws -> HTTPResponseData {
         if spec.url.path.hasSuffix("/auth/login") {
             return HTTPResponseData(
