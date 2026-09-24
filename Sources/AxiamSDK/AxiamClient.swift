@@ -447,8 +447,12 @@ public actor AxiamClient {
             return
         }
         if let sessionUser {
+            // CONTRACT 1.52 N-5.4 (C-12): a gate refusal is §2's AuthzError — the 403 the
+            // server would answer for the same header change — never AuthError. This
+            // client refuses no differently than the server would; it should report no
+            // differently either.
             guard sessionUser.organizationLevel else {
-                throw AxiamError.auth(AuthError(
+                throw AxiamError.authz(AuthzError(
                     "actingTenant(_:) is meaningful only for an organization-level principal "
                     + "(CONTRACT.md §5.2 rule 1); this session's principal is not one. "
                     + "No request was sent."))
@@ -459,7 +463,7 @@ public actor AxiamClient {
                // always upper-case; the server sends `reachable_tenant_ids` lower-case,
                // so a case-sensitive string comparison wrongly refused every real one.
                !reachable.contains(where: { UUID(uuidString: $0) == tenantID }) {
-                throw AxiamError.auth(AuthError(
+                throw AxiamError.authz(AuthzError(
                     "actingTenant(_:) named a tenant outside this principal's "
                     + "reachableTenantIDs (CONTRACT.md §5.2.3 rule 4). No request was sent."))
             }
