@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`ilpanich/axiam@56fbe44`). `proto/` was already byte-identical. Regenerated the §27 surface
   with `Scripts/gen_management.py`.
 
+- **Orchestrator review follow-up.** Four reference behaviours confirmed with new tests
+  (no behaviour change — each already worked; this is test coverage, not a fix):
+  `X-Axiam-Tenant` on a self-service POST (`resendOwnVerification()`); a plain binding
+  over a resource-scoped server assignment plans as an `Update` (unassign, then assign
+  with no `resource_id`), never `NoChange`; a created service account's `client_secret`
+  survives a *later* action's failure in the same `apply` and is never rotated to
+  reconcile; `apply` followed by `plan` converges over `resources[].metadata`, a
+  resource-scoped binding with `inherit: false`, and a `service_accounts` entry, all
+  three together.
+
 ### Added
 
 - **§5.2 rule 1 — the acting tenant, `X-Axiam-Tenant`.** `AxiamConfig.actingTenant: UUID?` at

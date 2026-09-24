@@ -120,6 +120,32 @@ final class ActingTenantTests: XCTestCase {
         XCTAssertEqual(transport.header("X-Axiam-Tenant", of: logoutIndex), Self.actingTenant.uuidString)
     }
 
+    /// §5.2.2 rule 4: a self-service endpoint — one scoped to the CALLER'S OWN user id —
+    /// still gets the header. "Self-service ignores X-Axiam-Tenant" is a rule about what
+    /// the SERVER does with it (it scopes the request to `principal_tenant_id` regardless
+    /// of what the header names); an SDK MUST NOT help that along by clearing or rewriting
+    /// the header for those calls — "send the header as normal; the server decides." The
+    /// Java port (C-4) was sent back for exactly this omission.
+    ///
+    /// `resendOwnVerification()` (`POST /users/me/resend-verification`) is one of the
+    /// endpoints §5.2.2 rule 4 names explicitly.
+    func testHeaderPresentOnASelfServicePOST() async throws {
+        let (client, transport) = try await loggedIn(actingTenant: Self.actingTenant)
+        try await client.resendOwnVerification()
+        let last = transport.requests.count - 1
+        XCTAssertTrue(transport.requests[last].path.hasSuffix("/users/me/resend-verification"))
+        XCTAssertEqual(transport.header("X-Axiam-Tenant", of: last), Self.actingTenant.uuidString)
+    }
+
+    /// The I4 twin: absent when not set, on the SAME self-service call.
+    func testHeaderAbsentOnASelfServicePOSTWhenNotSet() async throws {
+        let (client, transport) = try await loggedIn()
+        try await client.resendOwnVerification()
+        let last = transport.requests.count - 1
+        XCTAssertTrue(transport.requests[last].path.hasSuffix("/users/me/resend-verification"))
+        XCTAssertNil(transport.header("X-Axiam-Tenant", of: last))
+    }
+
     /// §27.4 rule 3 is unchanged: the acting tenant never rewrites a `{tenant_id}` path
     /// segment. `tenants.get(tenantID:)` — where `{tenant_id}` names the OBJECT being
     /// read, not the context — still names THAT tenant in the path, independent of what
