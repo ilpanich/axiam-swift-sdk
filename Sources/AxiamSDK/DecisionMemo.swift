@@ -79,9 +79,21 @@ struct DecisionMemo {
     /// Entry count, for tests.
     var count: Int { entries.count }
 
-    /// Build the §17.1 rule 3 key: all four components, absent distinguished from present.
-    static func key(subjectID: String?, resource: String, action: String, scope: String?) -> String {
-        [subjectID ?? absent, resource, action, scope ?? absent].joined(separator: separator)
+    /// Build the §17.1 rule 3 key: the four contract fields plus the acting tenant
+    /// (contract 1.51, C-12 candidate amendment), absent distinguished from present.
+    ///
+    /// §17.1 rule 3 keys the memo on `(subject_id, resource_id, action, scope)`, but
+    /// since contract 1.51 one session can ask the same question of two tenants by
+    /// changing `X-Axiam-Tenant` between calls (§5.2 rule 1). Without the acting tenant
+    /// in the key, a memoized answer for tenant A would be returned for tenant B within
+    /// the TTL — the two calls differ only in a header the memo never looked at. This is
+    /// the same choice the Rust reference and the Kotlin port make.
+    static func key(
+        subjectID: String?, resource: String, action: String, scope: String?,
+        actingTenant: String? = nil
+    ) -> String {
+        [subjectID ?? absent, resource, action, scope ?? absent, actingTenant ?? absent]
+            .joined(separator: separator)
     }
 
     /// A live decision for `key`, if one is memoized and unexpired.

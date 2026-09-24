@@ -48,6 +48,27 @@ public actor AxiamClient {
     /// only a slug — so this is the source of the UUID that `RefreshRequest` requires.
     private var resolvedOrgID: String?
 
+    /// The tenant this client currently acts on, as `X-Axiam-Tenant` (CONTRACT.md §5.2
+    /// rule 1, contract 1.51). `nil` sends no header at all — byte for byte what every
+    /// request sent before contract 1.51. Seeded from ``AxiamConfig/actingTenant`` and
+    /// changed only through ``actingTenant(_:)``.
+    private var actingTenant: String?
+
+    /// The §6.1 device login's adopted credential, or `nil` on an ordinary cookie-based
+    /// session. Once set, every REST request this client sends carries it as
+    /// `Authorization: Bearer <token>` and withholds this client's own cookie jar (§6.1
+    /// rule 6, read with the reference implementation's note: the server reads
+    /// `axiam_access` before `Authorization`, so a client that kept a stale cookie
+    /// beside a device token would silently run as the previous session's principal).
+    /// There is no refresh token for it (rule 6), so ``canRefresh`` is `false` whenever
+    /// this is set — a later `401` is surfaced as ``AuthError`` with no refresh attempt.
+    private var deviceAccessToken: Sensitive<String>?
+
+    /// Whether a `401` on this client's own credential should attempt the §9 single-flight
+    /// refresh. `false` for a device-authenticated client (§6.1 rule 6: no refresh token
+    /// exists for it), `hasSession` otherwise.
+    private var canRefresh: Bool { hasSession && deviceAccessToken == nil }
+
     /// §19 dispatcher. Inert unless a hook was installed.
     let telemetry: TelemetryDispatcher
     /// §17 decision memo. Disabled unless the config carried a TTL. No lock: this actor's
@@ -95,6 +116,7 @@ public actor AxiamClient {
     init(config: AxiamConfig, transport: HTTPTransport) {
         self.config = config
         self.transport = transport
+        self.actingTenant = config.actingTenant?.uuidString
         self.jwks = JwksVerifier(
             transport: transport,
             baseURL: config.baseURL,
@@ -156,6 +178,7 @@ public actor AxiamClient {
         challengeToken = nil
         sessionUser = nil
         hasSession = false
+        deviceAccessToken = nil
         memo.clear()
         try await transport.shutdown()
     }
@@ -264,7 +287,196 @@ public actor AxiamClient {
         sessionUser = nil
         challengeToken = nil
         csrfToken = nil
+        deviceAccessToken = nil
         guard (200..<300).contains(response.status) else { throw mapError(response) }
+    }
+
+    // MARK: - §6.1 rules 6-10: the mTLS device login
+
+    /// The `authenticateDevice()` result (CONTRACT.md §6.1 rule 6).
+    public struct DeviceLoginResult: Sendable, Equatable {
+        /// The certificate-bound access token (§7 `Sensitive<T>`). There is no refresh
+        /// token for it — see ``AxiamClient/authenticateDevice()``.
+        public let accessToken: Sensitive<String>
+        /// Always `"Bearer"`. NEVER a signal of `cnf` boundness (§1.1.1 rule 5) — when
+        /// AXIAM itself terminated the TLS handshake this token carries `cnf.x5t#S256`
+        /// whether or not `tokenType` says so.
+        public let tokenType: String
+        /// The access-token lifetime in seconds (server default 900).
+        public let expiresIn: Int
+
+        public init(accessToken: Sensitive<String>, tokenType: String, expiresIn: Int) {
+            self.accessToken = accessToken
+            self.tokenType = tokenType
+            self.expiresIn = expiresIn
+        }
+    }
+
+    private struct DeviceLoginWire: Decodable {
+        let access_token: String
+        let token_type: String
+        let expires_in: Int
+    }
+
+    /// `authenticateDevice()` — the mTLS device login (CONTRACT.md §6.1 rules 6-10).
+    ///
+    /// Issues `POST /api/v1/auth/device` with no request body.
+    ///
+    /// **Reachable only on a client configured with a client certificate** (rule 7,
+    /// ``AxiamConfig/clientCertificate``). On any other client this refuses
+    /// CLIENT-SIDE with ``AxiamError/auth(_:)`` and **zero wire calls**: without a
+    /// certificate the server would answer `401` regardless, so going to the wire would
+    /// only turn a configuration mistake into an authentication failure.
+    ///
+    /// On success the returned token is **adopted as this client's credential**, exactly
+    /// as a `login()` result is (rule 6): every subsequent REST call this client sends —
+    /// including every `management()` operation — carries it as `Authorization: Bearer
+    /// <token>` and withholds this client's own cookie jar, so a session cookie from an
+    /// earlier `login()` can never ride alongside it. The server reads the
+    /// `axiam_access` cookie before `Authorization`, so keeping a stale one would
+    /// silently run every later request as the *previous* session's principal, defeating
+    /// the point of authenticating fresh.
+    ///
+    /// **There is no refresh token** for this credential (rule 6, D-6 of the dogfooding
+    /// plan): the §9 single-flight guard has nothing to spend on it, so a later `401` —
+    /// on this call, or on any request this client sends afterward — is surfaced as
+    /// ``AuthError`` with **no refresh attempt**. The caller recovers by calling
+    /// `authenticateDevice()` again, which costs one TLS handshake.
+    ///
+    /// **Every refusal is a `401`** (rule 8, server T22.4): an unknown, untrusted,
+    /// expired, revoked or unbound certificate, and a `Server`-type certificate, all map
+    /// to ``AuthError``. A `429` from the route's per-IP rate limiter maps to
+    /// ``NetworkError`` (§2), never ``AuthError`` — `mapError` already keeps the two
+    /// apart, so this method adds no special-casing for it, and it is never retried
+    /// here.
+    ///
+    /// The token is **certificate-bound** (`cnf.x5t#S256`) when AXIAM itself terminated
+    /// the TLS handshake (rule 9); `DeviceLoginResult.tokenType` stays `"Bearer"` either
+    /// way. A resource server verifying it locally MUST use
+    /// `AxiamRequestAuthenticator.authenticateSenderConstrained(_:presentedThumbprint:)`
+    /// (or thread `PresentedProofs` through `authenticate(_:presentedProofs:)`) rather
+    /// than the plain `authenticate(_:)`, which — after this SDK's own §10.1 rule 9 fix
+    /// — refuses a bound token with no evidence.
+    ///
+    /// - Throws: ``AxiamError/auth(_:)`` client-side (no certificate configured, zero
+    ///   wire calls) or from the server's `401`; ``AxiamError/network(_:)`` for a `429`
+    ///   or any other non-`200`.
+    @discardableResult
+    public func authenticateDevice() async throws -> DeviceLoginResult {
+        try ensureOpen()
+        // §6.1 rule 7: reachable only on a client configured with a certificate. Checked
+        // BEFORE any wire call — without one the server would answer 401 regardless, so
+        // reaching the wire would only turn a configuration mistake into an
+        // authentication failure.
+        guard config.clientCertificate != nil else {
+            throw AxiamError.auth(AuthError(
+                "authenticateDevice() requires a client certificate (CONTRACT.md §6.1 rule 7); "
+                + "configure AxiamConfig.clientCertificate. No request was sent."))
+        }
+        memo.clear() // §17.1 rule 9: this is a login.
+        let response = try await deviceRawSend()
+        guard response.status == 200 else {
+            // §6.1 rule 8: every refusal is a 401 (-> AuthError). A 429 (-> NetworkError)
+            // is not an authentication failure and is not retried (§16).
+            throw mapError(response)
+        }
+        let wire = try decode(DeviceLoginWire.self, response.body)
+        let token = Sensitive(wire.access_token)
+
+        // Adopt the token exactly as a login result is adopted (rule 6). A service
+        // account has no LoginUserInfo, so `sessionUser` stays `nil` — nothing to gate
+        // the acting tenant on (§5.2 rule 1: a client holding no login result sends the
+        // header as asked and lets the server's 403 answer).
+        hasSession = true
+        sessionUser = nil
+        challengeToken = nil
+        deviceAccessToken = token
+        resolveOrgIDFromToken(wire.access_token)
+
+        return DeviceLoginResult(accessToken: token, tokenType: wire.token_type, expiresIn: wire.expires_in)
+    }
+
+    /// `POST /api/v1/auth/device`. Deliberately NOT `rawSend`: this call authenticates
+    /// with the mTLS handshake alone, so it sends no `Cookie` and echoes no `X-CSRF-Token`
+    /// — attaching this client's own session (if any) alongside a fresh certificate-based
+    /// login would present two identities on one request.
+    private func deviceRawSend() async throws -> HTTPResponseData {
+        let url = config.baseURL.appendingPathComponent("api/v1/auth/device")
+        var headers: [(String, String)] = [
+            ("X-Tenant-ID", config.tenantHeaderValue), // §5 rule 2: unconditional
+            ("Accept", "application/json"),
+        ]
+        if let actingTenantHeader {
+            headers.append(actingTenantHeader) // §5.2 rule 1
+        }
+        let spec = HTTPRequestSpec(method: .post, url: url, headers: headers, body: nil)
+        return try await transport.execute(spec, timeout: config.requestTimeout)
+    }
+
+    // MARK: - §5.2 rule 1: acting tenant
+
+    /// Act on a different tenant (or clear it), CONTRACT.md §5.2 rule 1, contract 1.51.
+    ///
+    /// Pass `nil` to clear: the next request sends no `X-Axiam-Tenant` header at all,
+    /// which is what "the header is sent only when set" requires and what every client
+    /// that never calls this method already does.
+    ///
+    /// **Gated on what this client knows, and nothing more** (§5.2 rule 1's own words).
+    /// A client holding a login result (``AxiamUser`` from `login`/`verifyMfa`/OPAQUE/an
+    /// MFA or WebAuthn setup completion) is refused client-side, with **zero wire
+    /// calls**, unless that principal is ``AxiamUser/organizationLevel`` — an ordinary
+    /// tenant principal gets a `403` from the server for the same header change, and
+    /// offering the switch anyway would turn a type-level distinction into a runtime
+    /// failure the caller has to discover by trying. When
+    /// ``AxiamUser/reachableTenantIDs`` narrows that reach (§5.2.3), a tenant outside it
+    /// is refused the same way (rule 4).
+    ///
+    /// A client holding **no** login result — a service account from client credentials
+    /// or the mTLS device login, or a token injected directly — has nothing to gate on.
+    /// It sends the header as asked and lets the server's `403` answer: an
+    /// **organization-level service account is a supported design** (§27.13 S-9 note 2),
+    /// and this client cannot tell the difference from here.
+    ///
+    /// - Throws: ``AxiamError/auth(_:)`` — client-side, no request sent — when this
+    ///   client holds a login result that is not organization-level, or whose
+    ///   `reachableTenantIDs` does not contain `tenantID`.
+    public func actingTenant(_ tenantID: UUID?) throws {
+        try ensureOpen()
+        guard let tenantID else {
+            actingTenant = nil
+            return
+        }
+        if let sessionUser {
+            guard sessionUser.organizationLevel else {
+                throw AxiamError.auth(AuthError(
+                    "actingTenant(_:) is meaningful only for an organization-level principal "
+                    + "(CONTRACT.md §5.2 rule 1); this session's principal is not one. "
+                    + "No request was sent."))
+            }
+            if let reachable = sessionUser.reachableTenantIDs, !reachable.isEmpty,
+               !reachable.contains(tenantID.uuidString) {
+                throw AxiamError.auth(AuthError(
+                    "actingTenant(_:) named a tenant outside this principal's "
+                    + "reachableTenantIDs (CONTRACT.md §5.2.3 rule 4). No request was sent."))
+            }
+        }
+        // A client holding no login result (a service account, or an injected token) has
+        // nothing to gate on: send the header as asked and let the server decide.
+        actingTenant = tenantID.uuidString
+    }
+
+    /// Clear the acting tenant. Equivalent to `try? actingTenant(nil)`, spelled without
+    /// the optional-`nil` call site and without `throws` — clearing can never be refused.
+    public func clearActingTenant() {
+        actingTenant = nil
+    }
+
+    /// `("X-Axiam-Tenant", value)` when an acting tenant is set, or `nil` — §5.2 rule 1:
+    /// "the header is sent only when set". Every `/api/v1` request-building site adds
+    /// this alongside `X-Tenant-ID` (§5 rule 2); this SDK ships no gRPC transport, so
+    /// REST is the only transport §5.2 rule 1 has to reach.
+    private var actingTenantHeader: (String, String)? {
+        actingTenant.map { ("X-Axiam-Tenant", $0) }
     }
 
     // MARK: - §1 Authorization
@@ -303,7 +515,9 @@ public actor AxiamClient {
         // §17: consulted before the wire, written only after a decision the server actually
         // returned.
         let key = memo.enabled
-            ? DecisionMemo.key(subjectID: subjectID, resource: resource, action: action, scope: scope)
+            ? DecisionMemo.key(
+                subjectID: subjectID, resource: resource, action: action, scope: scope,
+                actingTenant: actingTenant)
             : nil
         if let key, let cached = memo.get(key) { return cached }
 
@@ -746,8 +960,8 @@ public actor AxiamClient {
     /// populate the refresh body, which the server re-derives and re-validates authoritatively,
     /// so this carries no trust weight (the real credential is the httpOnly cookie the server
     /// verifies). A malformed token or missing claim leaves `resolvedOrgID` unchanged.
-    private func resolveOrgIDFromToken() {
-        guard let token = cookieJar.value(named: "axiam_access") else { return }
+    private func resolveOrgIDFromToken(_ explicitToken: String? = nil) {
+        guard let token = explicitToken ?? cookieJar.value(named: "axiam_access") else { return }
         let segments = token.split(separator: ".", omittingEmptySubsequences: false)
         guard segments.count == 3, let payload = Base64URL.decode(String(segments[1])) else { return }
         guard let object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
@@ -760,7 +974,7 @@ public actor AxiamClient {
     /// POST that transparently refreshes once on a 401 when a session exists (§9), then retries.
     private func authorizedPOST(path: String, body: Data) async throws -> HTTPResponseData {
         let response = try await rawSend(method: .post, path: path, body: body)
-        if response.status == 401, hasSession {
+        if response.status == 401, canRefresh {
             try await refreshOnce()
             let retried = try await rawSend(method: .post, path: path, body: body)
             guard (200..<300).contains(retried.status) else { throw mapError(retried) }
@@ -839,7 +1053,7 @@ public actor AxiamClient {
             // The §9 refresh-then-retry-once path. §16.2: the two mechanisms compose in one
             // direction only — the §16 budget is NOT reset by a §9 refresh occurring
             // mid-operation, so the post-refresh call below is exactly one attempt.
-            if response.status == 401, hasSession {
+            if response.status == 401, canRefresh {
                 try await refreshOnce()
                 telemetry.emit(.requestStart(
                     operation: operation, method: "POST", pathTemplate: template,
@@ -872,15 +1086,13 @@ public actor AxiamClient {
             ("X-Tenant-ID", config.tenantHeaderValue), // §5: on every request
             ("Accept", "application/json"),
         ]
+        if let actingTenantHeader {
+            headers.append(actingTenantHeader) // §5.2 rule 1: only when set
+        }
         if body != nil {
             headers.append(("Content-Type", "application/json"))
         }
-        if let cookieHeader = cookieJar.cookieHeader(for: url) {
-            headers.append(("Cookie", cookieHeader)) // §4: resend stored session cookies
-        }
-        if method.isStateChanging, let csrfToken {
-            headers.append(("X-CSRF-Token", csrfToken)) // §3: echo on state-changing requests
-        }
+        headers.append(contentsOf: credentialHeaders(for: url, method: method))
 
         let spec = HTTPRequestSpec(method: method, url: url, headers: headers, body: body)
         let response = try await transport.execute(spec, timeout: config.requestTimeout)
@@ -895,6 +1107,27 @@ public actor AxiamClient {
             csrfToken = csrf
         }
         return response
+    }
+
+    /// The §4/§6.1 credential headers for one request: this client's cookie jar (§4, the
+    /// default, plus the §3 CSRF echo on state-changing methods), or — once
+    /// `authenticateDevice()` has adopted one — the device bearer token with an EXPLICIT
+    /// empty `Cookie` header, so a stale session cookie from an earlier login can never
+    /// ride alongside it (§6.1 rule 6: the server reads `axiam_access` before
+    /// `Authorization`). CSRF does not apply to the bearer path: §3 defends a
+    /// cookie-based session, and the device token is not one.
+    private func credentialHeaders(for url: URL, method: HTTPRequestMethod) -> [(String, String)] {
+        if let deviceAccessToken {
+            return [("Authorization", "Bearer \(deviceAccessToken.expose())"), ("Cookie", "")]
+        }
+        var out: [(String, String)] = []
+        if let cookieHeader = cookieJar.cookieHeader(for: url) {
+            out.append(("Cookie", cookieHeader))
+        }
+        if method.isStateChanging, let csrfToken {
+            out.append(("X-CSRF-Token", csrfToken))
+        }
+        return out
     }
 
     /// Execute one request against an **absolute** URL — an endpoint read from a discovery
@@ -978,10 +1211,21 @@ extension AxiamClient {
     /// Marks the client authenticated after a §24.3 / §25.2 rule 2 credential adoption. The
     /// session cookies arrived on the same response and were stored by `rawSend`; this is
     /// the in-memory half.
+    ///
+    /// `sessionUser` is always SET to `user` — including to `nil` when the completion's own
+    /// response carries no `LoginUserInfo` (a plain WebAuthn authentication, an SSO/federation
+    /// completion). This resets the §5.2 acting-tenant gate to "unknown" rather than leaving a
+    /// PREVIOUS session's `organizationLevel`/`reachableTenantIDs` in place for a new principal
+    /// this response never described — every completed session gets the SAFE reading, which
+    /// sends the acting-tenant header as asked and lets the server's `403` answer, exactly as a
+    /// client holding no login result at all already does (§5.2 rule 1). Leaving the old value
+    /// in place here was a real defect: a caller who authenticated as principal A, switched to
+    /// act on tenant X, then signed in again over WebAuthn as principal B would otherwise keep
+    /// acting on X under A's now-stale `organizationLevel` gate.
     func adoptSessionAfterCeremony(user: AxiamUser? = nil) {
         hasSession = true
         challengeToken = nil
-        if let user { sessionUser = user }
+        sessionUser = user
         resolveOrgIDFromToken()
     }
 
@@ -1007,11 +1251,14 @@ extension AxiamClient {
     /// token.
     func setupTokenRawSend(path: String, body: Data) async throws -> HTTPResponseData {
         let url = config.baseURL.appendingPathComponent(path)
-        let headers: [(String, String)] = [
+        var headers: [(String, String)] = [
             ("X-Tenant-ID", config.tenantHeaderValue), // §5: on every request
             ("Accept", "application/json"),
             ("Content-Type", "application/json"),
         ]
+        if let actingTenantHeader {
+            headers.append(actingTenantHeader) // §5.2 rule 1: every /api/v1 REST call
+        }
         let spec = HTTPRequestSpec(method: .post, url: url, headers: headers, body: body)
         let response = try await transport.execute(spec, timeout: config.requestTimeout)
 
@@ -1062,9 +1309,10 @@ extension AxiamClient {
             ("X-Tenant-ID", config.tenantHeaderValue),
             ("Accept", "application/json"),
         ]
-        if let cookieHeader = cookieJar.cookieHeader(for: url) {
-            headers.append(("Cookie", cookieHeader))
+        if let actingTenantHeader {
+            headers.append(actingTenantHeader) // §5.2 rule 1: every /api/v1 REST call
         }
+        headers.append(contentsOf: credentialHeaders(for: url, method: .get))
         let spec = HTTPRequestSpec(method: .get, url: url, headers: headers, body: nil)
         return try await transport.execute(spec, timeout: config.requestTimeout)
     }
@@ -1120,15 +1368,13 @@ extension AxiamClient {
             ("X-Tenant-ID", config.tenantHeaderValue),
             ("Accept", "application/json"),
         ]
+        if let actingTenantHeader {
+            headers.append(actingTenantHeader) // §5.2 rule 1: every management call
+        }
         if body != nil {
             headers.append(("Content-Type", "application/json"))
         }
-        if let cookieHeader = cookieJar.cookieHeader(for: url) {
-            headers.append(("Cookie", cookieHeader))
-        }
-        if method.isStateChanging, let csrfToken {
-            headers.append(("X-CSRF-Token", csrfToken))
-        }
+        headers.append(contentsOf: credentialHeaders(for: url, method: method))
 
         let spec = HTTPRequestSpec(method: method, url: url, headers: headers, body: body)
         let response = try await transport.execute(spec, timeout: config.requestTimeout)
@@ -1146,6 +1392,10 @@ extension AxiamClient {
     /// Whether this client holds a session — §27.4 rule 1's precondition, and the guard on
     /// the §9 refresh-then-retry-once path.
     func managementHasSession() -> Bool { hasSession }
+
+    /// Whether a `401` on a management call should attempt the §9 refresh (§6.1 rule 6:
+    /// `false` for a device-authenticated client — there is no refresh token for it).
+    func managementCanRefresh() -> Bool { canRefresh }
 
     /// The §9 single-flight refresh. Reached rather than reimplemented: a management layer
     /// with its own refresh would put 147 endpoints outside this client's one guard.

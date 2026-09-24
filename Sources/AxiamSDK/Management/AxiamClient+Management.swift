@@ -107,7 +107,7 @@ extension AxiamClient {
             // The §9 refresh-then-retry-once path. §16.2: the two mechanisms compose in one
             // direction only — a refresh does NOT reset the §16 budget, so this is exactly
             // one further attempt.
-            if response.status == 401, managementHasSession() {
+            if response.status == 401, managementCanRefresh() {
                 try await managementRefreshOnce()
                 telemetry.emit(.requestStart(
                     operation: operation, method: method.rawValue,
