@@ -226,6 +226,11 @@ public actor AxiamClient {
             let user = success.toUser()
             hasSession = true
             sessionUser = user
+            // CONTRACT 1.52 N-4.4 (C-12): the device credential is HELD UNTIL REPLACED, and
+            // a login result is one of the calls that replaces it — otherwise it keeps
+            // riding (and keeps withholding the new session's cookie) on every request
+            // after this one, silently shadowing the login this call just performed.
+            deviceAccessToken = nil
             resolveOrgIDFromToken()
             challengeToken = nil
             return .authenticated(user)
@@ -267,6 +272,7 @@ public actor AxiamClient {
         let success = try decode(LoginSuccessResponse.self, response.body)
         hasSession = true
         sessionUser = success.toUser()
+        deviceAccessToken = nil // CONTRACT 1.52 N-4.4 (C-12): replaces the device credential
         resolveOrgIDFromToken()
         challengeToken = nil
     }
@@ -807,6 +813,7 @@ public actor AxiamClient {
             let user = success.toUser()
             hasSession = true
             sessionUser = user
+            deviceAccessToken = nil // CONTRACT 1.52 N-4.4 (C-12): replaces the device credential
             resolveOrgIDFromToken()
             challengeToken = nil
             return .authenticated(user)
@@ -1234,6 +1241,10 @@ extension AxiamClient {
         hasSession = true
         challengeToken = nil
         sessionUser = user
+        // CONTRACT 1.52 N-4.4 (C-12): every session-establishing completion this choke
+        // point covers (WebAuthn authentication, SSO completions, MFA setup confirm,
+        // WebAuthn setup finish) replaces a held device credential, not just a `login()`.
+        deviceAccessToken = nil
         resolveOrgIDFromToken()
     }
 

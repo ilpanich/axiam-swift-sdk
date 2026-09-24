@@ -197,4 +197,27 @@ final class DeviceMtlsLoginTests: XCTestCase {
         XCTAssertEqual(transport.requests.count, 2)
         XCTAssertTrue(transport.requests.last!.path.hasSuffix("/authz/check"))
     }
+
+    /// CONTRACT 1.52 N-4.4 (C-12): the device credential is held until replaced — a later
+    /// `login()` MUST replace it, not merely sit beside it. Before this fix `deviceAccessToken`
+    /// was cleared only by `close()`/`logout()`, so a `login()` after `authenticateDevice()`
+    /// was silently shadowed: every request kept presenting the stale device bearer (and kept
+    /// withholding the new session's cookie) instead of adopting the fresh login.
+    func testALaterLoginReplacesTheDeviceCredential() async throws {
+        let transport = RecordingTransport()
+        let client = AxiamClient(config: try configWithCert(), transport: transport)
+
+        _ = try await client.authenticateDevice()
+        _ = try await client.login(email: "a@b.test", password: "pw")
+        _ = try await client.checkAccess("read", resource: "doc-1")
+
+        let checkIndex = transport.requests.count - 1
+        XCTAssertTrue(transport.requests[checkIndex].path.hasSuffix("/authz/check"))
+        XCTAssertNil(
+            transport.header("Authorization", of: checkIndex),
+            "the stale device bearer must not survive a later login")
+        XCTAssertTrue(
+            (transport.header("Cookie", of: checkIndex) ?? "").contains("stale-cookie-tok"),
+            "the new login's own cookie session must be used instead")
+    }
 }
