@@ -549,7 +549,7 @@ let user = try await requireEdit(ctx)                   // throws AuthError/Auth
 
 ### What the guard checks (§10.1 minimum local-verification set)
 
-`authenticate(_:presentedProofs:)` applies **all eight** rules; a signature check alone is not
+`authenticate(_:presentedProofs:)` applies **all nine** rules; a signature check alone is not
 a guard.
 
 | # | Claim | Rule |
@@ -561,12 +561,21 @@ a guard.
 | 5 | `iss` | Checked only when `AxiamConfig.expectedIssuer` is set. |
 | 6 | `aud` | Checked only when `AxiamConfig.expectedAudience` is set (string and array forms both honoured). |
 | 7 | clock skew | One named 60s constant, `AxiamRequestAuthenticator.clockSkewTolerance`, on rules 2 and 3. Not settable. |
-| 8 | `cnf` | A token carrying `cnf` is **not** a bearer token. See below — this rule is where contract 1.51 found and fixed a real defect at this entry point. |
+| 8 | subject of the decision | The guard decides on the CALLER'S credential and no other. On failure it rejects — it never retries, refreshes, or falls back to a different credential (in particular not this SDK client's own session). This is a runtime refusal on the credential actually presented, not a compile-time guarantee: nothing in the guard's signature stops a caller from threading a different credential through, the check is what stops it at the call. |
+| 9 | `cnf` | A token carrying `cnf` is **not** a bearer token. See below — this rule is where contract 1.51 found and fixed a real defect at this entry point. |
 
 Every rule fails **closed** — a required claim that is absent, unparseable, or of the wrong JSON
 type rejects the token.
 
-#### Rule 8 (`cnf`) at the DEFAULT entry point — a fixed defect (contract 1.51)
+`AxiamGuards`' `requireAuth`/`requireAccess`/`requireRole` all route through this same
+`authenticate(_:presentedProofs:)`, and none of them thread transport evidence through it:
+this guard cannot obtain a certificate or a verified DPoP proof from Vapor's request on its
+own, so every guard `AxiamGuards` returns refuses a `cnf`-bound (device- or DPoP-bound)
+access token outright, per rule 9. A resource server that must accept one calls
+`authenticateSenderConstrained(_:presentedThumbprint:)` (or threads `PresentedProofs`
+through `authenticate(_:presentedProofs:)`) directly, outside `AxiamGuards`.
+
+#### Rule 9 (`cnf`) at the DEFAULT entry point — a fixed defect (contract 1.51)
 
 `authenticate(_:presentedProofs:)` gained a `presentedProofs: PresentedProofs = .none`
 parameter. **Before this fix**, the default `authenticate(_:)` applied rules 1–7 only and
