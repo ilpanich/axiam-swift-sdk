@@ -7,6 +7,101 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Re-vendored `CONTRACT.md`, `openapi.json` and `management-registry.json` to contract 1.51**
+  (`ilpanich/axiam@56fbe44`). `proto/` was already byte-identical. Regenerated the §27 surface
+  with `Scripts/gen_management.py`.
+
+### Added
+
+- **§5.2 rule 1 — the acting tenant, `X-Axiam-Tenant`.** `AxiamConfig.actingTenant: UUID?` at
+  construction; `AxiamClient.actingTenant(_:)` / `clearActingTenant()` on an existing client.
+  Sent only when set, on every `/api/v1` REST call (login/verifyMfa excluded, matching the
+  reference: neither has a session yet to act on). Gated client-side (zero wire calls) on
+  `organizationLevel` and `reachableTenantIDs` when this client holds a login result; sent
+  as asked otherwise. The §17 decision memo key now includes the acting tenant, so two
+  identical checks under two different acting tenants never collide within the TTL.
+
+- **§6.1 rules 6–10 — `authenticateDevice()`, the mTLS device login.** `POST /auth/device`
+  with no body; reachable only on a client configured with `clientCertificate`, refusing
+  client-side with zero wire calls otherwise. Adopts the returned token as this client's
+  credential: every later REST call carries it as `Authorization: Bearer <token>` and
+  withholds this client's own cookie jar, so a stale session cookie from an earlier `login()`
+  can never ride alongside it. No refresh token exists for it; a later `401` is `AuthError`
+  with no refresh attempt.
+
+- **§27.6.1 — the manifest additions**, at the flat-entity tier: `resources[].metadata`
+  (compared by whole-object JSON equality); a role binding's resource-scoped shape,
+  `{role, resource, inherit}`, with `inherit` sent only when `false`; and `service_accounts`,
+  including group → role and service-account → role bindings (new — this manifest previously
+  had no role bindings of any kind). A changed binding is unassign-then-assign with restore
+  on failure; a service account's one-time `client_secret` reaches
+  `PlannedChange.serviceAccountSecret`, once, and `apply` never rotates to reconcile. One role
+  bound twice to one subject, and a global role bound with `inherit: false`, are refused
+  client-side with zero wire calls.
+
+- **Contract-1.51 generated model fixes** (`Scripts/gen_management.py`): `SubjectAltName` is
+  now a proper externally-tagged enum (`{"dns": …}` / `{"ip": …}`) with hand-rolled `Codable`,
+  rather than the empty struct the generator emitted for any `oneOf` schema it did not
+  otherwise recognise (which serialized as `{}` for every case). The `inherit` field on the
+  three role-side listings (`RoleGroupAssignment`, `RoleServiceAccountAssignment`,
+  `RoleUserAssignment`) is always decoded as `Bool?`, regardless of the schema's own
+  "required" marking, plus a new `inherits` computed property that reads an absent value as
+  `true` — a naive required `Bool` would fail the whole listing against a pre-1.51 server
+  that omits the key. `CertificateType.server` (`"Server"`) decodes on the already-open enum
+  with no generator change needed.
+
+### Fixed
+
+- **§13 row 17 — the SDK manifest defects `axiam` §27.10 records for this port.** A nested
+  resource's `Create` body now carries the created parent's `parent_id`; before this fix the
+  DSL derived the parent link correctly but the wire body never carried it, so a nested
+  manifest was created flat on the server. An unstated `resourceType` is now refused
+  client-side rather than silently sent as `"folder"` — a default CONTRACT.md never stated.
+
+- **A real §10.1 rule 9 defect at the default guard entry point.** `authenticate(_:)` applied
+  rules 1–8 of the minimum local-verification set and never checked `cnf`: a
+  certificate-bound token (notably a §6.1 device login's token) was accepted here as an
+  ordinary bearer credential, with no check that the caller held the key it named. Every
+  route guard in this SDK (`AxiamGuards`, the §11 helpers, the §28 MCP guard) reaches this
+  method. `authenticate(_:presentedProofs:)` now gained a `presentedProofs: PresentedProofs
+  = .none` parameter and checks rule 9 unconditionally; the default (no evidence) refuses a
+  bound token, while an unbound token is unaffected.
+
+- **Session-completion calls now reset the §5.2 acting-tenant gate and clear the §17 memo**
+  when their own response carries no `LoginUserInfo` — a plain WebAuthn authentication
+  (`webauthnAuthenticateFinish`/`webauthnDiscoverableFinish`) and every SSO/federation
+  completion (`ssoComplete`, `ssoCompleteOauth2`, `ssoCompleteHandoff`). Previously the gate
+  kept whatever a PREVIOUS session's principal had left there, so a client that authenticated
+  as an organization-level principal, switched its acting tenant, then signed in again over
+  WebAuthn as a different principal would keep acting on that tenant under the stale gate. A
+  refused completion leaves the gate exactly as it was.
+
+- **`ssoComplete(code:state:)` (`/auth/federation/oidc/callback`) now actually adopts the
+  session.** It previously reached the server through `oidcJSONPost` → `umaSendAbsolute`,
+  which deliberately attaches and captures no cookie at all (correct for the §20 discovery
+  calls it otherwise serves) — so the `Set-Cookie` this call's own documentation promised
+  never actually landed in the cookie jar, on top of never marking the client as
+  authenticated. Routed through the same `completeFederationSession` helper
+  `ssoCompleteOauth2`/`ssoCompleteHandoff` already use.
+
+### Breaking
+
+- A caller relying on the pre-1.51 behaviour of `AxiamRequestAuthenticator.authenticate(_:)`
+  accepting a `cnf`-bound (certificate- or DPoP-bound) access token as an ordinary bearer
+  token will now see it refused with `AuthError`. This is a security fix, not a compatibility
+  regression: pass `presentedProofs:` explicitly if your integration has transport evidence
+  to offer.
+
+### Declined
+
+- **§1.1.1 / §10.3 `validate_token` / `introspect_token`** (contract 1.51): both are
+  gRPC-only operations, and this SDK ships no gRPC transport at all.
+- The flat-entity tier's `users` and `scopes` manifest entities remain undeclared (§7.2 of
+  the dogfooding remediation plan; unchanged from before this port).
+- `webhooks` in the manifest (§27.6: named and unspecified; no consumer has asked for it).
+
 ## [1.0.0-beta16] - 2026-09-19
 
 ### Added

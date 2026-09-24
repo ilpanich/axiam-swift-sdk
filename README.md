@@ -12,10 +12,12 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md 1.50 (the version vendored here) §1–§7, §9–§13, §14,
-> §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27 and §28 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason
-> codes, the §23 OPAQUE login path — which needs `libaxiam_opaque_ffi` installed, see below —
-> and §28's REST surface: `serveProtectedResourceMetadata` is not a function here, since this
+> **This SDK conforms to CONTRACT.md 1.51 (the version vendored here) §1–§7, §9–§13, §14,
+> §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27 and §28 (including §6.1 mTLS —
+> now including rules 6–10, the mTLS device login `authenticateDevice()` — §5.2 rule 1's
+> acting tenant, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login
+> path — which needs `libaxiam_opaque_ffi` installed, see below — and §28's REST surface:
+> `serveProtectedResourceMetadata` is not a function here, since this
 > SDK's core carries no Vapor dependency and its §10/§11 guard is likewise framework-agnostic,
 > so the route is a documented `AsyncMiddleware` wiring; §28.5 rule 8's gRPC/AMQP challenge
 > form does not apply, as this SDK's guard covers neither transport).**
@@ -23,6 +25,19 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 > §22 is §22.1–§22.8 and §22.14 over a **caller-supplied transport**: this SDK vendors no AMQP
 > client, and you conform `ReactorTransport` over whichever one you already trust (§22.11).
 > "Conforms to … §22" is the claim; "ships an AMQP client" is not.
+>
+> **§1.1.1 / §10.3 `validate_token` / `introspect_token` are declined** (contract 1.51):
+> both are gRPC-only operations, and this SDK ships no gRPC transport at all (§1.1's
+> "the first three operations served only over gRPC" already excludes Swift from every
+> gRPC-only surface, and 1.51 adds two more to that list). The §8 rule 7 test "the gRPC
+> wrappers read `cnf`" therefore does not apply to this port.
+>
+> **§27.6.1's manifest additions land at the flat-entity tier** (§27.10): `resources[].metadata`,
+> the resource-scoped role binding (`{role, resource, inherit}`) and `service_accounts` are
+> all implemented, including group → role and service-account → role bindings — new in this
+> port; before contract 1.51 this manifest had no role bindings of any kind. The tier gap
+> itself is unchanged and stays a recorded decline: no `users` and no `scopes` manifest
+> entities (§7.2 of the dogfooding remediation plan; PHP, C and C++ are in the same tier).
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -45,7 +60,9 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | Area | Status |
 |------|--------|
 | §1 methods, §2 errors, §3 CSRF, §4 cookies, §5 tenant | ✅ implemented |
-| §6 TLS + §6.1 mTLS, §7 `Sensitive`, §9 single-flight refresh | ✅ implemented |
+| §6 TLS + §6.1 mTLS (rules 1–10: config + `authenticateDevice()`), §7 `Sensitive`, §9 single-flight refresh | ✅ implemented |
+| §5.2 rule 1 acting tenant (`AxiamConfig.actingTenant`, `AxiamClient.actingTenant(_:)`) | ✅ implemented (contract 1.51) — REST-only, since this SDK ships no gRPC transport |
+| §1.1.1 / §10.3 `validate_token` / `introspect_token` | ⏭️ declined (contract 1.51) — both gRPC-only; see the conformance statement above |
 | §10 route-guard, §11 declarative helpers, EdDSA JWKS | ✅ implemented |
 | gRPC transport (incl. `getUserInfo`, CONTRACT §1.1) | ⏭️ deferred follow-up (no §-requirement for Swift; no REST substitution per §1.1) |
 | §8 AMQP HMAC | ⏭️ deferred (contract lists AMQP for Rust/TS/Go/Python/Java/PHP, **not** Swift) |
@@ -57,7 +74,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §24 WebAuthn / passkeys | ✅ implemented (contract 1.45) — the eight relying-party operations (register, authenticate, discoverable, and the setup-token pair added at 1.45 for forced first-login enrolment) and §24.6a's JSON bridge on **every** target, plus §24.6b's linked-API ceremony helpers on iOS 16+ and macOS 13+, including the setup-token composed helper. The Linux build keeps the RP layer and the bridge; `webauthnCeremonySupported` answers `false` there rather than throwing |
 | §25 account lifecycle & MFA enrolment | ✅ implemented (contract 1.45) — voluntary and forced TOTP enrolment, a passkey or security key as the first factor at forced enrolment (contract 1.45), email verification, and the password-reset triple |
 | §26 Pushed Authorization Requests (RFC 9126) | ✅ implemented (contract 1.28) — required for a FAPI 2.0 client, which cannot authorize any other way (§21.1) |
-| §27 management API | ✅ implemented — 162 operations across 24 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL |
+| §27 management API | ✅ implemented — 162 operations across 24 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL. §27.6.1's three additions (contract 1.51) — `resources[].metadata`, resource-scoped role bindings with `inherit`, and `service_accounts` (with role bindings) — are implemented at the **flat-entity tier**: no `users`, no `scopes` (§27.10, unchanged tier gap) |
 | §20 UMA 2.0 Protection API + ticket grant | ✅ implemented, and it landed *before* §12 rather than waiting for it: UMA carries its own discovery document (`/.well-known/uma2-configuration`), the Protection API is ordinary bearer-authenticated REST, and the ticket grant returns an opaque RPT with no `id_token` to validate. That §20 could ship alone is part of what showed the §12 deferral was cutting across the wrong seam — see contract §12.6 |
 
 ## Installation
@@ -251,6 +268,89 @@ against a tenant with OPAQUE disabled.
 `AxiamConfig` rejects a blank `tenantSlug`, `tenantID`, `orgSlug` or `orgID`, whitespace
 included. A **nil** identifier stays fine — that is what "not named" looks like, and it is
 the difference between an unset optional and a blank one.
+
+#### Switching tenants: the acting tenant (§5.2 rule 1, contract 1.51)
+
+An organization-level principal acts on a different tenant by sending `X-Axiam-Tenant` — a
+header distinct from the unconditional `X-Tenant-ID` (§5 rule 2), which the server does not
+read for this purpose. Two forms, matching every other SDK's shape for this header:
+
+```swift
+// At construction:
+let config = try AxiamConfig(
+    baseURL: url, tenantSlug: "organization", orgSlug: "globex",
+    actingTenant: UUID(uuidString: "…"))
+
+// On an existing, signed-in client:
+try await client.actingTenant(otherTenantID)   // throws client-side if this principal cannot
+await client.clearActingTenant()               // or: try await client.actingTenant(nil)
+```
+
+The header is sent **only when set** — a client that never calls either form sends nothing,
+byte for byte what every client sent before contract 1.51. `actingTenant(_:)` takes a `UUID`,
+never a `String`: the server silently ignores a header value that does not parse as one and
+acts on the caller's own tenant instead, so typing this as `UUID` makes "refuse a malformed
+value client-side, before any wire call" a property of the type rather than a check this SDK
+has to remember to perform.
+
+**Gated on what this client knows, and nothing more.** A client holding a login result is
+refused client-side — zero wire calls — unless that principal is `organizationLevel`, and
+unless the target tenant is inside `reachableTenantIDs` when that field narrows it (§5.2.3
+rule 4). A client holding **no** login result (a service account from client credentials or
+`authenticateDevice()`, or an injected token) has nothing to gate on: it sends the header as
+asked and lets the server's `403` answer — an organization-level *service account* is a
+supported design this client cannot distinguish from a tenant one from here.
+
+It is **REST-only**: this SDK ships no gRPC transport, so there is no metadata-key
+equivalent to invent. The §17 decision memo's key includes the acting tenant, so two
+identical `checkAccess` calls under two different acting tenants never collide within the
+TTL.
+
+**Which sessions carry a login result, for this gate.** `login`, `verifyMfa`, OPAQUE login,
+and the forced MFA/WebAuthn setup completions all report `LoginUserInfo` and so *set* the
+gate. Every other session-completing call — a plain WebAuthn authentication
+(`webauthnAuthenticateFinish`/`webauthnDiscoverableFinish`) and every SSO/federation
+completion (`ssoComplete`, `ssoCompleteOauth2`, `ssoCompleteHandoff`) — carries no
+`LoginUserInfo` and *resets* the gate to unknown rather than leaving a previous session's
+principal in place. A refused completion leaves the gate exactly as it was. This is the
+same choice TypeScript, Go, Python, C#, Java, Kotlin and PHP made — **not** the same as the
+Rust reference, which resets the gate for OPAQUE and the setup-completion flows too; this
+port keeps a login result from those two because their response bodies, in this SDK's
+existing decode path, already carry the full `AxiamUser` shape.
+
+### The mTLS device login (§6.1 rules 6–10, contract 1.51)
+
+Configuring a client certificate (below) lets a device log in with it — `authenticateDevice()`
+issues `POST /auth/device` with no body and returns a certificate-bound access token:
+
+```swift
+let config = try AxiamConfig(
+    baseURL: url, tenantID: tenantID,
+    clientCertificate: .pem(certificate: certPEM, privateKey: keyPEM))
+let client = try AxiamClient(config: config)
+
+let session = try await client.authenticateDevice()
+print(session.tokenType, session.expiresIn)   // "Bearer", 900
+// session.accessToken is Sensitive<String> — session.accessToken.expose() to read it
+```
+
+Reachable **only** on a client configured with a certificate: without one this refuses
+client-side with `AuthError` and **zero wire calls**, rather than sending a request the
+server would refuse anyway. On success the token is adopted as this client's credential —
+every later REST call, including every `management()` operation, sends it as `Authorization:
+Bearer <token>` and **withholds this client's own cookie jar**, so a session cookie from an
+earlier `login()` can never ride alongside it (the server reads `axiam_access` before
+`Authorization`). There is **no refresh token** for it (D-6 of the dogfooding remediation
+plan): a later `401` is surfaced as `AuthError` with no refresh attempt, and the caller
+recovers by calling `authenticateDevice()` again — one TLS handshake.
+
+Every refusal is a `401` → `AuthError`; the route's own per-IP rate limiter answers `429`,
+which maps to `NetworkError`, never `AuthError`, and is never retried.
+
+The token may carry `cnf.x5t#S256` (when AXIAM itself terminated the TLS handshake); verify
+it with `AxiamRequestAuthenticator.authenticateSenderConstrained(_:presentedThumbprint:)`
+rather than the plain `authenticate(_:)`, which — per this SDK's own §10.1 rule 9 fix, below
+— refuses a bound token it has no evidence for.
 
 ## TLS & mutual TLS
 
@@ -449,7 +549,8 @@ let user = try await requireEdit(ctx)                   // throws AuthError/Auth
 
 ### What the guard checks (§10.1 minimum local-verification set)
 
-`authenticate(_:)` applies **all seven** rules; a signature check alone is not a guard.
+`authenticate(_:presentedProofs:)` applies **all eight** rules; a signature check alone is not
+a guard.
 
 | # | Claim | Rule |
 |---|---|---|
@@ -460,9 +561,43 @@ let user = try await requireEdit(ctx)                   // throws AuthError/Auth
 | 5 | `iss` | Checked only when `AxiamConfig.expectedIssuer` is set. |
 | 6 | `aud` | Checked only when `AxiamConfig.expectedAudience` is set (string and array forms both honoured). |
 | 7 | clock skew | One named 60s constant, `AxiamRequestAuthenticator.clockSkewTolerance`, on rules 2 and 3. Not settable. |
+| 8 | `cnf` | A token carrying `cnf` is **not** a bearer token. See below — this rule is where contract 1.51 found and fixed a real defect at this entry point. |
 
 Every rule fails **closed** — a required claim that is absent, unparseable, or of the wrong JSON
 type rejects the token.
+
+#### Rule 8 (`cnf`) at the DEFAULT entry point — a fixed defect (contract 1.51)
+
+`authenticate(_:presentedProofs:)` gained a `presentedProofs: PresentedProofs = .none`
+parameter. **Before this fix**, the default `authenticate(_:)` applied rules 1–7 only and
+never checked `cnf` at all: a certificate-bound token — notably a §6.1 device login's token
+— was accepted here as an ordinary bearer credential, with no check that the caller held the
+key it named. A device token lifted off a device and replayed as a bearer credential opened
+every route this guard protects. This is the same defect independently found, and fixed the
+same way, in the Rust, TypeScript, Go, Python, Java, C#, Kotlin and PHP ports.
+
+The fix reads rule 9's own first row (`absent cnf → accept`) as the *default*: a caller who
+does not thread through transport evidence gets the SAFE reading — an **unbound** token
+(every token before §6.1 existed, and every one a non-mTLS deployment will ever mint)
+verifies exactly as before; a **bound** token is refused unless evidence is supplied:
+
+```swift
+// Default: no evidence. A bound token is now REFUSED here (was silently accepted before 1.51).
+let user = try await authenticator.authenticate(context)
+
+// A caller that DOES have transport evidence (an embedding server that terminated mTLS
+// itself, or a resource server verifying DPoP) threads it through explicitly:
+let user = try await authenticator.authenticate(context, presentedProofs: .certificate(thumbprint))
+```
+
+`authenticateSenderConstrained(_:presentedThumbprint:)` is unchanged in meaning — a
+convenience over the general form for the common single-certificate case — and now shares
+this same code path rather than re-verifying the token a second time.
+
+**This is a Breaking change** (see `CHANGELOG.md`): a caller relying on the pre-1.51
+behaviour of accepting a `cnf`-bound token as bearer through the default `authenticate(_:)`
+now sees it refused with `AuthError`. This is a security fix, not a compatibility
+regression.
 
 Because the JWKS is **organization-wide**, a valid signature alone does not prove the token was
 issued for your tenant. Access tokens carry the tenant **UUID**, so configure `tenantID` (not
@@ -1882,6 +2017,59 @@ Four properties, all load-bearing:
 Incoherence is refused *before the first request*: a duplicate key, a `dependsOn` naming
 nothing, or a dependency cycle throws `ManifestError` from `validate(_:)`, which `plan` calls
 itself. Discovering that halfway through, with no rollback, is strictly worse.
+
+**A nested resource's `Create` now carries `parent_id` on the wire** (§13 row 17, fixed in
+this port). Before contract 1.51 this SDK derived the parent link in the DSL — `dependsOn`
+was always set correctly — but never actually SENT `parent_id` when creating the child, so a
+nested manifest was created **flat** on the server despite reading as nested in the manifest
+itself. `apply` now resolves each resource's server id as it is created (or reads it from an
+existing one) and threads it to any child ordered after it. A resource entity built by hand
+(not through `Declare.resource`, whose own default is explicit) **must** state a
+`resourceType`: an unstated one is refused client-side rather than silently sent as
+`"folder"`, which is what this port did before — a default CONTRACT.md never specified.
+
+### Manifest additions (§27.6.1, contract 1.51)
+
+Three additions, all implemented at this SDK's flat-entity tier (`resources`, `permissions`,
+`roles`, `groups`, `service_accounts` — still no `users`, no `scopes`):
+
+```swift
+let manifest = Manifest {
+    Declare.resource("root", name: "documents", type: "folder", metadata: .object(["team": .string("docs")]))
+    Declare.role("admin", description: "Full access", isGlobal: true)
+    Declare.role("editor", description: "Edits documents")
+    Declare.group("editors", description: "The editors", roles: [
+        RoleBindingSpec(role: "editor"),                                   // plain
+        RoleBindingSpec(role: "admin", resource: "root", inherit: false),  // scoped, non-inheritable
+    ])
+    Declare.serviceAccount("fleet", name: "device-fleet", roles: [
+        RoleBindingSpec(role: "editor"),
+    ])
+}
+let report = try await client.manifest.apply(manifest)
+```
+
+- **`resources[].metadata`** compares by JSON value equality of the whole object — never a
+  key-by-key merge, so `apply` can remove a key by stating a smaller object.
+- **A role binding is a plain key (`RoleBindingSpec(role:)`) or scoped
+  (`RoleBindingSpec(role:resource:inherit:)`)**. `inherit` defaults to `true` and is sent on
+  the wire **only when `false`** — an inheritable binding's request body stays byte-for-byte
+  a pre-1.51 body. There is no update endpoint for a binding: a changed resource/`inherit`
+  is **unassign, then assign**, and if the assign fails the previous binding is assigned
+  again and both outcomes are reported in `ApplyReport.failedBinding`/`appliedBindings`. A
+  server `tenant_scope` on the binding is carried across a rebind unchanged — a manifest
+  binding says nothing about it, and dropping it would silently widen an organization-level
+  account's reach.
+- **`service_accounts[]`** reconciles by `name`, which the server does **not** enforce
+  (only `client_id` is unique): `plan` fails, before any write, when a stated name matches
+  more than one existing account. A `Create`'s one-time `client_secret` reaches
+  `PlannedChange.serviceAccountSecret` as `Sensitive<String>`, exactly once, even when a
+  later action of the same `apply` fails; a re-run is `NoChange` and never rotates.
+- **Refused before any request** (zero wire calls): a manifest binding one role to one
+  subject twice (`has_role` is `UNIQUE(subject, role)`, with no resource component), and a
+  global role bound with `inherit: false` (the server refuses this with `400` — a global
+  role ignores resource scope — and this SDK checks it client-side too, since it needs no
+  server state).
 
 ### Worked examples
 
