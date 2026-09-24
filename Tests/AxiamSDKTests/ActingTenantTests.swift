@@ -14,6 +14,10 @@ final class ActingTenantTests: XCTestCase {
     private static let actingTenant = UUID(uuidString: "33333333-3333-4333-8333-333333333333")!
     private static let otherTenant = UUID(uuidString: "66666666-6666-4666-8666-666666666666")!
     private static let orgID = "11111111-1111-4111-8111-111111111111"
+    /// A tenant id with hex LETTERS, so `.uuidString.lowercased()` actually differs from
+    /// `.uuidString` — `actingTenant`/`otherTenant` above are all-digit and can't exercise
+    /// N-5.6's case fix at all.
+    private static let caseSensitiveTenant = UUID(uuidString: "AABBCCDD-EEFF-4AAB-8CCD-EEFFAABBCCDD")!
 
     /// Every request this client sends, recorded with its headers — answers `/auth/login`
     /// with a scripted `user` object, `/auth/refresh` and `/auth/logout` with a bare 200,
@@ -162,19 +166,24 @@ final class ActingTenantTests: XCTestCase {
 
     /// A client holding a login result that is NOT organization-level is refused
     /// client-side, with ZERO wire calls (only the login request is on record).
+    ///
+    /// CONTRACT 1.52 N-5 (C-12): the gate refusal is `AuthzError` — the 403 the server
+    /// would answer for the same header change — never `AuthError`.
     func testOnClientRebindRefusesANonOrganizationLevelPrincipalWithZeroWireCalls() async throws {
         let (client, transport) = try await loggedIn() // organization_level defaults false
         let before = transport.requests.count
         do {
             try await client.actingTenant(Self.actingTenant)
             XCTFail("expected a client-side refusal")
-        } catch AxiamError.auth {
+        } catch AxiamError.authz {
             // ok
         }
         XCTAssertEqual(transport.requests.count, before, "no request should have been sent")
     }
 
     /// §5.2.3 rule 4: a tenant outside `reachableTenantIDs` is refused the same way.
+    ///
+    /// CONTRACT 1.52 N-5 (C-12): also `AuthzError`, not `AuthError`.
     func testOnClientRebindRefusesATenantOutsideReachableTenantIDsWithZeroWireCalls() async throws {
         let (client, transport) = try await loggedIn(user: [
             "id": "u-1", "username": "alice", "email": "a@example.test",
@@ -185,7 +194,7 @@ final class ActingTenantTests: XCTestCase {
         do {
             try await client.actingTenant(Self.actingTenant) // not in reachableTenantIDs
             XCTFail("expected a client-side refusal")
-        } catch AxiamError.auth {
+        } catch AxiamError.authz {
             // ok
         }
         XCTAssertEqual(transport.requests.count, before)
@@ -203,6 +212,45 @@ final class ActingTenantTests: XCTestCase {
         _ = try await client.checkAccess("read", resource: "doc-1")
         let last = transport.requests.count - 1
         XCTAssertEqual(transport.header("X-Axiam-Tenant", of: last), Self.actingTenant.uuidString)
+    }
+
+    /// CONTRACT 1.52 N-5.6 (C-12): tenant ids compare as UUIDs, never as strings — case
+    /// and formatting MUST NOT decide reach. `UUID.uuidString` is always upper-case, but a
+    /// real server sends `reachable_tenant_ids` lower-case (`format_uuid_lowercase` on the
+    /// wire). A case-sensitive `[String].contains` wrongly refuses this legitimate switch.
+    func testOnClientRebindSucceedsWhenServerReachableTenantIDsAreLowercase() async throws {
+        let lowercaseFixture = Self.caseSensitiveTenant.uuidString.lowercased()
+        XCTAssertNotEqual(
+            lowercaseFixture, Self.caseSensitiveTenant.uuidString,
+            "the fixture must actually differ in case for this test to mean anything")
+        let (client, transport) = try await loggedIn(user: [
+            "id": "u-1", "username": "alice", "email": "a@example.test",
+            "tenant_id": "tenant-uuid-1", "organization_level": true,
+            "reachable_tenant_ids": [lowercaseFixture],
+        ])
+        try await client.actingTenant(Self.caseSensitiveTenant)
+        _ = try await client.checkAccess("read", resource: "doc-1")
+        let last = transport.requests.count - 1
+        XCTAssertEqual(transport.header("X-Axiam-Tenant", of: last), Self.caseSensitiveTenant.uuidString)
+    }
+
+    /// The I4 twin of the case-insensitivity fix: a tenant that is genuinely outside
+    /// `reachableTenantIDs` (not merely a case mismatch) is still refused once ids compare
+    /// as UUIDs — the fix must not over-reach into accepting anything.
+    func testOnClientRebindStillRefusesAGenuinelyUnreachableTenantWithLowercaseFixtures() async throws {
+        let (client, transport) = try await loggedIn(user: [
+            "id": "u-1", "username": "alice", "email": "a@example.test",
+            "tenant_id": "tenant-uuid-1", "organization_level": true,
+            "reachable_tenant_ids": [Self.otherTenant.uuidString.lowercased()],
+        ])
+        let before = transport.requests.count
+        do {
+            try await client.actingTenant(Self.actingTenant) // not in reachableTenantIDs, any case
+            XCTFail("expected a client-side refusal")
+        } catch AxiamError.authz {
+            // ok
+        }
+        XCTAssertEqual(transport.requests.count, before)
     }
 
     /// "A client holding no login result has nothing to gate on. It sends the header as

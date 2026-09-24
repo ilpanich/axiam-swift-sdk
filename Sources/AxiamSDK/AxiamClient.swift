@@ -454,7 +454,11 @@ public actor AxiamClient {
                     + "No request was sent."))
             }
             if let reachable = sessionUser.reachableTenantIDs, !reachable.isEmpty,
-               !reachable.contains(tenantID.uuidString) {
+               // CONTRACT 1.52 N-5.6 (C-12): tenant ids compare as UUIDs, never as
+               // strings — case and formatting MUST NOT decide reach. `.uuidString` is
+               // always upper-case; the server sends `reachable_tenant_ids` lower-case,
+               // so a case-sensitive string comparison wrongly refused every real one.
+               !reachable.contains(where: { UUID(uuidString: $0) == tenantID }) {
                 throw AxiamError.auth(AuthError(
                     "actingTenant(_:) named a tenant outside this principal's "
                     + "reachableTenantIDs (CONTRACT.md §5.2.3 rule 4). No request was sent."))
