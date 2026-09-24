@@ -194,6 +194,7 @@ public enum CertificateType: String, Codable, Sendable, CaseIterable {
     case user = "User"
     case service = "Service"
     case device = "Device"
+    case server = "Server"
     /// A value this SDK's copy of the spec does not list; see the type's summary.
     case unknown = ""
 
@@ -855,6 +856,50 @@ public enum UserStatus: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// A name to put in a `Server` certificate's `subjectAltName`. Stated explicitly in the
+/// request, never read from a CSR: a CSR asking for a `subjectAltName` extension is still
+/// refused. URI and e-mail names are not offered — nothing in AXIAM consumes them yet.
+///
+/// An externally-tagged one-of: exactly one wire key is present at a time, never a shared
+/// discriminator field beside a payload. Encoding always produces exactly one key — never `{}`,
+/// which is what an empty struct (this generator's defect before contract 1.51's re-vendor
+/// exposed it) would have serialized as for every case.
+public enum SubjectAltName: Codable, Sendable, Equatable {
+    /// The `dns` variant.
+    case dns(String)
+
+    /// The `ip` variant.
+    case ip(String)
+
+    private enum CodingKeys: String, CodingKey {
+        case dns = "dns"
+        case ip = "ip"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let value = try container.decodeIfPresent(String.self, forKey: .dns) {
+            self = .dns(value)
+        } else if let value = try container.decodeIfPresent(String.self, forKey: .ip) {
+            self = .ip(value)
+        } else {
+            throw DecodingError.dataCorruptedError(
+                forKey: CodingKeys.dns, in: container,
+                debugDescription: "SubjectAltName: none of ['dns', 'ip'] present")
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .dns(value):
+            try container.encode(value, forKey: .dns)
+        case let .ip(value):
+            try container.encode(value, forKey: .ip)
+        }
+    }
+}
+
 /// The `AddMemberRequest` schema.
 public struct AddMemberRequest: Codable, Sendable {
     /// The server's `user_id` field.
@@ -939,6 +984,15 @@ public struct AssignRoleToGroupRequest: Codable, Sendable {
     /// The server's `group_id` field.
     public let groupID: String
 
+    /// Whether the assignment also reaches the descendants of `resource_id`. Omitted — the
+    /// default — or `true` is today's behaviour: a resource-scoped assignment applies at its
+    /// resource and everywhere below it. `false` applies it at `resource_id` only, "here and no
+    /// further", for allow and deny grants alike. Refused with 400 when `false` is sent with no
+    /// `resource_id` (a tenant-wide assignment has no node to stop at) or for a role with
+    /// `is_global: true` (a global role applies everywhere by definition). The flag is part of
+    /// the assignment: to change it, unassign and assign again.
+    public let inherit: Bool?
+
     /// The server's `resource_id` field.
     public let resourceID: String?
 
@@ -950,18 +1004,25 @@ public struct AssignRoleToGroupRequest: Codable, Sendable {
     /// tenant of another organization or the organization's own scope tenant.
     public let tenantScope: [String]?
 
+    /// `inherit`, read the way the server means it: absent means `true` (CONTRACT.md §27.13
+    /// S-10 rule 3), never `false`. Prefer this over `inherit` directly.
+    public var inherits: Bool { inherit ?? true }
+
     public init(
         groupID: String,
+        inherit: Bool? = nil,
         resourceID: String? = nil,
         tenantScope: [String]? = nil
     ) {
         self.groupID = groupID
+        self.inherit = inherit
         self.resourceID = resourceID
         self.tenantScope = tenantScope
     }
 
     enum CodingKeys: String, CodingKey {
         case groupID = "group_id"
+        case inherit = "inherit"
         case resourceID = "resource_id"
         case tenantScope = "tenant_scope"
     }
@@ -969,6 +1030,7 @@ public struct AssignRoleToGroupRequest: Codable, Sendable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.groupID = try container.decode(String.self, forKey: .groupID)
+        self.inherit = try container.decodeIfPresent(Bool.self, forKey: .inherit)
         self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
         self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
     }
@@ -976,6 +1038,7 @@ public struct AssignRoleToGroupRequest: Codable, Sendable {
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(groupID, forKey: .groupID)
+        try container.encodeIfPresent(inherit, forKey: .inherit)
         try container.encodeIfPresent(resourceID, forKey: .resourceID)
         if let tenantScope, !tenantScope.isEmpty {
             try container.encode(tenantScope, forKey: .tenantScope)
@@ -985,6 +1048,15 @@ public struct AssignRoleToGroupRequest: Codable, Sendable {
 
 /// The `AssignRoleToServiceAccountRequest` schema.
 public struct AssignRoleToServiceAccountRequest: Codable, Sendable {
+    /// Whether the assignment also reaches the descendants of `resource_id`. Omitted — the
+    /// default — or `true` is today's behaviour: a resource-scoped assignment applies at its
+    /// resource and everywhere below it. `false` applies it at `resource_id` only, "here and no
+    /// further", for allow and deny grants alike. Refused with 400 when `false` is sent with no
+    /// `resource_id` (a tenant-wide assignment has no node to stop at) or for a role with
+    /// `is_global: true` (a global role applies everywhere by definition). The flag is part of
+    /// the assignment: to change it, unassign and assign again.
+    public let inherit: Bool?
+
     /// The server's `resource_id` field.
     public let resourceID: String?
 
@@ -999,17 +1071,24 @@ public struct AssignRoleToServiceAccountRequest: Codable, Sendable {
     /// tenant of another organization or the organization's own scope tenant.
     public let tenantScope: [String]?
 
+    /// `inherit`, read the way the server means it: absent means `true` (CONTRACT.md §27.13
+    /// S-10 rule 3), never `false`. Prefer this over `inherit` directly.
+    public var inherits: Bool { inherit ?? true }
+
     public init(
+        inherit: Bool? = nil,
         resourceID: String? = nil,
         serviceAccountID: String,
         tenantScope: [String]? = nil
     ) {
+        self.inherit = inherit
         self.resourceID = resourceID
         self.serviceAccountID = serviceAccountID
         self.tenantScope = tenantScope
     }
 
     enum CodingKeys: String, CodingKey {
+        case inherit = "inherit"
         case resourceID = "resource_id"
         case serviceAccountID = "service_account_id"
         case tenantScope = "tenant_scope"
@@ -1017,6 +1096,7 @@ public struct AssignRoleToServiceAccountRequest: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.inherit = try container.decodeIfPresent(Bool.self, forKey: .inherit)
         self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
         self.serviceAccountID = try container.decode(String.self, forKey: .serviceAccountID)
         self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
@@ -1024,6 +1104,7 @@ public struct AssignRoleToServiceAccountRequest: Codable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(inherit, forKey: .inherit)
         try container.encodeIfPresent(resourceID, forKey: .resourceID)
         try container.encode(serviceAccountID, forKey: .serviceAccountID)
         if let tenantScope, !tenantScope.isEmpty {
@@ -1034,6 +1115,15 @@ public struct AssignRoleToServiceAccountRequest: Codable, Sendable {
 
 /// The `AssignRoleToUserRequest` schema.
 public struct AssignRoleToUserRequest: Codable, Sendable {
+    /// Whether the assignment also reaches the descendants of `resource_id`. Omitted — the
+    /// default — or `true` is today's behaviour: a resource-scoped assignment applies at its
+    /// resource and everywhere below it. `false` applies it at `resource_id` only, "here and no
+    /// further", for allow and deny grants alike. Refused with 400 when `false` is sent with no
+    /// `resource_id` (a tenant-wide assignment has no node to stop at) or for a role with
+    /// `is_global: true` (a global role applies everywhere by definition). The flag is part of
+    /// the assignment: to change it, unassign and assign again.
+    public let inherit: Bool?
+
     /// The server's `resource_id` field.
     public let resourceID: String?
 
@@ -1048,17 +1138,24 @@ public struct AssignRoleToUserRequest: Codable, Sendable {
     /// The server's `user_id` field.
     public let userID: String
 
+    /// `inherit`, read the way the server means it: absent means `true` (CONTRACT.md §27.13
+    /// S-10 rule 3), never `false`. Prefer this over `inherit` directly.
+    public var inherits: Bool { inherit ?? true }
+
     public init(
+        inherit: Bool? = nil,
         resourceID: String? = nil,
         tenantScope: [String]? = nil,
         userID: String
     ) {
+        self.inherit = inherit
         self.resourceID = resourceID
         self.tenantScope = tenantScope
         self.userID = userID
     }
 
     enum CodingKeys: String, CodingKey {
+        case inherit = "inherit"
         case resourceID = "resource_id"
         case tenantScope = "tenant_scope"
         case userID = "user_id"
@@ -1066,6 +1163,7 @@ public struct AssignRoleToUserRequest: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.inherit = try container.decodeIfPresent(Bool.self, forKey: .inherit)
         self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
         self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
         self.userID = try container.decode(String.self, forKey: .userID)
@@ -1073,6 +1171,7 @@ public struct AssignRoleToUserRequest: Codable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(inherit, forKey: .inherit)
         try container.encodeIfPresent(resourceID, forKey: .resourceID)
         if let tenantScope, !tenantScope.isEmpty {
             try container.encode(tenantScope, forKey: .tenantScope)
@@ -1277,7 +1376,9 @@ public struct CaCertificate: Codable, Sendable {
     /// The server's `status` field.
     public let status: CertificateStatus
 
-    /// The certificate subject (e.g., `CN=ACME Corp Root CA`).
+    /// The CA's common name, e.g. `ACME Corp Root CA`. The normalised value: a `CN=` prefix in
+    /// the request is understood and stripped, so this always says what the certificate's
+    /// subject DN says (DF-023).
     public let subject: String
 
     /// The tenant this CA signs for, when it is a tenant signing CA. `None` for an
@@ -1420,7 +1521,9 @@ public struct Certificate: Codable, Sendable {
     /// The server's `status` field.
     public let status: CertificateStatus
 
-    /// The certificate subject (e.g., `CN=device-001`).
+    /// The certificate's common name, e.g. `device-001`. The normalised value: a `CN=` prefix
+    /// in the request is understood and stripped, so this always says what the certificate's
+    /// subject DN says (DF-023).
     public let subject: String
 
     /// The tenant this certificate belongs to.
@@ -1526,29 +1629,44 @@ public struct CertificatePolicy: Codable, Sendable {
     /// The server's `max_cert_validity_days` field.
     public let maxCertValidityDays: Int
 
+    /// The names a `Server` certificate may be issued for (S-7, DF-001): DNS suffixes
+    /// (`.lakeside.internal`, strictly below), exact hosts (`lakeside.internal`) and IP
+    /// prefixes (`10.0.0.0/8`, `fd00::/8`). See [`crate::models::server_names`] for the
+    /// matching rules. **Empty by default, and empty refuses every `Server` request** (I1). A
+    /// certificate for a name, signed under the organization root, is trusted by every relying
+    /// party that trusts that root, so the list is written where the root is owned. A tenant
+    /// override may only remove an entry or narrow one; when the baseline later shrinks, the
+    /// tenant's effective list is the intersection of the two.
+    public let serverCertAllowedNames: [String]?
+
     public init(
         defaultCertValidityDays: Int,
-        maxCertValidityDays: Int
+        maxCertValidityDays: Int,
+        serverCertAllowedNames: [String]? = nil
     ) {
         self.defaultCertValidityDays = defaultCertValidityDays
         self.maxCertValidityDays = maxCertValidityDays
+        self.serverCertAllowedNames = serverCertAllowedNames
     }
 
     enum CodingKeys: String, CodingKey {
         case defaultCertValidityDays = "default_cert_validity_days"
         case maxCertValidityDays = "max_cert_validity_days"
+        case serverCertAllowedNames = "server_cert_allowed_names"
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.defaultCertValidityDays = try container.decode(Int.self, forKey: .defaultCertValidityDays)
         self.maxCertValidityDays = try container.decode(Int.self, forKey: .maxCertValidityDays)
+        self.serverCertAllowedNames = try container.decodeIfPresent([String].self, forKey: .serverCertAllowedNames)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(defaultCertValidityDays, forKey: .defaultCertValidityDays)
         try container.encode(maxCertValidityDays, forKey: .maxCertValidityDays)
+        try container.encodeIfPresent(serverCertAllowedNames, forKey: .serverCertAllowedNames)
     }
 }
 
@@ -1846,7 +1964,9 @@ public struct CreateCaCertificateRequest: Codable, Sendable {
     /// The server's `key_algorithm` field.
     public let keyAlgorithm: KeyAlgorithm
 
-    /// The server's `subject` field.
+    /// The CA's common name, e.g. `ACME Corp Root CA`. A **common name**, not a distinguished
+    /// name. A single `CN=` prefix is accepted and stripped; anything else containing `=` —
+    /// `O=Acme, CN=ACME Corp Root CA` — is refused with `400`.
     public let subject: String
 
     /// Validity duration in days.
@@ -1915,6 +2035,13 @@ public struct CreateCertificateRequest: Codable, Sendable {
     /// The server's `subject` field.
     public let subject: String
 
+    /// The names a `Server` certificate is issued for, as `[{"dns": "api.lakeside.internal"},
+    /// {"ip": "10.0.0.5"}]`. Required for `cert_type: Server` and refused for every other type.
+    /// Each name, and the common name, must be admitted by the tenant's effective
+    /// `server_cert_allowed_names`, which is empty — refusing every `Server` request — until an
+    /// organization administrator lists names.
+    public let subjectAltNames: [SubjectAltName]?
+
     /// Validity duration in days.
     public let validityDays: Int
 
@@ -1924,6 +2051,7 @@ public struct CreateCertificateRequest: Codable, Sendable {
         keyAlgorithm: KeyAlgorithm,
         metadata: ManagementJSON? = nil,
         subject: String,
+        subjectAltNames: [SubjectAltName]? = nil,
         validityDays: Int
     ) {
         self.certType = certType
@@ -1931,6 +2059,7 @@ public struct CreateCertificateRequest: Codable, Sendable {
         self.keyAlgorithm = keyAlgorithm
         self.metadata = metadata
         self.subject = subject
+        self.subjectAltNames = subjectAltNames
         self.validityDays = validityDays
     }
 
@@ -1940,6 +2069,7 @@ public struct CreateCertificateRequest: Codable, Sendable {
         case keyAlgorithm = "key_algorithm"
         case metadata = "metadata"
         case subject = "subject"
+        case subjectAltNames = "subject_alt_names"
         case validityDays = "validity_days"
     }
 
@@ -1950,6 +2080,7 @@ public struct CreateCertificateRequest: Codable, Sendable {
         self.keyAlgorithm = try container.decode(KeyAlgorithm.self, forKey: .keyAlgorithm)
         self.metadata = try container.decodeIfPresent(ManagementJSON.self, forKey: .metadata)
         self.subject = try container.decode(String.self, forKey: .subject)
+        self.subjectAltNames = try container.decodeIfPresent([SubjectAltName].self, forKey: .subjectAltNames)
         self.validityDays = try container.decode(Int.self, forKey: .validityDays)
     }
 
@@ -1960,6 +2091,7 @@ public struct CreateCertificateRequest: Codable, Sendable {
         try container.encode(keyAlgorithm, forKey: .keyAlgorithm)
         try container.encodeIfPresent(metadata, forKey: .metadata)
         try container.encode(subject, forKey: .subject)
+        try container.encodeIfPresent(subjectAltNames, forKey: .subjectAltNames)
         try container.encode(validityDays, forKey: .validityDays)
     }
 }
@@ -2215,7 +2347,9 @@ public struct CreateIntermediateCaRequest: Codable, Sendable {
     /// The organization CA that signs it.
     public let parentCAID: String
 
-    /// Subject for the signing CA, e.g. `CN=ACME R&D Signing CA`.
+    /// The signing CA's common name, e.g. `ACME R&D Signing CA`. A **common name**, not a
+    /// distinguished name. A single `CN=` prefix is accepted and stripped; anything else
+    /// containing `=` is refused with `400`.
     public let subject: String
 
     /// Validity duration in days, capped to the parent's own expiry.
@@ -3926,7 +4060,9 @@ public struct GeneratedCaCertificate: Codable, Sendable {
     /// The server's `status` field.
     public let status: CertificateStatus
 
-    /// The certificate subject (e.g., `CN=ACME Corp Root CA`).
+    /// The CA's common name, e.g. `ACME Corp Root CA`. The normalised value: a `CN=` prefix in
+    /// the request is understood and stripped, so this always says what the certificate's
+    /// subject DN says (DF-023).
     public let subject: String
 
     /// The tenant this CA signs for, when it is a tenant signing CA. `None` for an
@@ -4083,7 +4219,9 @@ public struct GeneratedCertificate: Codable, Sendable {
     /// The server's `status` field.
     public let status: CertificateStatus
 
-    /// The certificate subject (e.g., `CN=device-001`).
+    /// The certificate's common name, e.g. `device-001`. The normalised value: a `CN=` prefix
+    /// in the request is understood and stripped, so this always says what the certificate's
+    /// subject DN says (DF-023).
     public let subject: String
 
     /// The tenant this certificate belongs to.
@@ -6873,6 +7011,11 @@ public struct Role: Codable, Sendable {
 
 /// A role together with its assignment context (the resource it is scoped to).
 public struct RoleAssignment: Codable, Sendable {
+    /// Whether the assignment reaches the descendants of `resource_id` as well as the resource
+    /// itself (`true`, the default, and the value of every assignment written before the field
+    /// existed) or applies at that resource only (`false`).
+    public let inherit: Bool?
+
     /// `None` means the role was assigned globally (no resource scope).
     public let resourceID: String?
 
@@ -6882,17 +7025,24 @@ public struct RoleAssignment: Codable, Sendable {
     /// The tenants this assignment reaches. See [`TenantScope`].
     public let tenantScope: [String]?
 
+    /// `inherit`, read the way the server means it: absent means `true` (CONTRACT.md §27.13
+    /// S-10 rule 3), never `false`. Prefer this over `inherit` directly.
+    public var inherits: Bool { inherit ?? true }
+
     public init(
+        inherit: Bool? = nil,
         resourceID: String? = nil,
         role: Role,
         tenantScope: [String]? = nil
     ) {
+        self.inherit = inherit
         self.resourceID = resourceID
         self.role = role
         self.tenantScope = tenantScope
     }
 
     enum CodingKeys: String, CodingKey {
+        case inherit = "inherit"
         case resourceID = "resource_id"
         case role = "role"
         case tenantScope = "tenant_scope"
@@ -6900,6 +7050,7 @@ public struct RoleAssignment: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.inherit = try container.decodeIfPresent(Bool.self, forKey: .inherit)
         self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
         self.role = try container.decode(Role.self, forKey: .role)
         self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
@@ -6907,6 +7058,7 @@ public struct RoleAssignment: Codable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(inherit, forKey: .inherit)
         try container.encodeIfPresent(resourceID, forKey: .resourceID)
         try container.encode(role, forKey: .role)
         if let tenantScope, !tenantScope.isEmpty {
@@ -6920,6 +7072,10 @@ public struct RoleGroupAssignment: Codable, Sendable {
     /// The assigned group.
     public let group: Group
 
+    /// Whether the assignment also reaches the descendants of `resource_id` (`true`, the
+    /// default) or applies at that resource only (`false`).
+    public let inherit: Bool?
+
     /// `None` means the role was assigned globally (no resource scope).
     public let resourceID: String?
 
@@ -6928,18 +7084,25 @@ public struct RoleGroupAssignment: Codable, Sendable {
     /// organization-wide one.
     public let tenantScope: [String]?
 
+    /// `inherit`, read the way the server means it: absent means `true` (CONTRACT.md §27.13
+    /// S-10 rule 3), never `false`. Prefer this over `inherit` directly.
+    public var inherits: Bool { inherit ?? true }
+
     public init(
         group: Group,
+        inherit: Bool? = nil,
         resourceID: String? = nil,
         tenantScope: [String]? = nil
     ) {
         self.group = group
+        self.inherit = inherit
         self.resourceID = resourceID
         self.tenantScope = tenantScope
     }
 
     enum CodingKeys: String, CodingKey {
         case group = "group"
+        case inherit = "inherit"
         case resourceID = "resource_id"
         case tenantScope = "tenant_scope"
     }
@@ -6947,6 +7110,7 @@ public struct RoleGroupAssignment: Codable, Sendable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.group = try container.decode(Group.self, forKey: .group)
+        self.inherit = try container.decodeIfPresent(Bool.self, forKey: .inherit)
         self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
         self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
     }
@@ -6954,6 +7118,7 @@ public struct RoleGroupAssignment: Codable, Sendable {
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(group, forKey: .group)
+        try container.encodeIfPresent(inherit, forKey: .inherit)
         try container.encodeIfPresent(resourceID, forKey: .resourceID)
         if let tenantScope, !tenantScope.isEmpty {
             try container.encode(tenantScope, forKey: .tenantScope)
@@ -6963,6 +7128,10 @@ public struct RoleGroupAssignment: Codable, Sendable {
 
 /// A service account together with the resource scope of its assignment.
 public struct RoleServiceAccountAssignment: Codable, Sendable {
+    /// Whether the assignment also reaches the descendants of `resource_id` (`true`, the
+    /// default) or applies at that resource only (`false`).
+    public let inherit: Bool?
+
     /// `None` means the role was assigned globally (no resource scope).
     public let resourceID: String?
 
@@ -6975,17 +7144,24 @@ public struct RoleServiceAccountAssignment: Codable, Sendable {
     /// organization-wide one.
     public let tenantScope: [String]?
 
+    /// `inherit`, read the way the server means it: absent means `true` (CONTRACT.md §27.13
+    /// S-10 rule 3), never `false`. Prefer this over `inherit` directly.
+    public var inherits: Bool { inherit ?? true }
+
     public init(
+        inherit: Bool? = nil,
         resourceID: String? = nil,
         serviceAccount: ServiceAccountResponse,
         tenantScope: [String]? = nil
     ) {
+        self.inherit = inherit
         self.resourceID = resourceID
         self.serviceAccount = serviceAccount
         self.tenantScope = tenantScope
     }
 
     enum CodingKeys: String, CodingKey {
+        case inherit = "inherit"
         case resourceID = "resource_id"
         case serviceAccount = "service_account"
         case tenantScope = "tenant_scope"
@@ -6993,6 +7169,7 @@ public struct RoleServiceAccountAssignment: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.inherit = try container.decodeIfPresent(Bool.self, forKey: .inherit)
         self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
         self.serviceAccount = try container.decode(ServiceAccountResponse.self, forKey: .serviceAccount)
         self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
@@ -7000,6 +7177,7 @@ public struct RoleServiceAccountAssignment: Codable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(inherit, forKey: .inherit)
         try container.encodeIfPresent(resourceID, forKey: .resourceID)
         try container.encode(serviceAccount, forKey: .serviceAccount)
         if let tenantScope, !tenantScope.isEmpty {
@@ -7010,6 +7188,10 @@ public struct RoleServiceAccountAssignment: Codable, Sendable {
 
 /// A user together with the resource scope of their assignment of this role.
 public struct RoleUserAssignment: Codable, Sendable {
+    /// Whether the assignment also reaches the descendants of `resource_id` (`true`, the
+    /// default) or applies at that resource only (`false`).
+    public let inherit: Bool?
+
     /// `None` means the role was assigned globally (no resource scope).
     public let resourceID: String?
 
@@ -7021,17 +7203,24 @@ public struct RoleUserAssignment: Codable, Sendable {
     /// The assigned user.
     public let user: UserResponse
 
+    /// `inherit`, read the way the server means it: absent means `true` (CONTRACT.md §27.13
+    /// S-10 rule 3), never `false`. Prefer this over `inherit` directly.
+    public var inherits: Bool { inherit ?? true }
+
     public init(
+        inherit: Bool? = nil,
         resourceID: String? = nil,
         tenantScope: [String]? = nil,
         user: UserResponse
     ) {
+        self.inherit = inherit
         self.resourceID = resourceID
         self.tenantScope = tenantScope
         self.user = user
     }
 
     enum CodingKeys: String, CodingKey {
+        case inherit = "inherit"
         case resourceID = "resource_id"
         case tenantScope = "tenant_scope"
         case user = "user"
@@ -7039,6 +7228,7 @@ public struct RoleUserAssignment: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.inherit = try container.decodeIfPresent(Bool.self, forKey: .inherit)
         self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
         self.tenantScope = try container.decodeIfPresent([String].self, forKey: .tenantScope)
         self.user = try container.decode(UserResponse.self, forKey: .user)
@@ -7046,6 +7236,7 @@ public struct RoleUserAssignment: Codable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(inherit, forKey: .inherit)
         try container.encodeIfPresent(resourceID, forKey: .resourceID)
         if let tenantScope, !tenantScope.isEmpty {
             try container.encode(tenantScope, forKey: .tenantScope)
@@ -7869,6 +8060,10 @@ public struct SetOrgSettings: Codable, Sendable {
     /// The server's `sensitive_scopes_enabled` field.
     public let sensitiveScopesEnabled: Bool?
 
+    /// S-7 — defaulted to empty, so an API client written before the field lands on "no
+    /// `Server` certificate is issued" (I1).
+    public let serverCertAllowedNames: [String]?
+
     /// The server's `webauthn_user_verification` field.
     public let webauthnUserVerification: String?
 
@@ -7906,6 +8101,7 @@ public struct SetOrgSettings: Codable, Sendable {
         requireSymbols: Bool,
         requireUppercase: Bool,
         sensitiveScopesEnabled: Bool? = nil,
+        serverCertAllowedNames: [String]? = nil,
         webauthnUserVerification: String? = nil
     ) {
         self.accessTokenLifetimeSecs = accessTokenLifetimeSecs
@@ -7941,6 +8137,7 @@ public struct SetOrgSettings: Codable, Sendable {
         self.requireSymbols = requireSymbols
         self.requireUppercase = requireUppercase
         self.sensitiveScopesEnabled = sensitiveScopesEnabled
+        self.serverCertAllowedNames = serverCertAllowedNames
         self.webauthnUserVerification = webauthnUserVerification
     }
 
@@ -7978,6 +8175,7 @@ public struct SetOrgSettings: Codable, Sendable {
         case requireSymbols = "require_symbols"
         case requireUppercase = "require_uppercase"
         case sensitiveScopesEnabled = "sensitive_scopes_enabled"
+        case serverCertAllowedNames = "server_cert_allowed_names"
         case webauthnUserVerification = "webauthn_user_verification"
     }
 
@@ -8016,6 +8214,7 @@ public struct SetOrgSettings: Codable, Sendable {
         self.requireSymbols = try container.decode(Bool.self, forKey: .requireSymbols)
         self.requireUppercase = try container.decode(Bool.self, forKey: .requireUppercase)
         self.sensitiveScopesEnabled = try container.decodeIfPresent(Bool.self, forKey: .sensitiveScopesEnabled)
+        self.serverCertAllowedNames = try container.decodeIfPresent([String].self, forKey: .serverCertAllowedNames)
         self.webauthnUserVerification = try container.decodeIfPresent(String.self, forKey: .webauthnUserVerification)
     }
 
@@ -8054,6 +8253,7 @@ public struct SetOrgSettings: Codable, Sendable {
         try container.encode(requireSymbols, forKey: .requireSymbols)
         try container.encode(requireUppercase, forKey: .requireUppercase)
         try container.encodeIfPresent(sensitiveScopesEnabled, forKey: .sensitiveScopesEnabled)
+        try container.encodeIfPresent(serverCertAllowedNames, forKey: .serverCertAllowedNames)
         try container.encodeIfPresent(webauthnUserVerification, forKey: .webauthnUserVerification)
     }
 }
@@ -8102,6 +8302,12 @@ public struct SignCertificateCsrRequest: Codable, Sendable {
     /// The server's `metadata` field.
     public let metadata: ManagementJSON?
 
+    /// See [`CreateCertificateRequest::subject_alt_names`]. Stated here and never in the CSR,
+    /// which is still refused if it requests a `subjectAltName`. Under a CA whose key is held
+    /// by `vault_pki` a `Server` request on this path is refused; use `POST
+    /// /api/v1/certificates`.
+    public let subjectAltNames: [SubjectAltName]?
+
     /// Validity duration in days.
     public let validityDays: Int
 
@@ -8110,12 +8316,14 @@ public struct SignCertificateCsrRequest: Codable, Sendable {
         csrPEM: String,
         issuerCAID: String,
         metadata: ManagementJSON? = nil,
+        subjectAltNames: [SubjectAltName]? = nil,
         validityDays: Int
     ) {
         self.certType = certType
         self.csrPEM = csrPEM
         self.issuerCAID = issuerCAID
         self.metadata = metadata
+        self.subjectAltNames = subjectAltNames
         self.validityDays = validityDays
     }
 
@@ -8124,6 +8332,7 @@ public struct SignCertificateCsrRequest: Codable, Sendable {
         case csrPEM = "csr_pem"
         case issuerCAID = "issuer_ca_id"
         case metadata = "metadata"
+        case subjectAltNames = "subject_alt_names"
         case validityDays = "validity_days"
     }
 
@@ -8133,6 +8342,7 @@ public struct SignCertificateCsrRequest: Codable, Sendable {
         self.csrPEM = try container.decode(String.self, forKey: .csrPEM)
         self.issuerCAID = try container.decode(String.self, forKey: .issuerCAID)
         self.metadata = try container.decodeIfPresent(ManagementJSON.self, forKey: .metadata)
+        self.subjectAltNames = try container.decodeIfPresent([SubjectAltName].self, forKey: .subjectAltNames)
         self.validityDays = try container.decode(Int.self, forKey: .validityDays)
     }
 
@@ -8142,6 +8352,7 @@ public struct SignCertificateCsrRequest: Codable, Sendable {
         try container.encode(csrPEM, forKey: .csrPEM)
         try container.encode(issuerCAID, forKey: .issuerCAID)
         try container.encodeIfPresent(metadata, forKey: .metadata)
+        try container.encodeIfPresent(subjectAltNames, forKey: .subjectAltNames)
         try container.encode(validityDays, forKey: .validityDays)
     }
 }
@@ -8507,6 +8718,11 @@ public struct TenantSettingsOverride: Codable, Sendable {
     /// The server's `sensitive_scopes_enabled` field.
     public let sensitiveScopesEnabled: Bool?
 
+    /// S-7 — tighten-only: every entry must be covered by an organization entry. An empty list
+    /// means this tenant issues no `Server` certificate at all, which is different from an
+    /// absent field (inherit the organization's list).
+    public let serverCertAllowedNames: [String]?
+
     /// The server's `webauthn_user_verification` field.
     public let webauthnUserVerification: String?
 
@@ -8544,6 +8760,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         requireSymbols: Bool? = nil,
         requireUppercase: Bool? = nil,
         sensitiveScopesEnabled: Bool? = nil,
+        serverCertAllowedNames: [String]? = nil,
         webauthnUserVerification: String? = nil
     ) {
         self.accessTokenLifetimeSecs = accessTokenLifetimeSecs
@@ -8579,6 +8796,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         self.requireSymbols = requireSymbols
         self.requireUppercase = requireUppercase
         self.sensitiveScopesEnabled = sensitiveScopesEnabled
+        self.serverCertAllowedNames = serverCertAllowedNames
         self.webauthnUserVerification = webauthnUserVerification
     }
 
@@ -8616,6 +8834,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         case requireSymbols = "require_symbols"
         case requireUppercase = "require_uppercase"
         case sensitiveScopesEnabled = "sensitive_scopes_enabled"
+        case serverCertAllowedNames = "server_cert_allowed_names"
         case webauthnUserVerification = "webauthn_user_verification"
     }
 
@@ -8654,6 +8873,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         self.requireSymbols = try container.decodeIfPresent(Bool.self, forKey: .requireSymbols)
         self.requireUppercase = try container.decodeIfPresent(Bool.self, forKey: .requireUppercase)
         self.sensitiveScopesEnabled = try container.decodeIfPresent(Bool.self, forKey: .sensitiveScopesEnabled)
+        self.serverCertAllowedNames = try container.decodeIfPresent([String].self, forKey: .serverCertAllowedNames)
         self.webauthnUserVerification = try container.decodeIfPresent(String.self, forKey: .webauthnUserVerification)
     }
 
@@ -8692,6 +8912,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         try container.encodeIfPresent(requireSymbols, forKey: .requireSymbols)
         try container.encodeIfPresent(requireUppercase, forKey: .requireUppercase)
         try container.encodeIfPresent(sensitiveScopesEnabled, forKey: .sensitiveScopesEnabled)
+        try container.encodeIfPresent(serverCertAllowedNames, forKey: .serverCertAllowedNames)
         try container.encodeIfPresent(webauthnUserVerification, forKey: .webauthnUserVerification)
     }
 }
