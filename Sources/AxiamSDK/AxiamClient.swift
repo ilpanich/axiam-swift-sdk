@@ -226,6 +226,11 @@ public actor AxiamClient {
             let user = success.toUser()
             hasSession = true
             sessionUser = user
+            // CONTRACT 1.52 N-4.4 (C-12): the device credential is HELD UNTIL REPLACED, and
+            // a login result is one of the calls that replaces it — otherwise it keeps
+            // riding (and keeps withholding the new session's cookie) on every request
+            // after this one, silently shadowing the login this call just performed.
+            deviceAccessToken = nil
             resolveOrgIDFromToken()
             challengeToken = nil
             return .authenticated(user)
@@ -267,6 +272,7 @@ public actor AxiamClient {
         let success = try decode(LoginSuccessResponse.self, response.body)
         hasSession = true
         sessionUser = success.toUser()
+        deviceAccessToken = nil // CONTRACT 1.52 N-4.4 (C-12): replaces the device credential
         resolveOrgIDFromToken()
         challengeToken = nil
     }
@@ -447,15 +453,23 @@ public actor AxiamClient {
             return
         }
         if let sessionUser {
+            // CONTRACT 1.52 N-5.4 (C-12): a gate refusal is §2's AuthzError — the 403 the
+            // server would answer for the same header change — never AuthError. This
+            // client refuses no differently than the server would; it should report no
+            // differently either.
             guard sessionUser.organizationLevel else {
-                throw AxiamError.auth(AuthError(
+                throw AxiamError.authz(AuthzError(
                     "actingTenant(_:) is meaningful only for an organization-level principal "
                     + "(CONTRACT.md §5.2 rule 1); this session's principal is not one. "
                     + "No request was sent."))
             }
             if let reachable = sessionUser.reachableTenantIDs, !reachable.isEmpty,
-               !reachable.contains(tenantID.uuidString) {
-                throw AxiamError.auth(AuthError(
+               // CONTRACT 1.52 N-5.6 (C-12): tenant ids compare as UUIDs, never as
+               // strings — case and formatting MUST NOT decide reach. `.uuidString` is
+               // always upper-case; the server sends `reachable_tenant_ids` lower-case,
+               // so a case-sensitive string comparison wrongly refused every real one.
+               !reachable.contains(where: { UUID(uuidString: $0) == tenantID }) {
+                throw AxiamError.authz(AuthzError(
                     "actingTenant(_:) named a tenant outside this principal's "
                     + "reachableTenantIDs (CONTRACT.md §5.2.3 rule 4). No request was sent."))
             }
@@ -799,6 +813,7 @@ public actor AxiamClient {
             let user = success.toUser()
             hasSession = true
             sessionUser = user
+            deviceAccessToken = nil // CONTRACT 1.52 N-4.4 (C-12): replaces the device credential
             resolveOrgIDFromToken()
             challengeToken = nil
             return .authenticated(user)
@@ -1226,6 +1241,10 @@ extension AxiamClient {
         hasSession = true
         challengeToken = nil
         sessionUser = user
+        // CONTRACT 1.52 N-4.4 (C-12): every session-establishing completion this choke
+        // point covers (WebAuthn authentication, SSO completions, MFA setup confirm,
+        // WebAuthn setup finish) replaces a held device credential, not just a `login()`.
+        deviceAccessToken = nil
         resolveOrgIDFromToken()
     }
 

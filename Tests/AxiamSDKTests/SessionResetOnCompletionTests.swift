@@ -62,7 +62,7 @@ final class SessionResetOnCompletionTests: XCTestCase {
             do {
                 try await client.actingTenant(UUID(uuidString: Self.otherTenant)!)
                 XCTFail("expected the pre-completion gate to refuse an unreachable tenant")
-            } catch AxiamError.auth {}
+            } catch AxiamError.authz {} // CONTRACT 1.52 N-5.4 (C-12): the gate refusal is AuthzError
 
             _ = try await client.webauthnAuthenticateFinish(
                 stateToken: Sensitive(Self.stateToken), response: Self.authenticationResponse)
@@ -97,7 +97,7 @@ final class SessionResetOnCompletionTests: XCTestCase {
             do {
                 try await client.actingTenant(UUID(uuidString: Self.otherTenant)!)
                 XCTFail("a refused completion must leave the gate as it was")
-            } catch AxiamError.auth {}
+            } catch AxiamError.authz {} // CONTRACT 1.52 N-5.4 (C-12): the gate refusal is AuthzError
         }
     }
 
@@ -148,7 +148,7 @@ final class SessionResetOnCompletionTests: XCTestCase {
             do {
                 try await client.actingTenant(UUID(uuidString: Self.otherTenant)!)
                 XCTFail("a refused completion must leave the gate as it was")
-            } catch AxiamError.auth {}
+            } catch AxiamError.authz {} // CONTRACT 1.52 N-5.4 (C-12): the gate refusal is AuthzError
         }
     }
 

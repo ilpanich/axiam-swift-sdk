@@ -27,11 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **§5.2 rule 1 — the acting tenant, `X-Axiam-Tenant`.** `AxiamConfig.actingTenant: UUID?` at
   construction; `AxiamClient.actingTenant(_:)` / `clearActingTenant()` on an existing client.
-  Sent only when set, on every `/api/v1` REST call (login/verifyMfa excluded, matching the
-  reference: neither has a session yet to act on). Gated client-side (zero wire calls) on
-  `organizationLevel` and `reachableTenantIDs` when this client holds a login result; sent
-  as asked otherwise. The §17 decision memo key now includes the acting tenant, so two
-  identical checks under two different acting tenants never collide within the TTL.
+  Sent only when set, on every `/api/v1` REST call, **including** `login`/`verifyMfa` — the
+  server reads no acting tenant there (neither has a session yet to act on), but accepts the
+  header harmlessly, which CONTRACT 1.52 N-5.1 (C-12) confirms is conforming either way.
+  Gated client-side (zero wire calls) on `organizationLevel` and `reachableTenantIDs` when
+  this client holds a login result; sent as asked otherwise. The §17 decision memo key now
+  includes the acting tenant, so two identical checks under two different acting tenants
+  never collide within the TTL.
 
 - **§6.1 rules 6–10 — `authenticateDevice()`, the mTLS device login.** `POST /auth/device`
   with no body; reachable only on a client configured with `clientCertificate`, refusing
@@ -96,6 +98,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   authenticated. Routed through the same `completeFederationSession` helper
   `ssoCompleteOauth2`/`ssoCompleteHandoff` already use.
 
+### Fixed
+
+- **CONTRACT 1.52 N-5.6 (C-12) — `actingTenant(_:)` compared `reachableTenantIDs` as
+  strings, not UUIDs.** `UUID.uuidString` is always upper-case; the server sends
+  `reachable_tenant_ids` lower-case, so the case-sensitive comparison refused every real
+  tenant switch for a principal whose reach §5.2.3 had narrowed. Now compared as `UUID`
+  values, which is case- and formatting-independent.
+- **CONTRACT 1.52 N-4.4 (C-12) — a later `login()` did not replace a held device
+  credential.** `authenticateDevice()`'s token was cleared only by `close()`/`logout()`; a
+  subsequent `login()`, `verifyMfa()`, `loginOpaque()` finish, WebAuthn authentication, SSO
+  completion, MFA setup confirm or WebAuthn setup finish left it in place, so every request
+  after that call kept presenting the stale device bearer and kept withholding the new
+  session's cookie. All of these now replace it.
+
 ### Breaking
 
 - A caller relying on the pre-1.51 behaviour of `AxiamRequestAuthenticator.authenticate(_:)`
@@ -103,6 +119,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   token will now see it refused with `AuthError`. This is a security fix, not a compatibility
   regression: pass `presentedProofs:` explicitly if your integration has transport evidence
   to offer.
+- **CONTRACT 1.52 N-5.4 (C-12) — `actingTenant(_:)`'s two client-side gate refusals now
+  throw `AuthzError`, not `AuthError`.** Both mirror the 403 the server would answer for the
+  same header change, which §2 maps to `AuthzError`; code that caught `AuthError` around
+  this call no longer sees them.
 
 ### Declined
 
