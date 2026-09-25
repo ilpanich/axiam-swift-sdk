@@ -7,28 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- **CONTRACT.md re-vendored at contract 1.52.** Copied byte for byte from axiam `80bc7aa`
-  (sha256 `c7954eec…`), the merge of the C-12 cross-SDK conformance review
-  (ilpanich/axiam#500). 1.52 changes no wire behaviour: it writes rules N1–N6, which
-  this SDK's C-12 fixes (#67) already implement. The README's conformance line
-  moves to 1.52.
-- **Re-vendored `CONTRACT.md`, `openapi.json` and `management-registry.json` to contract 1.51**
-  (`ilpanich/axiam@56fbe44`). `proto/` was already byte-identical. Regenerated the §27 surface
-  with `Scripts/gen_management.py`.
-
-- **Orchestrator review follow-up.** Four reference behaviours confirmed with new tests
-  (no behaviour change — each already worked; this is test coverage, not a fix):
-  `X-Axiam-Tenant` on a self-service POST (`resendOwnVerification()`); a plain binding
-  over a resource-scoped server assignment plans as an `Update` (unassign, then assign
-  with no `resource_id`), never `NoChange`; a created service account's `client_secret`
-  survives a *later* action's failure in the same `apply` and is never rotated to
-  reconcile; `apply` followed by `plan` converges over `resources[].metadata`, a
-  resource-scoped binding with `inherit: false`, and a `service_accounts` entry, all
-  three together.
+## [1.0.0-beta17] - 2026-09-25
 
 ### Added
+
+- Metadata, resource-scoped role bindings, service accounts, and the §13 row-17 parent_id / resource_type defects (CONTRACT §27.6.1)
+
+- Acting tenant, the mTLS device login, and the C-5 gate-reset fix
+
+- Re-vendor contract 1.51 and regenerate the §27 surface
 
 - **§5.2 rule 1 — the acting tenant, `X-Axiam-Tenant`.** `AxiamConfig.actingTenant: UUID?` at
   construction; `AxiamClient.actingTenant(_:)` / `clearActingTenant()` on an existing client.
@@ -69,7 +56,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that omits the key. `CertificateType.server` (`"Server"`) decodes on the already-open enum
   with no generator change needed.
 
+### Changed
+
+- Re-vendor CONTRACT.md at contract 1.52
+
+- §6.1 rule 7 is a run-time refusal here, and the compile-time form is declined
+
+- Retarget three more actingTenant(_:) gate-refusal catches to AuthzError
+
+- §10.1 rule numbering, acting-tenant header wording, AxiamGuards N1
+
+- Self-service header, plain-over-scoped update, secret-survives-later-failure, and full-addition convergence
+
+- README conformance at contract 1.51, CHANGELOG, .gitignore
+
+- **CONTRACT.md re-vendored at contract 1.52.** Copied byte for byte from axiam `80bc7aa`
+  (sha256 `c7954eec…`), the merge of the C-12 cross-SDK conformance review
+  (ilpanich/axiam#500). 1.52 changes no wire behaviour: it writes rules N1–N6, which
+  this SDK's C-12 fixes (#67) already implement. The README's conformance line
+  moves to 1.52.
+
+- **Re-vendored `CONTRACT.md`, `openapi.json` and `management-registry.json` to contract 1.51**
+  (`ilpanich/axiam@56fbe44`). `proto/` was already byte-identical. Regenerated the §27 surface
+  with `Scripts/gen_management.py`.
+
+- **Orchestrator review follow-up.** Four reference behaviours confirmed with new tests
+  (no behaviour change — each already worked; this is test coverage, not a fix):
+  `X-Axiam-Tenant` on a self-service POST (`resendOwnVerification()`); a plain binding
+  over a resource-scoped server assignment plans as an `Update` (unassign, then assign
+  with no `resource_id`), never `NoChange`; a created service account's `client_secret`
+  survives a *later* action's failure in the same `apply` and is never rotated to
+  reconcile; `apply` followed by `plan` converges over `resources[].metadata`, a
+  resource-scoped binding with `inherit: false`, and a `service_accounts` entry, all
+  three together.
+
 ### Fixed
+
+- A later login replaces the held device credential
+
+- ActingTenant(_:) gate refusal throws AuthzError, not AuthError
+
+- Compare acting-tenant reach as UUIDs, not strings
+
+- AxiamRequestAuthenticator.authenticate() enforces §10.1 rule 9
 
 - **§13 row 17 — the SDK manifest defects `axiam` §27.10 records for this port.** A nested
   resource's `Create` body now carries the created parent's `parent_id`; before this fix the
@@ -103,13 +132,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   authenticated. Routed through the same `completeFederationSession` helper
   `ssoCompleteOauth2`/`ssoCompleteHandoff` already use.
 
-### Fixed
-
 - **CONTRACT 1.52 N-5.6 (C-12) — `actingTenant(_:)` compared `reachableTenantIDs` as
   strings, not UUIDs.** `UUID.uuidString` is always upper-case; the server sends
   `reachable_tenant_ids` lower-case, so the case-sensitive comparison refused every real
   tenant switch for a principal whose reach §5.2.3 had narrowed. Now compared as `UUID`
   values, which is case- and formatting-independent.
+
 - **CONTRACT 1.52 N-4.4 (C-12) — a later `login()` did not replace a held device
   credential.** `authenticateDevice()`'s token was cleared only by `close()`/`logout()`; a
   subsequent `login()`, `verifyMfa()`, `loginOpaque()` finish, WebAuthn authentication, SSO
@@ -124,6 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   token will now see it refused with `AuthError`. This is a security fix, not a compatibility
   regression: pass `presentedProofs:` explicitly if your integration has transport evidence
   to offer.
+
 - **CONTRACT 1.52 N-5.4 (C-12) — `actingTenant(_:)`'s two client-side gate refusals now
   throw `AuthzError`, not `AuthError`.** Both mirror the 403 the server would answer for the
   same header change, which §2 maps to `AuthzError`; code that caught `AuthError` around
@@ -133,8 +162,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **§1.1.1 / §10.3 `validate_token` / `introspect_token`** (contract 1.51): both are
   gRPC-only operations, and this SDK ships no gRPC transport at all.
+
 - The flat-entity tier's `users` and `scopes` manifest entities remain undeclared (§7.2 of
   the dogfooding remediation plan; unchanged from before this port).
+
 - `webhooks` in the manifest (§27.6: named and unspecified; no consumer has asked for it).
 
 ## [1.0.0-beta16] - 2026-09-19
