@@ -12,7 +12,7 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md 1.51 (the version vendored here) §1–§7, §9–§13, §14,
+> **This SDK conforms to CONTRACT.md 1.52 (the version vendored here) §1–§7, §9–§13, §14,
 > §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27 and §28 (including §6.1 mTLS —
 > now including rules 6–10, the mTLS device login `authenticateDevice()` — §5.2 rule 1's
 > acting tenant, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login
