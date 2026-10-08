@@ -43,17 +43,26 @@ public struct AuthError: Error, Sendable, CustomStringConvertible {
     /// excluded from ``description`` anyway, for consistency with that field and because a
     /// challenge belongs on a response header, not scrolled past in a log line.
     public let challenge: String?
+    /// Why the §32.7 SSF receiver helper refused a Security Event Token, when it did
+    /// (contract 1.56). `nil` for every other authentication failure — including a JWKS fetch
+    /// failure inside `verifySet`, which is a ``NetworkError`` and not a verdict on the SET.
+    ///
+    /// Pass ``SetFailureReason/pushErrorCode`` back to the transmitter (RFC 8935 `err`), or
+    /// `SetErr(reason:)` in the next poll's `setErrs`.
+    public let setFailureReason: SetFailureReason?
 
     public init(
         _ message: String,
         oauthError: String? = nil,
         oauthErrorDescription: String? = nil,
-        challenge: String? = nil
+        challenge: String? = nil,
+        setFailureReason: SetFailureReason? = nil
     ) {
         self.message = message
         self.oauthError = oauthError
         self.oauthErrorDescription = oauthErrorDescription
         self.challenge = challenge
+        self.setFailureReason = setFailureReason
     }
 
     public var description: String { "AuthError: \(message)" }
@@ -134,6 +143,33 @@ public struct NetworkError: Error, @unchecked Sendable, CustomStringConvertible 
     }
 
     public var description: String { "NetworkError: \(message)" }
+}
+
+// MARK: - Typed checks over the OAuth2 protocol errors (§33.4)
+
+extension AxiamError {
+    /// The `error` member of the `OAuth2ErrorResponse` this failure carries, when it is an
+    /// `OAuthProtocolError` (an ``AuthError`` with ``AuthError/oauthError`` set); `nil`
+    /// otherwise.
+    public var oauthErrorCode: String? {
+        if case .auth(let error) = self { return error.oauthError }
+        return nil
+    }
+
+    /// Whether this is the `access_denied` answer — at a CIBA or device poll, **the user
+    /// refused** (§33.4, §14.2 rule 3). Distinct from ``isExpiredToken``.
+    public var isAccessDenied: Bool { oauthErrorCode == "access_denied" }
+
+    /// Whether this is the `expired_token` answer — at a CIBA or device poll, **nobody decided
+    /// in time**; `cibaAwait` raises the same outcome locally when it reaches its deadline
+    /// (§33.4, §33.7 rule 4). Distinct from ``isAccessDenied``.
+    public var isExpiredToken: Bool { oauthErrorCode == "expired_token" }
+
+    /// Why the §32.7 SSF receiver helper refused a SET, when this is such a refusal.
+    public var setFailureReason: SetFailureReason? {
+        if case .auth(let error) = self { return error.setFailureReason }
+        return nil
+    }
 }
 
 // MARK: - HTTP status → error mapping (§2)
