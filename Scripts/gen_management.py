@@ -201,6 +201,15 @@ CALL_SITE_NOTES: dict[str, str] = {
     ),
 }
 
+# Replacement bodies a caller edits after building them from a read — the read-modify-write
+# form §27.4 rule 5 recommends, reached through the hand-written `init(copying:)` initialisers
+# in Sources/AxiamSDK/Management/ManagementChecks.swift. Their properties are `var` so
+# "copy the read, change one member, send it back" is one assignment; every other model keeps
+# `let`.
+MUTABLE_MODELS = {
+    "SamlServiceProviderInput", "ScimTargetInput", "SetDirectoryConfig", "SsfStreamInput",
+}
+
 # Local checks a generated operation runs on its body before any I/O, by name of a static
 # function on `ManagementChecks` (Sources/AxiamSDK/Management/ManagementChecks.swift).
 PRECHECKS: dict[str, str] = {
@@ -1259,9 +1268,10 @@ def emit_models() -> str:
                        else f"The `{name}` schema."))
         out.append(f"public struct {rendered}: Codable, Sendable {{")
 
+        binding = "var" if rendered in MUTABLE_MODELS else "let"
         for f in fields:
             out.extend(doc(field_doc(f), "    "))
-            out.append(f"    public let {f['name']}: {declared(f)}")
+            out.append(f"    public {binding} {f['name']}: {declared(f)}")
             out.append("")
 
         if any(f["wire"] == "inherit" for f in fields):

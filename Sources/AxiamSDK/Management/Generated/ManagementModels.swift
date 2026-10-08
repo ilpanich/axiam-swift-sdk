@@ -8882,55 +8882,55 @@ public struct SamlServiceProvider: Codable, Sendable {
 /// later revision of this struct keeps working.
 public struct SamlServiceProviderInput: Codable, Sendable {
     /// The ACS allow-list. At least one, at most one default.
-    public let acsUrls: [AcsEndpoint]
+    public var acsUrls: [AcsEndpoint]
 
     /// Whether IdP-initiated SSO is allowed for this SP (D-3). A per-SP opt-in, off by default:
     /// an unsolicited assertion has no `InResponseTo` to bind it to a request the SP made.
-    public let allowIdpInitiated: Bool?
+    public var allowIdpInitiated: Bool?
 
     /// Groups whose members may sign in to this SP. **Empty means every active user of the
     /// tenant may.** Evaluated by the SSO endpoint (T23.2.3).
-    public let allowedGroups: [String]?
+    public var allowedGroups: [String]?
 
     /// Attribute mapping table, at most [`MAX_ATTRIBUTE_MAPPINGS`] entries.
-    public let attributeMappings: [AttributeMapping]?
+    public var attributeMappings: [AttributeMapping]?
 
     /// Human-readable name for the console.
-    public let displayName: String
+    public var displayName: String
 
     /// Whether the SP may sign in at all. A disabled SP stays registered but every SSO request
     /// for it is refused.
-    public let enabled: Bool?
+    public var enabled: Bool?
 
     /// Encrypt assertions to the SP's encryption certificate (D-2). Off by default; requires
     /// [`Self::sp_encryption_cert_pem`].
-    public let encryptAssertions: Bool?
+    public var encryptAssertions: Bool?
 
     /// The SP's `entityID`, unique per tenant. At most [`MAX_ENTITY_ID_BYTES`].
-    public let entityID: String
+    public var entityID: String
 
     /// `NameID` policy. Default: persistent, pairwise.
-    public let nameIDFormat: NameIdFormat?
+    public var nameIDFormat: NameIdFormat?
 
     /// Sign the `<samlp:Response>` envelope as well as the assertion (which is signed always).
     /// Default **`true`**: it costs nothing and many SPs require it.
-    public let signResponses: Bool?
+    public var signResponses: Bool?
 
     /// The server's `slo_binding` field.
-    public let sloBinding: SamlBinding?
+    public var sloBinding: SamlBinding?
 
     /// Single-logout endpoint, if the SP supports it.
-    public let sloURL: String?
+    public var sloURL: String?
 
     /// PEM certificate assertions are encrypted to. Required when `encrypt_assertions` is set.
-    public let spEncryptionCertPEM: String?
+    public var spEncryptionCertPEM: String?
 
     /// PEM certificate the SP signs its `AuthnRequest`s with.
-    public let spSigningCertPEM: String?
+    public var spSigningCertPEM: String?
 
     /// Refuse an `AuthnRequest` that is not signed by `sp_signing_cert_pem`. Requires that
     /// certificate.
-    public let wantAuthnRequestsSigned: Bool?
+    public var wantAuthnRequestsSigned: Bool?
 
     public init(
         acsUrls: [AcsEndpoint],
@@ -9232,37 +9232,37 @@ public struct ScimTargetDeliveryState: Codable, Sendable {
 public struct ScimTargetInput: Codable, Sendable {
     /// `bearer`, or `oauth2_client_credentials` with `token_url` (the same URL policy),
     /// `client_id` (1–256 bytes) and an optional `scope`.
-    public let auth: ScimTargetAuth
+    public var auth: ScimTargetAuth
 
     /// The downstream's SCIM service root: an `https` URL under the outbound address policy (no
     /// credentials or fragment, at most 2 048 bytes, no non-public address, no local name).
-    public let baseURL: String
+    public var baseURL: String
 
     /// **Write-only.** The bearer token or the OAuth2 client secret, 1–4 096 bytes. Required on
     /// create. On update, absent keeps the stored one — except that moving it to another URL
     /// (`base_url` of a bearer target, `token_url` or `base_url` of a client-credentials one)
     /// or switching `auth.type` requires it again.
-    public let credential: Sensitive<String>?
+    public var credential: Sensitive<String>?
 
     /// `deactivate` (default: `PATCH active=false`) or `delete`.
-    public let deprovision: DeprovisionPolicy?
+    public var deprovision: DeprovisionPolicy?
 
     /// `true` by default. A disabled target receives nothing.
-    public let enabled: Bool?
+    public var enabled: Bool?
 
     /// 1–128 bytes.
-    public let name: String
+    public var name: String
 
     /// Push groups too (every group for `all_users`, the listed ones for `groups`). `false` by
     /// default.
-    public let pushGroups: Bool?
+    public var pushGroups: Bool?
 
     /// `all_users`, or `groups` with 1–100 `group_ids` of this tenant: users who are direct
     /// members of any listed group.
-    public let scope: ScimTargetScope
+    public var scope: ScimTargetScope
 
     /// `username` (default) or `email`.
-    public let userNameFrom: UserNameSource?
+    public var userNameFrom: UserNameSource?
 
     public init(
         auth: ScimTargetAuth,
@@ -10112,58 +10112,58 @@ public struct SessionResponse: Codable, Sendable {
 /// An omitted optional member is **reset to its default**, not kept.
 public struct SetDirectoryConfig: Codable, Sendable {
     /// Where users are searched for.
-    public let baseDn: String
+    public var baseDn: String
 
     /// The service account the search runs as.
-    public let bindDn: String
+    public var bindDn: String
 
     /// The service account's password: **write-only**, 1 to 4096 octets. Required when the
     /// tenant has no configuration yet; on a replacement, absent means *keep the stored secret*
     /// — unless the write moves the connection (`url`, `start_tls`, `bind_dn` or
     /// `trust_anchors_pem`), which then requires it (`400`, P23W2-01).
-    public let bindSecret: Sensitive<String>?
+    public var bindSecret: Sensitive<String>?
 
     /// A disabled directory serves no sign-in and is not synced.
-    public let enabled: Bool
+    public var enabled: Bool
 
     /// Defaults to null.
-    public let groupBaseDn: String?
+    public var groupBaseDn: String?
 
     /// Defaults to null.
-    public let groupFilter: String?
+    public var groupFilter: String?
 
     /// At most 500; every `group_id` a group of the tenant. Default empty.
-    public let groupMappings: [GroupMapping]?
+    public var groupMappings: [GroupMapping]?
 
     /// Defaults by `kind`.
-    public let groupMemberAttribute: String?
+    public var groupMemberAttribute: String?
 
     /// `0..=10`, default 5.
-    public let groupNestingDepth: Int?
+    public var groupNestingDepth: Int?
 
     /// Default false.
-    public let jitProvisioning: Bool?
+    public var jitProvisioning: Bool?
 
     /// Chooses defaults only.
-    public let kind: DirectoryKind
+    public var kind: DirectoryKind
 
     /// Upgrade an `ldap://` connection with StartTLS before any bind.
-    public let startTLS: Bool
+    public var startTLS: Bool
 
     /// `300..=86400`, default 3600.
-    public let syncIntervalSecs: Int?
+    public var syncIntervalSecs: Int?
 
     /// At most 16 CA certificates in PEM. Default empty (the public roots).
-    public let trustAnchorsPEM: [String]?
+    public var trustAnchorsPEM: [String]?
 
     /// `ldaps://host[:port]`, or `ldap://host[:port]` with `start_tls`.
-    public let url: String
+    public var url: String
 
     /// The server's `user_attribute_map` field.
-    public let userAttributeMap: UserAttributeMap?
+    public var userAttributeMap: UserAttributeMap?
 
     /// One `{username}` placeholder in value position.
-    public let userFilter: String
+    public var userFilter: String
 
     public init(
         baseDn: String,
@@ -11121,45 +11121,45 @@ public struct SsfStream: Codable, Sendable {
 /// `create_stream` and `update_stream` (a **replacement**) body.
 public struct SsfStreamInput: Codable, Sendable {
     /// 1–512 bytes; unique across the deployment.
-    public let audience: String
+    public var audience: String
 
     /// **Write-only.** The `Authorization` header value AXIAM sends to a push endpoint. On
     /// update, absent keeps the stored one — except that moving the endpoint to another origin
     /// requires it again.
-    public let authorizationHeader: Sensitive<String>?
+    public var authorizationHeader: Sensitive<String>?
 
     /// On update: remove the stored header. Refused together with `authorization_header`.
-    public let clearAuthorizationHeader: Bool?
+    public var clearAuthorizationHeader: Bool?
 
     /// `push` or `poll`.
-    public let deliveryMethod: SsfDeliveryMethod
+    public var deliveryMethod: SsfDeliveryMethod
 
     /// At most 256 bytes.
-    public let description: String?
+    public var description: String?
 
     /// Required for `push` (an `https` URL under the outbound address policy), refused for
     /// `poll`.
-    public let endpointURL: String?
+    public var endpointURL: String?
 
     /// 1–6 event types.
-    public let eventsAllowed: [SsfEventType]
+    public var eventsAllowed: [SsfEventType]
 
     /// A subset of `events_allowed`; absent means all of them. The receiver may narrow it
     /// later, never widen it.
-    public let eventsRequested: [SsfEventType]?
+    public var eventsRequested: [SsfEventType]?
 
     /// An OAuth2 client of the tenant with the `client_credentials` grant and the `ssf.manage`
     /// scope.
-    public let receiverClientID: String
+    public var receiverClientID: String
 
     /// `enabled` by default.
-    public let status: SsfStreamStatus?
+    public var status: SsfStreamStatus?
 
     /// At most 256 bytes.
-    public let statusReason: String?
+    public var statusReason: String?
 
     /// `iss_sub` by default.
-    public let subjectFormat: SsfSubjectFormat?
+    public var subjectFormat: SsfSubjectFormat?
 
     public init(
         audience: String,
