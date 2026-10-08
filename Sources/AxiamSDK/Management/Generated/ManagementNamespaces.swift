@@ -3302,6 +3302,14 @@ public struct DirectoryApi: Sendable {
     ///
     /// `PUT /api/v1/tenants/{tenant_id}/directory`
     ///
+    /// **Moving the connection requires the secret again** (§30.3 rule 2): a `set` that changes
+    /// `url`, `startTLS`, `bindDn` or `trustAnchorsPEM` without `bindSecret` is refused `400`
+    /// and changes nothing. The SDK holds no copy of the secret and cannot re-send one for you.
+    /// `bindSecret` is required while the tenant has no configuration; otherwise absent keeps
+    /// the stored secret. Every other optional member left `nil` is **reset to its default**.
+    /// An enabled directory and an effective `opaque_mode = required` never coexist (`409`);
+    /// without the deployment's directory key a write carrying a secret is `503`.
+    ///
     /// - Parameter body: The request body.
     public func set(body: SetDirectoryConfig) async throws -> DirectoryConfig {
         let pathParameters: [String: String] = [:]
@@ -3323,6 +3331,13 @@ public struct DirectoryApi: Sendable {
     ///
     /// `PATCH /api/v1/tenants/{tenant_id}/directory`
     ///
+    /// **Moving the connection requires the secret again** (§30.3 rule 2): an `update` that
+    /// changes `url`, `startTLS`, `bindDn` or `trustAnchorsPEM` without `bindSecret` is refused
+    /// `400` and changes nothing; the SDK holds no copy of the secret to re-send. A member left
+    /// `nil` is not sent and stays as stored; `groupBaseDn` / `groupFilter` set to `.some(nil)`
+    /// are sent as `null` and clear the value. An enabled directory and an effective
+    /// `opaque_mode = required` never coexist (`409`).
+    ///
     /// - Parameter body: The request body.
     public func update(body: UpdateDirectoryConfig) async throws -> DirectoryConfig {
         let pathParameters: [String: String] = [:]
@@ -3341,6 +3356,12 @@ public struct DirectoryApi: Sendable {
     }
 
     /// `DELETE /api/v1/tenants/{tenant_id}/directory`
+    ///
+    /// **Deleting stops the directory, and only that** (§30.3 rule 5): directory accounts can
+    /// no longer sign in with a password -- there is no fallback to a local hash -- and the
+    /// sync stops. Sessions, refresh tokens and passkeys those accounts already hold keep
+    /// working until they expire or the accounts are deactivated. There is no unlink: a linked
+    /// account stays a directory account.
     public func delete() async throws {
         let pathParameters: [String: String] = [:]
         let query: [(String, String)] = []
@@ -3363,6 +3384,12 @@ public struct DirectoryApi: Sendable {
     /// directory entry (D-28).
     ///
     /// `POST /api/v1/tenants/{tenant_id}/directory/links`
+    ///
+    /// **Signs the account's owner out everywhere** (§30.3 rule 6): linking deletes the
+    /// account's WebAuthn credentials and federation links, revokes its `User` certificates,
+    /// all its sessions and its OAuth2 refresh tokens (TOTP is kept). The entry is found by the
+    /// account's own username; a repeat on an already-linked account answers `wasAlreadyLinked`
+    /// and repeats the revocations.
     ///
     /// - Parameter body: The request body.
     public func linkAccount(body: LinkDirectoryAccount) async throws -> DirectoryLinkResult {
@@ -3474,6 +3501,11 @@ public struct SamlApi: Sendable {
 
     /// `POST /api/v1/tenants/{tenant_id}/saml/service-providers`
     ///
+    /// `spSigningCertPEM` must be RSA (2048 bits or more) or ECDSA on P-256, P-384 or P-521; an
+    /// **ECDSA certificate verifies HTTP-POST requests only** -- the HTTP-Redirect binding is
+    /// RSA-only (§29.3 rule 2). `encryptAssertions: true` is refused while encryption is
+    /// unimplemented. `entityID` is unique per tenant (`409`) and immutable once created.
+    ///
     /// - Parameter body: The request body.
     public func createServiceProvider(
         body: SamlServiceProviderInput
@@ -3517,6 +3549,14 @@ public struct SamlApi: Sendable {
     ///
     /// `PUT /api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}`
     ///
+    /// An omitted member takes its **default**, not its stored value: `enabled` and
+    /// `signResponses` default to `true`, `nameIDFormat` to `persistent`, the other flags to
+    /// `false`, certificates and `sloURL` / `sloBinding` to null, the lists to empty (§29.2).
+    /// Start from `getServiceProvider` -- `SamlServiceProviderInput(copying:)` carries every
+    /// member over. `entityID` is immutable: changing it is `400` -- register a new service
+    /// provider instead (§29.3 rule 3). An ECDSA `spSigningCertPEM` verifies HTTP-POST requests
+    /// only; HTTP-Redirect is RSA-only.
+    ///
     /// - Parameter spID: The `{sp_id}` path parameter.
     /// - Parameter body: The request body.
     public func updateServiceProvider(
@@ -3540,6 +3580,9 @@ public struct SamlApi: Sendable {
 
     /// `DELETE /api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}`
     ///
+    /// Ends no session: users already signed in to the SP stay signed in there until their SP
+    /// session ends (§29.3 rule 5).
+    ///
     /// - Parameter spID: The `{sp_id}` path parameter.
     public func deleteServiceProvider(spID: String) async throws {
         let pathParameters = ["sp_id": spID]
@@ -3561,10 +3604,18 @@ public struct SamlApi: Sendable {
 
     /// `POST /api/v1/tenants/{tenant_id}/saml/parse-sp-metadata`
     ///
+    /// **Parses and stores nothing** (§29.3 rule 6): the result is a draft to review and pass
+    /// to `createServiceProvider`. Exactly one of `metadataXml` and `metadataURL` must be set
+    /// -- build the body with `ParseSamlSpMetadata.fromURL(_:)` or `.fromXML(_:)`; both or
+    /// neither is refused locally, before any request. The metadata's own signature is not
+    /// evaluated. `503` in a server built without SAML.
+    ///
     /// - Parameter body: The request body.
     public func parseSpMetadata(body: ParseSamlSpMetadata) async throws -> SamlSpMetadataDraft {
         let pathParameters: [String: String] = [:]
         let query: [(String, String)] = []
+        // A local check, before any I/O (PRECHECKS).
+        try ManagementChecks.parseSpMetadataExactlyOne(body)
         let payload = try ManagementCodec.encode(body)
         let data = try await client.managementSend(
             operation: "saml.parse_sp_metadata",
@@ -3597,6 +3648,9 @@ public struct SamlApi: Sendable {
 
     /// `POST /api/v1/tenants/{tenant_id}/saml/idp-credentials`
     ///
+    /// Generates an RSA-4096 key on the server, which takes seconds; the key is never returned.
+    /// An occupied slot is `409` (§29.3 rule 7).
+    ///
     /// - Parameter body: The request body.
     public func issueIdpCredential(body: IssueSamlIdpCredential) async throws -> SamlIdpCredential {
         let pathParameters: [String: String] = [:]
@@ -3615,6 +3669,10 @@ public struct SamlApi: Sendable {
     }
 
     /// `POST /api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/promote`
+    ///
+    /// `credentialID` must be the tenant's current `next` credential; in one transaction the
+    /// old `active` is retired -- its key destroyed -- and `next` becomes `active` (§29.3 rule
+    /// 7).
     ///
     /// - Parameter credentialID: The `{credential_id}` path parameter.
     public func promoteIdpCredential(
@@ -3636,6 +3694,11 @@ public struct SamlApi: Sendable {
     }
 
     /// `POST /api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/retire`
+    ///
+    /// **Retiring the `active` credential with no successor stops SAML sign-on for the whole
+    /// tenant at once** (§29.3 rule 7) -- it is the incident response to a leaked key. The key
+    /// is destroyed. The safe rotation is: issue into `next`, wait until every SP has refreshed
+    /// the metadata, then promote.
     ///
     /// - Parameter credentialID: The `{credential_id}` path parameter.
     public func retireIdpCredential(credentialID: String) async throws -> SamlIdpCredential {
@@ -3751,6 +3814,13 @@ public struct SsfApi: Sendable {
     ///
     /// `PUT /api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}`
     ///
+    /// An omitted optional member takes its default (§32.2) -- **except `authorizationHeader`,
+    /// which absent keeps the stored one** -- unless the update moves `endpointURL` to another
+    /// scheme, host or port while a header is stored: then it must carry `authorizationHeader`
+    /// again or `clearAuthorizationHeader: true`, else `400` (§32.3 rule 5). An update
+    /// overtaken by the receiver's own write is `409`: read the stream again.
+    /// `SsfStreamInput(copying:)` turns a read into this body.
+    ///
     /// - Parameter streamID: The `{stream_id}` path parameter.
     /// - Parameter body: The request body.
     public func updateStream(streamID: String, body: SsfStreamInput) async throws -> SsfStream {
@@ -3848,6 +3918,9 @@ public struct ScimTargetsApi: Sendable {
 
     /// `POST /api/v1/scim-targets`
     ///
+    /// `credential` is required here (§31.3 rule 2). It is write-only: no response ever carries
+    /// it, and the SDK keeps no copy.
+    ///
     /// - Parameter body: The request body.
     public func create(body: ScimTargetInput) async throws -> ScimTargetResponse {
         let pathParameters: [String: String] = [:]
@@ -3886,6 +3959,14 @@ public struct ScimTargetsApi: Sendable {
 
     /// `PUT /api/v1/scim-targets/{id}`
     ///
+    /// **The credential is bound to its URL** (§31.3 rule 2): absent `credential` keeps the
+    /// stored one -- except that changing `baseURL` of a bearer target, `auth.token_url` or
+    /// `baseURL` of a client-credentials target, or `auth.type`, without `credential` in the
+    /// same write is refused `400` and changes nothing. The SDK holds no credential to re-send.
+    /// Every other member left out takes its default (`ScimTargetInput(copying:)` carries them
+    /// over). An update overtaken by another administrator's write is `409` (§31.3 rule 4):
+    /// reload, then retry yourself.
+    ///
     /// - Parameter id: The `{id}` path parameter.
     /// - Parameter body: The request body.
     public func update(id: String, body: ScimTargetInput) async throws -> ScimTargetResponse {
@@ -3905,6 +3986,10 @@ public struct ScimTargetsApi: Sendable {
     }
 
     /// `DELETE /api/v1/scim-targets/{id}`
+    ///
+    /// **Deprovisions nothing downstream** (§31.3 rule 8): the users and groups AXIAM created
+    /// in the service provider stay there, and AXIAM no longer knows them. To remove them, set
+    /// `deprovision` to `delete`, let AXIAM push, and only then delete the target.
     ///
     /// - Parameter id: The `{id}` path parameter.
     public func delete(id: String) async throws {
@@ -3926,6 +4011,10 @@ public struct ScimTargetsApi: Sendable {
     }
 
     /// `POST /api/v1/scim-targets/{id}/reconcile`
+    ///
+    /// Starts a reconciliation in the background and answers `202`; its outcome is on the
+    /// target's `state` (§31.3 rule 7). `409` while a run holds the claim, within five minutes
+    /// of the last one, or for a disabled target.
     ///
     /// - Parameter id: The `{id}` path parameter.
     public func reconcile(id: String) async throws -> ScimReconcileAccepted {

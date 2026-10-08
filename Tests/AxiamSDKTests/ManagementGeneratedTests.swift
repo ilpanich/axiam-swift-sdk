@@ -210,7 +210,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureParseSamlSpMetadata: ParseSamlSpMetadata = decodeFixture(
         ParseSamlSpMetadata.self,
-        "{\"metadata_url\": \"example\", \"metadata_xml\": \"example\"}",
+        "{\"metadata_url\": \"https://sp.example/metadata\"}",
         "ParseSamlSpMetadata")
 
     static let fixtureSamlServiceProviderInput: SamlServiceProviderInput = decodeFixture(

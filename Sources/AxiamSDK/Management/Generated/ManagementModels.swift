@@ -8581,7 +8581,7 @@ public struct SamlIdpCredentialPromotion: Codable, Sendable {
 /// on: what an SP will be given, and whether it answers yet.
 public struct SamlIdpInfo: Codable, Sendable {
     /// The `active` credential, or null.
-    public let activeCredentialID: String?
+    public let activeCredentialID: String??
 
     /// The IdP's entity id (the metadata URL itself).
     public let entityID: String
@@ -8594,7 +8594,7 @@ public struct SamlIdpInfo: Codable, Sendable {
     public let metadataURL: String
 
     /// The `next` credential, or null.
-    public let nextCredentialID: String?
+    public let nextCredentialID: String??
 
     /// Whether this server build serves SAML at all (it was built with the `saml` feature).
     public let samlAvailable: Bool
@@ -8613,11 +8613,11 @@ public struct SamlIdpInfo: Codable, Sendable {
     public let tenantID: String
 
     public init(
-        activeCredentialID: String? = nil,
+        activeCredentialID: String?? = nil,
         entityID: String,
         metadataServed: Bool,
         metadataURL: String,
-        nextCredentialID: String? = nil,
+        nextCredentialID: String?? = nil,
         samlAvailable: Bool,
         samlIdpEnabled: Bool,
         sloURL: String,
@@ -8651,11 +8651,27 @@ public struct SamlIdpInfo: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.activeCredentialID = try container.decodeIfPresent(String.self, forKey: .activeCredentialID)
+        if container.contains(.activeCredentialID) {
+            if try container.decodeNil(forKey: .activeCredentialID) {
+                self.activeCredentialID = .some(nil)
+            } else {
+                self.activeCredentialID = .some(try container.decode(String.self, forKey: .activeCredentialID))
+            }
+        } else {
+            self.activeCredentialID = nil
+        }
         self.entityID = try container.decode(String.self, forKey: .entityID)
         self.metadataServed = try container.decode(Bool.self, forKey: .metadataServed)
         self.metadataURL = try container.decode(String.self, forKey: .metadataURL)
-        self.nextCredentialID = try container.decodeIfPresent(String.self, forKey: .nextCredentialID)
+        if container.contains(.nextCredentialID) {
+            if try container.decodeNil(forKey: .nextCredentialID) {
+                self.nextCredentialID = .some(nil)
+            } else {
+                self.nextCredentialID = .some(try container.decode(String.self, forKey: .nextCredentialID))
+            }
+        } else {
+            self.nextCredentialID = nil
+        }
         self.samlAvailable = try container.decode(Bool.self, forKey: .samlAvailable)
         self.samlIdpEnabled = try container.decode(Bool.self, forKey: .samlIdpEnabled)
         self.sloURL = try container.decode(String.self, forKey: .sloURL)
@@ -8665,11 +8681,23 @@ public struct SamlIdpInfo: Codable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encodeIfPresent(activeCredentialID, forKey: .activeCredentialID)
+        if let activeCredentialIDMember = activeCredentialID {
+            if let activeCredentialIDValue = activeCredentialIDMember {
+                try container.encode(activeCredentialIDValue, forKey: .activeCredentialID)
+            } else {
+                try container.encodeNil(forKey: .activeCredentialID)
+            }
+        }
         try container.encode(entityID, forKey: .entityID)
         try container.encode(metadataServed, forKey: .metadataServed)
         try container.encode(metadataURL, forKey: .metadataURL)
-        try container.encodeIfPresent(nextCredentialID, forKey: .nextCredentialID)
+        if let nextCredentialIDMember = nextCredentialID {
+            if let nextCredentialIDValue = nextCredentialIDMember {
+                try container.encode(nextCredentialIDValue, forKey: .nextCredentialID)
+            } else {
+                try container.encodeNil(forKey: .nextCredentialID)
+            }
+        }
         try container.encode(samlAvailable, forKey: .samlAvailable)
         try container.encode(samlIdpEnabled, forKey: .samlIdpEnabled)
         try container.encode(sloURL, forKey: .sloURL)
@@ -11817,10 +11845,10 @@ public struct UpdateDirectoryConfig: Codable, Sendable {
     public let enabled: Bool?
 
     /// Explicit `null` clears it.
-    public let groupBaseDn: String?
+    public let groupBaseDn: String??
 
     /// Explicit `null` clears it.
-    public let groupFilter: String?
+    public let groupFilter: String??
 
     /// Replaces the whole table when present.
     public let groupMappings: [GroupMapping]?
@@ -11860,8 +11888,8 @@ public struct UpdateDirectoryConfig: Codable, Sendable {
         bindDn: String? = nil,
         bindSecret: Sensitive<String>? = nil,
         enabled: Bool? = nil,
-        groupBaseDn: String? = nil,
-        groupFilter: String? = nil,
+        groupBaseDn: String?? = nil,
+        groupFilter: String?? = nil,
         groupMappings: [GroupMapping]? = nil,
         groupMemberAttribute: String? = nil,
         groupNestingDepth: Int? = nil,
@@ -11923,8 +11951,24 @@ public struct UpdateDirectoryConfig: Codable, Sendable {
             self.bindSecret = nil
         }
         self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
-        self.groupBaseDn = try container.decodeIfPresent(String.self, forKey: .groupBaseDn)
-        self.groupFilter = try container.decodeIfPresent(String.self, forKey: .groupFilter)
+        if container.contains(.groupBaseDn) {
+            if try container.decodeNil(forKey: .groupBaseDn) {
+                self.groupBaseDn = .some(nil)
+            } else {
+                self.groupBaseDn = .some(try container.decode(String.self, forKey: .groupBaseDn))
+            }
+        } else {
+            self.groupBaseDn = nil
+        }
+        if container.contains(.groupFilter) {
+            if try container.decodeNil(forKey: .groupFilter) {
+                self.groupFilter = .some(nil)
+            } else {
+                self.groupFilter = .some(try container.decode(String.self, forKey: .groupFilter))
+            }
+        } else {
+            self.groupFilter = nil
+        }
         self.groupMappings = try container.decodeIfPresent([GroupMapping].self, forKey: .groupMappings)
         self.groupMemberAttribute = try container.decodeIfPresent(String.self, forKey: .groupMemberAttribute)
         self.groupNestingDepth = try container.decodeIfPresent(Int.self, forKey: .groupNestingDepth)
@@ -11944,8 +11988,20 @@ public struct UpdateDirectoryConfig: Codable, Sendable {
         try container.encodeIfPresent(bindDn, forKey: .bindDn)
         try container.encodeIfPresent(bindSecret?.expose(), forKey: .bindSecret)
         try container.encodeIfPresent(enabled, forKey: .enabled)
-        try container.encodeIfPresent(groupBaseDn, forKey: .groupBaseDn)
-        try container.encodeIfPresent(groupFilter, forKey: .groupFilter)
+        if let groupBaseDnMember = groupBaseDn {
+            if let groupBaseDnValue = groupBaseDnMember {
+                try container.encode(groupBaseDnValue, forKey: .groupBaseDn)
+            } else {
+                try container.encodeNil(forKey: .groupBaseDn)
+            }
+        }
+        if let groupFilterMember = groupFilter {
+            if let groupFilterValue = groupFilterMember {
+                try container.encode(groupFilterValue, forKey: .groupFilter)
+            } else {
+                try container.encodeNil(forKey: .groupFilter)
+            }
+        }
         try container.encodeIfPresent(groupMappings, forKey: .groupMappings)
         try container.encodeIfPresent(groupMemberAttribute, forKey: .groupMemberAttribute)
         try container.encodeIfPresent(groupNestingDepth, forKey: .groupNestingDepth)

@@ -72,6 +72,147 @@ IMPLICIT_TENANT_NAMESPACES = {
 # understood.
 OPEN_UNIONS = {"ScimTargetAuth", "ScimTargetScope"}
 
+# Members where an explicit `null` is a different value from an absent member (§27.4 rule 5,
+# "null is not absent"). §30.2 names exactly two on a REQUEST: on `UpdateDirectoryConfig`,
+# `null` clears the value and absence keeps it. §29.8 test 8 asks the same of a RESPONSE:
+# `SamlIdpInfo`'s two credential ids are null when the slot is empty, and that null must stay
+# distinct from an absent member, so a server that stopped sending the member is noticed.
+#
+# They are generated as a double optional (`String??`): `nil` is absent (the key is not
+# sent, or was not received), `.some(nil)` is an explicit JSON `null`. A name list rather
+# than a schema rule, because the export spells every optional member `["string", "null"]`
+# and cannot say which ones `null` clears.
+EXPLICIT_NULL_FIELDS = {
+    ("UpdateDirectoryConfig", "group_base_dn"),
+    ("UpdateDirectoryConfig", "group_filter"),
+    ("SamlIdpInfo", "active_credential_id"),
+    ("SamlIdpInfo", "next_credential_id"),
+}
+
+# Call-site documentation the contract makes an SDK repeat (§29.3, §30.3, §31.3, §32.2),
+# keyed by the registry's namespace-qualified operation name. Generated rather than
+# hand-written because the methods are generated.
+CALL_SITE_NOTES: dict[str, str] = {
+    "directory.set": (
+        "**Moving the connection requires the secret again** (§30.3 rule 2): a `set` that "
+        "changes `url`, `startTLS`, `bindDn` or `trustAnchorsPEM` without `bindSecret` is "
+        "refused `400` and changes nothing. The SDK holds no copy of the secret and cannot "
+        "re-send one for you. `bindSecret` is required while the tenant has no "
+        "configuration; otherwise absent keeps the stored secret. Every other optional "
+        "member left `nil` is **reset to its default**. An enabled directory and an "
+        "effective `opaque_mode = required` never coexist (`409`); without the deployment's "
+        "directory key a write carrying a secret is `503`."
+    ),
+    "directory.update": (
+        "**Moving the connection requires the secret again** (§30.3 rule 2): an `update` "
+        "that changes `url`, `startTLS`, `bindDn` or `trustAnchorsPEM` without `bindSecret` "
+        "is refused `400` and changes nothing; the SDK holds no copy of the secret to "
+        "re-send. A member left `nil` is not sent and stays as stored; `groupBaseDn` / "
+        "`groupFilter` set to `.some(nil)` are sent as `null` and clear the value. An "
+        "enabled directory and an effective `opaque_mode = required` never coexist (`409`)."
+    ),
+    "directory.delete": (
+        "**Deleting stops the directory, and only that** (§30.3 rule 5): directory accounts "
+        "can no longer sign in with a password -- there is no fallback to a local hash -- "
+        "and the sync stops. Sessions, refresh tokens and passkeys those accounts already "
+        "hold keep working until they expire or the accounts are deactivated. There is no "
+        "unlink: a linked account stays a directory account."
+    ),
+    "directory.link_account": (
+        "**Signs the account's owner out everywhere** (§30.3 rule 6): linking deletes the "
+        "account's WebAuthn credentials and federation links, revokes its `User` "
+        "certificates, all its sessions and its OAuth2 refresh tokens (TOTP is kept). The "
+        "entry is found by the account's own username; a repeat on an already-linked "
+        "account answers `wasAlreadyLinked` and repeats the revocations."
+    ),
+    "saml.create_service_provider": (
+        "`spSigningCertPEM` must be RSA (2048 bits or more) or ECDSA on P-256, P-384 or "
+        "P-521; an **ECDSA certificate verifies HTTP-POST requests only** -- the "
+        "HTTP-Redirect binding is RSA-only (§29.3 rule 2). `encryptAssertions: true` is "
+        "refused while encryption is unimplemented. `entityID` is unique per tenant (`409`) "
+        "and immutable once created."
+    ),
+    "saml.update_service_provider": (
+        "An omitted member takes its **default**, not its stored value: `enabled` and "
+        "`signResponses` default to `true`, `nameIDFormat` to `persistent`, the other flags "
+        "to `false`, certificates and `sloURL` / `sloBinding` to null, the lists to empty "
+        "(§29.2). Start from `getServiceProvider` -- `SamlServiceProviderInput(copying:)` "
+        "carries every member over. `entityID` is immutable: changing it is `400` -- "
+        "register a new service provider instead (§29.3 rule 3). An ECDSA "
+        "`spSigningCertPEM` verifies HTTP-POST requests only; HTTP-Redirect is RSA-only."
+    ),
+    "saml.delete_service_provider": (
+        "Ends no session: users already signed in to the SP stay signed in there until "
+        "their SP session ends (§29.3 rule 5)."
+    ),
+    "saml.parse_sp_metadata": (
+        "**Parses and stores nothing** (§29.3 rule 6): the result is a draft to review and "
+        "pass to `createServiceProvider`. Exactly one of `metadataXml` and `metadataURL` "
+        "must be set -- build the body with `ParseSamlSpMetadata.fromURL(_:)` or "
+        "`.fromXML(_:)`; both or neither is refused locally, before any request. The "
+        "metadata's own signature is not evaluated. `503` in a server built without SAML."
+    ),
+    "saml.issue_idp_credential": (
+        "Generates an RSA-4096 key on the server, which takes seconds; the key is never "
+        "returned. An occupied slot is `409` (§29.3 rule 7)."
+    ),
+    "saml.promote_idp_credential": (
+        "`credentialID` must be the tenant's current `next` credential; in one transaction "
+        "the old `active` is retired -- its key destroyed -- and `next` becomes `active` "
+        "(§29.3 rule 7)."
+    ),
+    "saml.retire_idp_credential": (
+        "**Retiring the `active` credential with no successor stops SAML sign-on for the "
+        "whole tenant at once** (§29.3 rule 7) -- it is the incident response to a leaked "
+        "key. The key is destroyed. The safe rotation is: issue into `next`, wait until "
+        "every SP has refreshed the metadata, then promote."
+    ),
+    "ssf.update_stream": (
+        "An omitted optional member takes its default (§32.2) -- **except "
+        "`authorizationHeader`, which absent keeps the stored one** -- unless the update "
+        "moves `endpointURL` to another scheme, host or port while a header is stored: then "
+        "it must carry `authorizationHeader` again or `clearAuthorizationHeader: true`, else "
+        "`400` (§32.3 rule 5). An update overtaken by the receiver's own write is `409`: "
+        "read the stream again. `SsfStreamInput(copying:)` turns a read into this body."
+    ),
+    "scim_targets.create": (
+        "`credential` is required here (§31.3 rule 2). It is write-only: no response ever "
+        "carries it, and the SDK keeps no copy."
+    ),
+    "scim_targets.update": (
+        "**The credential is bound to its URL** (§31.3 rule 2): absent `credential` keeps "
+        "the stored one -- except that changing `baseURL` of a bearer target, "
+        "`auth.token_url` or `baseURL` of a client-credentials target, or `auth.type`, "
+        "without `credential` in the same write is refused `400` and changes nothing. The "
+        "SDK holds no credential to re-send. Every other member left out takes its default "
+        "(`ScimTargetInput(copying:)` carries them over). An update overtaken by another "
+        "administrator's write is `409` (§31.3 rule 4): reload, then retry yourself."
+    ),
+    "scim_targets.delete": (
+        "**Deprovisions nothing downstream** (§31.3 rule 8): the users and groups AXIAM "
+        "created in the service provider stay there, and AXIAM no longer knows them. To "
+        "remove them, set `deprovision` to `delete`, let AXIAM push, and only then delete "
+        "the target."
+    ),
+    "scim_targets.reconcile": (
+        "Starts a reconciliation in the background and answers `202`; its outcome is on "
+        "the target's `state` (§31.3 rule 7). `409` while a run holds the claim, within "
+        "five minutes of the last one, or for a disabled target."
+    ),
+}
+
+# Local checks a generated operation runs on its body before any I/O, by name of a static
+# function on `ManagementChecks` (Sources/AxiamSDK/Management/ManagementChecks.swift).
+PRECHECKS: dict[str, str] = {
+    "saml.parse_sp_metadata": "parseSpMetadataExactlyOne",
+}
+
+# The wire object a generated request-body fixture is decoded from, where the spec's example
+# shape (every member) would be refused by the operation's PRECHECK.
+FIXTURE_OVERRIDES: dict[str, Any] = {
+    "ParseSamlSpMetadata": {"metadata_url": "https://sp.example/metadata"},
+}
+
 # Swift has one module and no nested namespaces, so a generated model shares a name space
 # with every type the hand-written SDK already declares -- and a collision there is a hard
 # REDECLARATION error, not a shadowing warning.
@@ -404,7 +545,7 @@ def reserved_type_names() -> set[str]:
         "Page", "PageRequest", "CallScope", "ManagementJSON", "ManagementCodec",
         "ManagementFailure", "Manifest", "ManifestEntity", "ManifestKind", "ChangeAction",
         "PlannedChange", "ManagementPlan", "ApplyReport", "ManifestError", "ManifestApi",
-        "ManifestBuilder", "Declare", "ManagementApi",
+        "ManifestBuilder", "Declare", "ManagementApi", "ManagementChecks",
     })
     return names
 
@@ -632,10 +773,15 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
         # property (emitted in `emit_models`) is what reads an absent value as `true`
         # rather than failing the decode or silently reading `false`.
         is_inherit = wire == "inherit"
+        explicit_null = (schema_name, wire) in EXPLICIT_NULL_FIELDS
+        if explicit_null and (wire in required or wire in secrets):
+            raise SystemExit(
+                f"EXPLICIT_NULL_FIELDS names {schema_name}.{wire}, which is required or "
+                "secret; only an optional, non-secret member can be tri-state.")
         out.append({
             "wire": wire, "name": field(wire), "decl": info["decl"], "kind": info["kind"],
             "ref": info["ref"], "required": False if is_inherit else wire in required,
-            "schema": sub, "secret": wire in secrets,
+            "schema": sub, "secret": wire in secrets, "explicit_null": explicit_null,
             "description": sub.get("description") if isinstance(sub, dict) else None,
         })
     return out, description
@@ -648,6 +794,9 @@ def declared(f: dict[str, Any]) -> str:
     "an unset field is OMITTED, not null" is something `encodeIfPresent` can act on
     without a convention to remember.
     """
+    if f.get("explicit_null"):
+        # EXPLICIT_NULL_FIELDS: `nil` absent, `.some(nil)` an explicit JSON null.
+        return f"{f['decl']}??"
     return f["decl"] if f["required"] else f"{f['decl']}?"
 
 
@@ -871,6 +1020,19 @@ def decode_expr(f: dict[str, Any]) -> list[str]:
     name, key, decl = f["name"], f["name"], f["decl"]
     if f["kind"] == "union_raw":
         return [f"        self.{name} = try ManagementJSON(from: decoder)"]
+    if f.get("explicit_null"):
+        # EXPLICIT_NULL_FIELDS: an absent key and a `null` are different values.
+        return [
+            f"        if container.contains(.{key}) {{",
+            f"            if try container.decodeNil(forKey: .{key}) {{",
+            f"                self.{name} = .some(nil)",
+            "            } else {",
+            f"                self.{name} = .some(try container.decode({decl}.self, forKey: .{key}))",
+            "            }",
+            "        } else {",
+            f"            self.{name} = nil",
+            "        }",
+        ]
     if f["kind"] == "sensitive":
         if f["required"]:
             return [f"        self.{name} = Sensitive(try container.decode(String.self, "
@@ -912,6 +1074,19 @@ def encode_expr(f: dict[str, Any]) -> list[str]:
         ]
     if f["kind"] == "union_raw":
         return [f"        try {name}.encode(to: encoder)"]
+    if f.get("explicit_null"):
+        # EXPLICIT_NULL_FIELDS: `nil` omits the key, `.some(nil)` sends `null` (§27.4 rule 5,
+        # "null is not absent").
+        bare = name.strip("`")
+        return [
+            f"        if let {bare}Member = {name} {{",
+            f"            if let {bare}Value = {bare}Member {{",
+            f"                try container.encode({bare}Value, forKey: .{key})",
+            "            } else {",
+            f"                try container.encodeNil(forKey: .{key})",
+            "            }",
+            "        }",
+        ]
     if f["kind"] == "sensitive":
         # §27.5 rule 1: the field is Sensitive in the model, and §27.5's request-side rows
         # require it on the wire all the same. `Sensitive` is deliberately not `Codable`
@@ -1213,6 +1388,10 @@ def emit_operation(namespace: str, opname: str, op: dict[str, Any]) -> list[str]
             "Returns ONE page. `Page.total` is the server's count across every page and is "
             "not `items.count`; call again with `page.next()` and stop when a page comes "
             "back empty (§27.4 rule 4).", "    "))
+    canonical = f"{namespace}.{opname}"
+    if canonical in CALL_SITE_NOTES:
+        out.extend(doc("", "    "))
+        out.extend(doc(CALL_SITE_NOTES[canonical], "    "))
     if op["sensitive_response_fields"]:
         out.extend(doc("", "    "))
         fields = ", ".join(f"`{f}`" for f in op["sensitive_response_fields"])
@@ -1268,6 +1447,11 @@ def emit_operation(namespace: str, opname: str, op: dict[str, Any]) -> list[str]
         out.append("        }")
 
     body_param = next((p for p in params if p["kind"] == "body"), None)
+    if canonical in PRECHECKS:
+        if not body_param:
+            raise SystemExit(f"PRECHECKS names {canonical}, which takes no request body")
+        out.extend(comment("A local check, before any I/O (PRECHECKS).", "        "))
+        out.append(f"        try ManagementChecks.{PRECHECKS[canonical]}({body_param['name']})")
     if body_param:
         out.append(f"        let payload = try ManagementCodec.encode({body_param['name']})")
     else:
@@ -1499,7 +1683,7 @@ def emit_tests() -> str:
     out.append("")
     for schema, op in sorted(bodies.items()):
         model = model_type(schema)
-        example = example_for(schema)
+        example = FIXTURE_OVERRIDES.get(schema, example_for(schema))
         out.append(f"    static let {body_fixture_name(op)}: {model} = decodeFixture(")
         out.append(f"        {model}.self,")
         out.append(f"        {swift_string(json.dumps(example, sort_keys=True))},")
