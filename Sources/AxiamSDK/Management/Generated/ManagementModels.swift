@@ -77,6 +77,43 @@ public enum AttestationMode: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// Where an attribute's value comes from. Every variant has a real source today; a variant with
+/// none (a telephone number the OIDC `phone` scope gates behind its own consent, say) is
+/// deliberately absent rather than mapped to an empty value.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum AttributeSource: String, Codable, Sendable, CaseIterable {
+    case username = "username"
+    case email = "email"
+    case displayName = "display_name"
+    case givenName = "given_name"
+    case familyName = "family_name"
+    case groups = "groups"
+    case roles = "roles"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = AttributeSource(rawValue: raw) ?? .unknown
+    }
+}
+
 /// The `AuditOutcome` enumeration, as the server spells it.
 ///
 /// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
@@ -247,6 +284,75 @@ public enum CertificationLevel: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// How a CIBA client learns that a request has been decided (CIBA Core §5). `push` is
+/// deliberately absent: AXIAM does not offer it, and the FAPI-CIBA profile forbids it — push
+/// delivers the tokens themselves to a client endpoint, which makes the notification endpoint a
+/// token sink.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum CibaDeliveryMode: String, Codable, Sendable, CaseIterable {
+    case poll = "poll"
+    case ping = "ping"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CibaDeliveryMode(rawValue: raw) ?? .unknown
+    }
+}
+
+/// The JWS algorithm a CIBA client signs its authentication requests with (CIBA Core §4
+/// `backchannel_authentication_request_signing_alg`, §7.1.1). Exactly the three algorithms
+/// AXIAM verifies on any client-signed JWT (`axiam_oauth2::jose::PERMITTED_ALGORITHMS`): FAPI
+/// 2.0 §5.3.1.1's list. A registration naming anything else — `RS256`, `HS256`, `none` — is
+/// refused rather than stored, so no row can hold an algorithm the verifier would not honour
+/// (D-61).
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum CibaRequestSigningAlg: String, Codable, Sendable, CaseIterable {
+    case ps256 = "PS256"
+    case es256 = "ES256"
+    case edDSA = "EdDSA"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CibaRequestSigningAlg(rawValue: raw) ?? .unknown
+    }
+}
+
 /// How a client proves its identity at the token endpoint (RFC 8705 §2, OIDC Core §9 naming).
 /// Only the methods AXIAM actually implements are representable. `None` — the public-client
 /// value — was deliberately absent until T21.2: adding it before the rest of the server
@@ -324,6 +430,71 @@ public enum ClientProfile: String, Codable, Sendable, CaseIterable {
     public init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = ClientProfile(rawValue: raw) ?? .unknown
+    }
+}
+
+/// What happens downstream to a user who falls out of scope or is no longer active. Erasure
+/// always deletes, whatever this says.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum DeprovisionPolicy: String, Codable, Sendable, CaseIterable {
+    case deactivate = "deactivate"
+    case delete = "delete"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = DeprovisionPolicy(rawValue: raw) ?? .unknown
+    }
+}
+
+/// Which kind of directory server a configuration points at. It drives **defaults only**: the
+/// external-id attribute, the group-membership strategy and the change attribute the sync job
+/// reads. Every one of them is still an explicit, editable field of the configuration (or, for
+/// the strategy and change attribute, derived from this value at the point of use); nothing
+/// about the kind changes what is *allowed*.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum DirectoryKind: String, Codable, Sendable, CaseIterable {
+    case openLdap = "open_ldap"
+    case activeDirectory = "active_directory"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = DirectoryKind(rawValue: raw) ?? .unknown
     }
 }
 
@@ -460,6 +631,36 @@ public enum MfaMethodType: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// How the assertion's `NameID` is formed (per service provider).
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum NameIdFormat: String, Codable, Sendable, CaseIterable {
+    case persistent = "persistent"
+    case emailAddress = "email_address"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = NameIdFormat(rawValue: raw) ?? .unknown
+    }
+}
+
 /// Events that can trigger an admin notification.
 ///
 /// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
@@ -490,6 +691,7 @@ public enum NotificationEventType: String, Codable, Sendable, CaseIterable {
     case userUpdated = "user_updated"
     case serviceAccountCreated = "service_account_created"
     case serviceAccountDeleted = "service_account_deleted"
+    case scimDeliveryFailed = "scim_delivery_failed"
     /// A value this SDK's copy of the spec does not list; see the type's summary.
     case unknown = ""
 
@@ -664,6 +866,100 @@ public enum ReactorMode: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// A SAML 2.0 protocol binding (SAML Bindings §3). The response binding for Web Browser SSO is
+/// always [`Self::HttpPost`], but the enum keeps both because SP metadata carries both, and an
+/// `slo_url` may use either.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum SamlBinding: String, Codable, Sendable, CaseIterable {
+    case httpPost = "http_post"
+    case httpRedirect = "http_redirect"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = SamlBinding(rawValue: raw) ?? .unknown
+    }
+}
+
+/// Where a signing credential is in its life. An open set: an SDK decodes a value it does not
+/// know without failing.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum SamlIdpCredentialStatus: String, Codable, Sendable, CaseIterable {
+    case active = "active"
+    case next = "next"
+    case retired = "retired"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = SamlIdpCredentialStatus(rawValue: raw) ?? .unknown
+    }
+}
+
+/// Which slot a credential is issued into.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum SamlIdpSlot: String, Codable, Sendable, CaseIterable {
+    case active = "active"
+    case next = "next"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = SamlIdpSlot(rawValue: raw) ?? .unknown
+    }
+}
+
 /// Why a token is or is not currently usable — for display only. The authentication path never
 /// surfaces this distinction on the wire.
 ///
@@ -723,6 +1019,163 @@ public enum SettingsScope: String, Codable, Sendable, CaseIterable {
     public init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = SettingsScope(rawValue: raw) ?? .unknown
+    }
+}
+
+/// How SETs reach the receiver.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum SsfDeliveryMethod: String, Codable, Sendable, CaseIterable {
+    case push = "push"
+    case poll = "poll"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = SsfDeliveryMethod(rawValue: raw) ?? .unknown
+    }
+}
+
+/// The six event types AXIAM transmits (G-5). Stored and sent as their event-type URIs;
+/// [`Self::ALL`] is the canonical order every list AXIAM returns is sorted in.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum SsfEventType: String, Codable, Sendable, CaseIterable {
+    case sessionRevoked = "https://schemas.openid.net/secevent/caep/event-type/session-revoked"
+    case credentialChange = "https://schemas.openid.net/secevent/caep/event-type/credential-change"
+    case assuranceLevelChange = "https://schemas.openid.net/secevent/caep/event-type/assurance-level-change"
+    case accountDisabled = "https://schemas.openid.net/secevent/risc/event-type/account-disabled"
+    case accountEnabled = "https://schemas.openid.net/secevent/risc/event-type/account-enabled"
+    case accountPurged = "https://schemas.openid.net/secevent/risc/event-type/account-purged"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = SsfEventType(rawValue: raw) ?? .unknown
+    }
+}
+
+/// Who set a stream's current status. A status an administrator set to anything but `enabled`
+/// cannot be changed by the receiver (D-51).
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum SsfStatusActor: String, Codable, Sendable, CaseIterable {
+    case admin = "admin"
+    case receiver = "receiver"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = SsfStatusActor(rawValue: raw) ?? .unknown
+    }
+}
+
+/// A stream's SSF status (SSF 1.0 §8.1.2), with AXIAM's meaning pinned by D-51.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum SsfStreamStatus: String, Codable, Sendable, CaseIterable {
+    case enabled = "enabled"
+    case paused = "paused"
+    case disabled = "disabled"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = SsfStreamStatus(rawValue: raw) ?? .unknown
+    }
+}
+
+/// Which RFC 9493 subject identifier names the user in the SETs of a stream (D-46).
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum SsfSubjectFormat: String, Codable, Sendable, CaseIterable {
+    case issSub = "iss_sub"
+    case email = "email"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = SsfSubjectFormat(rawValue: raw) ?? .unknown
     }
 }
 
@@ -822,6 +1275,37 @@ public enum UnknownAaguidAction: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// Which AXIAM attribute becomes the downstream `userName`. The mapping is a fixed attribute
+/// set, not a mapping language (D-57).
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// carrying an unrecognised value back into an update is refused by the server rather than
+/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+public enum UserNameSource: String, Codable, Sendable, CaseIterable {
+    case username = "username"
+    case email = "email"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = UserNameSource(rawValue: raw) ?? .unknown
+    }
+}
+
 /// The `UserStatus` enumeration, as the server spells it.
 ///
 /// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
@@ -897,6 +1381,60 @@ public enum SubjectAltName: Codable, Sendable, Equatable {
         case let .ip(value):
             try container.encode(value, forKey: .ip)
         }
+    }
+}
+
+/// One `AssertionConsumerService` endpoint of a service provider. The list of these is an
+/// **allow-list**, checked the way OAuth2 redirect URIs are: an `AuthnRequest` naming an ACS
+/// URL is honoured only when the URL equals one registered here, byte for byte. No globs, no
+/// prefix match.
+public struct AcsEndpoint: Codable, Sendable {
+    /// The binding the endpoint accepts.
+    public let binding: SamlBinding
+
+    /// The `index` an `AuthnRequest` may use instead of a URL. Unique per SP.
+    public let index: Int
+
+    /// Whether this is the SP's default endpoint. At most one is; when none is marked, the
+    /// first listed is the default (SAML Metadata §2.4.4.1).
+    public let isDefault: Bool?
+
+    /// The endpoint URL.
+    public let url: String
+
+    public init(
+        binding: SamlBinding,
+        index: Int,
+        isDefault: Bool? = nil,
+        url: String
+    ) {
+        self.binding = binding
+        self.index = index
+        self.isDefault = isDefault
+        self.url = url
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case binding = "binding"
+        case index = "index"
+        case isDefault = "is_default"
+        case url = "url"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.binding = try container.decode(SamlBinding.self, forKey: .binding)
+        self.index = try container.decode(Int.self, forKey: .index)
+        self.isDefault = try container.decodeIfPresent(Bool.self, forKey: .isDefault)
+        self.url = try container.decode(String.self, forKey: .url)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(binding, forKey: .binding)
+        try container.encode(index, forKey: .index)
+        try container.encodeIfPresent(isDefault, forKey: .isDefault)
+        try container.encode(url, forKey: .url)
     }
 }
 
@@ -1177,6 +1715,50 @@ public struct AssignRoleToUserRequest: Codable, Sendable {
             try container.encode(tenantScope, forKey: .tenantScope)
         }
         try container.encode(userID, forKey: .userID)
+    }
+}
+
+/// One entry of an SP's attribute mapping table.
+public struct AttributeMapping: Codable, Sendable {
+    /// The `NameFormat`, one of [`ATTRIBUTE_NAME_FORMATS`]. `None` leaves the attribute
+    /// unqualified (`unspecified`).
+    public let nameFormat: String?
+
+    /// The `Name` of the emitted `<saml:Attribute>`. Unique within one SP, compared exactly
+    /// (SAML attribute names are case-sensitive).
+    public let samlName: String
+
+    /// Where the value comes from.
+    public let source: AttributeSource
+
+    public init(
+        nameFormat: String? = nil,
+        samlName: String,
+        source: AttributeSource
+    ) {
+        self.nameFormat = nameFormat
+        self.samlName = samlName
+        self.source = source
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case nameFormat = "name_format"
+        case samlName = "saml_name"
+        case source = "source"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.nameFormat = try container.decodeIfPresent(String.self, forKey: .nameFormat)
+        self.samlName = try container.decode(String.self, forKey: .samlName)
+        self.source = try container.decode(AttributeSource.self, forKey: .source)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(nameFormat, forKey: .nameFormat)
+        try container.encode(samlName, forKey: .samlName)
+        try container.encode(source, forKey: .source)
     }
 }
 
@@ -2463,9 +3045,29 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
     /// about what a request from this client means.
     public let authnRequestParams: AuthnRequestParamsMode?
 
+    /// G-7 — CIBA Core §4: `PS256`, `ES256` or `EdDSA`. When set, every backchannel
+    /// authentication request must be a signed `request` JWT under this algorithm, verified
+    /// against `jwks` or `jwks_uri` (exactly one is required; an inline `jwks` must hold a key
+    /// of the algorithm). Required for a `fapi2` client holding the CIBA grant.
+    public let backchannelAuthenticationRequestSigningAlg: String?
+
+    /// G-7 — CIBA Core §4: where a ping-mode client is notified. Required in ping mode and
+    /// refused in poll mode; an absolute `https` URL held to the webhook address policy (no
+    /// credentials, no fragment, no private, loopback or internal host).
+    public let backchannelClientNotificationEndpoint: String?
+
     /// B5 — where OIDC back-channel logout tokens are delivered. Omit for a client that does
     /// not participate.
     public let backchannelLogoutURI: String?
+
+    /// G-7 — CIBA Core §4 `backchannel_token_delivery_mode`: `poll` or `ping`. Required when
+    /// `grant_types` holds `urn:openid:params:grant-type:ciba`, refused otherwise; `push` is
+    /// not offered. A CIBA client must be confidential; a `fapi2` one must also register
+    /// `backchannel_authentication_request_signing_alg`.
+    public let backchannelTokenDeliveryMode: String?
+
+    /// G-7 — CIBA Core §4. `true` is **refused**: this server holds no user code to verify.
+    public let backchannelUserCodeParameter: Bool?
 
     /// X7.3 — whether an unauthenticated authorization request from this client may be answered
     /// with a redirect to the login page rather than the `401` AXIAM answers today. Accepted
@@ -2558,7 +3160,11 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
     public init(
         allowedResources: [String]? = nil,
         authnRequestParams: AuthnRequestParamsMode? = nil,
+        backchannelAuthenticationRequestSigningAlg: String? = nil,
+        backchannelClientNotificationEndpoint: String? = nil,
         backchannelLogoutURI: String? = nil,
+        backchannelTokenDeliveryMode: String? = nil,
+        backchannelUserCodeParameter: Bool? = nil,
         browserSSO: Bool? = nil,
         dpopBoundAccessTokens: Bool? = nil,
         dpopRequireNonce: Bool? = nil,
@@ -2580,7 +3186,11 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
     ) {
         self.allowedResources = allowedResources
         self.authnRequestParams = authnRequestParams
+        self.backchannelAuthenticationRequestSigningAlg = backchannelAuthenticationRequestSigningAlg
+        self.backchannelClientNotificationEndpoint = backchannelClientNotificationEndpoint
         self.backchannelLogoutURI = backchannelLogoutURI
+        self.backchannelTokenDeliveryMode = backchannelTokenDeliveryMode
+        self.backchannelUserCodeParameter = backchannelUserCodeParameter
         self.browserSSO = browserSSO
         self.dpopBoundAccessTokens = dpopBoundAccessTokens
         self.dpopRequireNonce = dpopRequireNonce
@@ -2604,7 +3214,11 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case allowedResources = "allowed_resources"
         case authnRequestParams = "authn_request_params"
+        case backchannelAuthenticationRequestSigningAlg = "backchannel_authentication_request_signing_alg"
+        case backchannelClientNotificationEndpoint = "backchannel_client_notification_endpoint"
         case backchannelLogoutURI = "backchannel_logout_uri"
+        case backchannelTokenDeliveryMode = "backchannel_token_delivery_mode"
+        case backchannelUserCodeParameter = "backchannel_user_code_parameter"
         case browserSSO = "browser_sso"
         case dpopBoundAccessTokens = "dpop_bound_access_tokens"
         case dpopRequireNonce = "dpop_require_nonce"
@@ -2629,7 +3243,11 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.allowedResources = try container.decodeIfPresent([String].self, forKey: .allowedResources)
         self.authnRequestParams = try container.decodeIfPresent(AuthnRequestParamsMode.self, forKey: .authnRequestParams)
+        self.backchannelAuthenticationRequestSigningAlg = try container.decodeIfPresent(String.self, forKey: .backchannelAuthenticationRequestSigningAlg)
+        self.backchannelClientNotificationEndpoint = try container.decodeIfPresent(String.self, forKey: .backchannelClientNotificationEndpoint)
         self.backchannelLogoutURI = try container.decodeIfPresent(String.self, forKey: .backchannelLogoutURI)
+        self.backchannelTokenDeliveryMode = try container.decodeIfPresent(String.self, forKey: .backchannelTokenDeliveryMode)
+        self.backchannelUserCodeParameter = try container.decodeIfPresent(Bool.self, forKey: .backchannelUserCodeParameter)
         self.browserSSO = try container.decodeIfPresent(Bool.self, forKey: .browserSSO)
         self.dpopBoundAccessTokens = try container.decodeIfPresent(Bool.self, forKey: .dpopBoundAccessTokens)
         self.dpopRequireNonce = try container.decodeIfPresent(Bool.self, forKey: .dpopRequireNonce)
@@ -2654,7 +3272,11 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(allowedResources, forKey: .allowedResources)
         try container.encodeIfPresent(authnRequestParams, forKey: .authnRequestParams)
+        try container.encodeIfPresent(backchannelAuthenticationRequestSigningAlg, forKey: .backchannelAuthenticationRequestSigningAlg)
+        try container.encodeIfPresent(backchannelClientNotificationEndpoint, forKey: .backchannelClientNotificationEndpoint)
         try container.encodeIfPresent(backchannelLogoutURI, forKey: .backchannelLogoutURI)
+        try container.encodeIfPresent(backchannelTokenDeliveryMode, forKey: .backchannelTokenDeliveryMode)
+        try container.encodeIfPresent(backchannelUserCodeParameter, forKey: .backchannelUserCodeParameter)
         try container.encodeIfPresent(browserSSO, forKey: .browserSSO)
         try container.encodeIfPresent(dpopBoundAccessTokens, forKey: .dpopBoundAccessTokens)
         try container.encodeIfPresent(dpopRequireNonce, forKey: .dpopRequireNonce)
@@ -3370,6 +3992,312 @@ public struct CreateWebhookRequest: Codable, Sendable {
         try container.encodeIfPresent(retryPolicy, forKey: .retryPolicy)
         try container.encode(secret.expose(), forKey: .secret)
         try container.encode(url, forKey: .url)
+    }
+}
+
+/// A tenant's directory configuration, as stored and as read back. Carries no secret: see the
+/// module documentation.
+public struct DirectoryConfig: Codable, Sendable {
+    /// Where users are searched for.
+    public let baseDn: String
+
+    /// The service account AXIAM binds as to search. It should hold read-only rights: AXIAM
+    /// never writes to a directory.
+    public let bindDn: String
+
+    /// When the row was created.
+    public let createdAt: String
+
+    /// Whether the directory is used for sign-in and sync.
+    public let enabled: Bool
+
+    /// Where groups are searched for (reverse-`member` lookups, group sync).
+    public let groupBaseDn: String?
+
+    /// Restricts which entries under [`Self::group_base_dn`] are groups.
+    public let groupFilter: String?
+
+    /// The group-mapping table (D-30): which directory groups put a user into which AXIAM
+    /// groups. Empty means no directory group maps to anything, and a sign-in then removes
+    /// every directory-sourced membership the user held.
+    public let groupMappings: [GroupMapping]
+
+    /// `memberOf` (user-side, AD) or `member` (group-side, OpenLDAP).
+    public let groupMemberAttribute: String
+
+    /// How many levels of nested groups are followed, `0..=10`.
+    public let groupNestingDepth: Int
+
+    /// Row identifier.
+    public let id: String
+
+    /// Provision an AXIAM user on first successful directory sign-in.
+    public let jitProvisioning: Bool
+
+    /// The kind of directory, which selects defaults.
+    public let kind: DirectoryKind
+
+    /// Upgrade an `ldap://` connection with StartTLS before any bind.
+    public let startTLS: Bool
+
+    /// Seconds between incremental sync runs.
+    public let syncIntervalSecs: Int
+
+    /// The owning tenant. At most one configuration exists per tenant.
+    public let tenantID: String
+
+    /// PEM CA certificates that anchor trust in the directory's server certificate. Empty means
+    /// the platform roots used by the rest of the workspace's outbound TLS. An organisation
+    /// CA's PEM can be pasted here.
+    public let trustAnchorsPEM: [String]
+
+    /// When the row was last written.
+    public let updatedAt: String
+
+    /// `ldaps://host[:port]` or `ldap://host[:port]` together with [`Self::start_tls`]. A
+    /// plaintext URL is refused at configuration time.
+    public let url: String
+
+    /// Which attribute feeds which user field.
+    public let userAttributeMap: UserAttributeMap
+
+    /// The user-lookup filter template. It contains exactly one `{username}` placeholder, which
+    /// the bind path replaces with the RFC 4515-escaped login name; the template itself is
+    /// never formatted with raw input.
+    public let userFilter: String
+
+    public init(
+        baseDn: String,
+        bindDn: String,
+        createdAt: String,
+        enabled: Bool,
+        groupBaseDn: String? = nil,
+        groupFilter: String? = nil,
+        groupMappings: [GroupMapping],
+        groupMemberAttribute: String,
+        groupNestingDepth: Int,
+        id: String,
+        jitProvisioning: Bool,
+        kind: DirectoryKind,
+        startTLS: Bool,
+        syncIntervalSecs: Int,
+        tenantID: String,
+        trustAnchorsPEM: [String],
+        updatedAt: String,
+        url: String,
+        userAttributeMap: UserAttributeMap,
+        userFilter: String
+    ) {
+        self.baseDn = baseDn
+        self.bindDn = bindDn
+        self.createdAt = createdAt
+        self.enabled = enabled
+        self.groupBaseDn = groupBaseDn
+        self.groupFilter = groupFilter
+        self.groupMappings = groupMappings
+        self.groupMemberAttribute = groupMemberAttribute
+        self.groupNestingDepth = groupNestingDepth
+        self.id = id
+        self.jitProvisioning = jitProvisioning
+        self.kind = kind
+        self.startTLS = startTLS
+        self.syncIntervalSecs = syncIntervalSecs
+        self.tenantID = tenantID
+        self.trustAnchorsPEM = trustAnchorsPEM
+        self.updatedAt = updatedAt
+        self.url = url
+        self.userAttributeMap = userAttributeMap
+        self.userFilter = userFilter
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case baseDn = "base_dn"
+        case bindDn = "bind_dn"
+        case createdAt = "created_at"
+        case enabled = "enabled"
+        case groupBaseDn = "group_base_dn"
+        case groupFilter = "group_filter"
+        case groupMappings = "group_mappings"
+        case groupMemberAttribute = "group_member_attribute"
+        case groupNestingDepth = "group_nesting_depth"
+        case id = "id"
+        case jitProvisioning = "jit_provisioning"
+        case kind = "kind"
+        case startTLS = "start_tls"
+        case syncIntervalSecs = "sync_interval_secs"
+        case tenantID = "tenant_id"
+        case trustAnchorsPEM = "trust_anchors_pem"
+        case updatedAt = "updated_at"
+        case url = "url"
+        case userAttributeMap = "user_attribute_map"
+        case userFilter = "user_filter"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.baseDn = try container.decode(String.self, forKey: .baseDn)
+        self.bindDn = try container.decode(String.self, forKey: .bindDn)
+        self.createdAt = try container.decode(String.self, forKey: .createdAt)
+        self.enabled = try container.decode(Bool.self, forKey: .enabled)
+        self.groupBaseDn = try container.decodeIfPresent(String.self, forKey: .groupBaseDn)
+        self.groupFilter = try container.decodeIfPresent(String.self, forKey: .groupFilter)
+        self.groupMappings = try container.decode([GroupMapping].self, forKey: .groupMappings)
+        self.groupMemberAttribute = try container.decode(String.self, forKey: .groupMemberAttribute)
+        self.groupNestingDepth = try container.decode(Int.self, forKey: .groupNestingDepth)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.jitProvisioning = try container.decode(Bool.self, forKey: .jitProvisioning)
+        self.kind = try container.decode(DirectoryKind.self, forKey: .kind)
+        self.startTLS = try container.decode(Bool.self, forKey: .startTLS)
+        self.syncIntervalSecs = try container.decode(Int.self, forKey: .syncIntervalSecs)
+        self.tenantID = try container.decode(String.self, forKey: .tenantID)
+        self.trustAnchorsPEM = try container.decode([String].self, forKey: .trustAnchorsPEM)
+        self.updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        self.url = try container.decode(String.self, forKey: .url)
+        self.userAttributeMap = try container.decode(UserAttributeMap.self, forKey: .userAttributeMap)
+        self.userFilter = try container.decode(String.self, forKey: .userFilter)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(baseDn, forKey: .baseDn)
+        try container.encode(bindDn, forKey: .bindDn)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encodeIfPresent(groupBaseDn, forKey: .groupBaseDn)
+        try container.encodeIfPresent(groupFilter, forKey: .groupFilter)
+        try container.encode(groupMappings, forKey: .groupMappings)
+        try container.encode(groupMemberAttribute, forKey: .groupMemberAttribute)
+        try container.encode(groupNestingDepth, forKey: .groupNestingDepth)
+        try container.encode(id, forKey: .id)
+        try container.encode(jitProvisioning, forKey: .jitProvisioning)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(startTLS, forKey: .startTLS)
+        try container.encode(syncIntervalSecs, forKey: .syncIntervalSecs)
+        try container.encode(tenantID, forKey: .tenantID)
+        try container.encode(trustAnchorsPEM, forKey: .trustAnchorsPEM)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(url, forKey: .url)
+        try container.encode(userAttributeMap, forKey: .userAttributeMap)
+        try container.encode(userFilter, forKey: .userFilter)
+    }
+}
+
+/// What linking did.
+public struct DirectoryLinkResult: Codable, Sendable {
+    /// `User`-type certificates revoked.
+    public let certificatesRevoked: Int
+
+    /// The entry's `entryUUID` or `objectGUID` as text: an identifier, not a secret.
+    public let directoryExternalID: String
+
+    /// The account that was linked.
+    public let userID: String
+
+    /// `true` when the account was already linked to that very entry and the call only re-ran
+    /// the revocations (an interrupted link completed).
+    public let wasAlreadyLinked: Bool
+
+    /// Passkeys and security keys deleted.
+    public let webauthnCredentialsDeleted: Int
+
+    public init(
+        certificatesRevoked: Int,
+        directoryExternalID: String,
+        userID: String,
+        wasAlreadyLinked: Bool,
+        webauthnCredentialsDeleted: Int
+    ) {
+        self.certificatesRevoked = certificatesRevoked
+        self.directoryExternalID = directoryExternalID
+        self.userID = userID
+        self.wasAlreadyLinked = wasAlreadyLinked
+        self.webauthnCredentialsDeleted = webauthnCredentialsDeleted
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case certificatesRevoked = "certificates_revoked"
+        case directoryExternalID = "directory_external_id"
+        case userID = "user_id"
+        case wasAlreadyLinked = "was_already_linked"
+        case webauthnCredentialsDeleted = "webauthn_credentials_deleted"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.certificatesRevoked = try container.decode(Int.self, forKey: .certificatesRevoked)
+        self.directoryExternalID = try container.decode(String.self, forKey: .directoryExternalID)
+        self.userID = try container.decode(String.self, forKey: .userID)
+        self.wasAlreadyLinked = try container.decode(Bool.self, forKey: .wasAlreadyLinked)
+        self.webauthnCredentialsDeleted = try container.decode(Int.self, forKey: .webauthnCredentialsDeleted)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(certificatesRevoked, forKey: .certificatesRevoked)
+        try container.encode(directoryExternalID, forKey: .directoryExternalID)
+        try container.encode(userID, forKey: .userID)
+        try container.encode(wasAlreadyLinked, forKey: .wasAlreadyLinked)
+        try container.encode(webauthnCredentialsDeleted, forKey: .webauthnCredentialsDeleted)
+    }
+}
+
+/// A read-only view of the sync job's state for one tenant. Counts of what a run did are in its
+/// audit rows, and no account id is here.
+public struct DirectorySyncStatus: Codable, Sendable {
+    /// The next run must be a full reconciliation.
+    public let fullRequired: Bool
+
+    /// An incremental run has a starting point.
+    public let hasWatermark: Bool
+
+    /// When the last attempt started, or null before the first run.
+    public let lastAttemptAt: String?
+
+    /// When the last complete full run finished, or null.
+    public let lastFullRunAt: String?
+
+    /// `ok`, `partial`, `failed` or `safety_valve` (an open set: decode another value without
+    /// failing), or null before the first run.
+    public let lastResult: String?
+
+    public init(
+        fullRequired: Bool,
+        hasWatermark: Bool,
+        lastAttemptAt: String? = nil,
+        lastFullRunAt: String? = nil,
+        lastResult: String? = nil
+    ) {
+        self.fullRequired = fullRequired
+        self.hasWatermark = hasWatermark
+        self.lastAttemptAt = lastAttemptAt
+        self.lastFullRunAt = lastFullRunAt
+        self.lastResult = lastResult
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case fullRequired = "full_required"
+        case hasWatermark = "has_watermark"
+        case lastAttemptAt = "last_attempt_at"
+        case lastFullRunAt = "last_full_run_at"
+        case lastResult = "last_result"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.fullRequired = try container.decode(Bool.self, forKey: .fullRequired)
+        self.hasWatermark = try container.decode(Bool.self, forKey: .hasWatermark)
+        self.lastAttemptAt = try container.decodeIfPresent(String.self, forKey: .lastAttemptAt)
+        self.lastFullRunAt = try container.decodeIfPresent(String.self, forKey: .lastFullRunAt)
+        self.lastResult = try container.decodeIfPresent(String.self, forKey: .lastResult)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(fullRequired, forKey: .fullRequired)
+        try container.encode(hasWatermark, forKey: .hasWatermark)
+        try container.encodeIfPresent(lastAttemptAt, forKey: .lastAttemptAt)
+        try container.encodeIfPresent(lastFullRunAt, forKey: .lastFullRunAt)
+        try container.encodeIfPresent(lastResult, forKey: .lastResult)
     }
 }
 
@@ -4630,29 +5558,92 @@ public struct Group: Codable, Sendable {
     }
 }
 
-/// The `HealthResponse` schema.
-public struct HealthResponse: Codable, Sendable {
-    /// The server's `status` field.
-    public let status: String
+/// One row of the group-mapping table (G-3, T23.3.4, D-30): a directory group, named by its
+/// distinguished name, and the AXIAM group a member of it is put into. **The table is the only
+/// way a directory group reaches an AXIAM group.** There is no match by name, no prefix or
+/// wildcard, and no AXIAM group is ever created from a directory one: a directory administrator
+/// who names a group `admins` gains nothing unless a tenant administrator mapped it here. The
+/// DN is stored as the administrator typed it and compared after RFC 4514 normalisation
+/// (`axiam_directory::dn`), so `CN=Staff, OU=Groups` and `cn=staff,ou=groups` are the same row.
+/// One DN may map to several AXIAM groups; the same (DN, group) pair twice is refused as
+/// redundant.
+public struct GroupMapping: Codable, Sendable {
+    /// The directory group's distinguished name.
+    public let directoryGroupDn: String
+
+    /// The AXIAM group of the same tenant a member of that directory group is put into. Checked
+    /// to exist in the tenant when the configuration is written.
+    public let groupID: String
 
     public init(
-        status: String
+        directoryGroupDn: String,
+        groupID: String
     ) {
-        self.status = status
+        self.directoryGroupDn = directoryGroupDn
+        self.groupID = groupID
     }
 
     enum CodingKeys: String, CodingKey {
-        case status = "status"
+        case directoryGroupDn = "directory_group_dn"
+        case groupID = "group_id"
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.status = try container.decode(String.self, forKey: .status)
+        self.directoryGroupDn = try container.decode(String.self, forKey: .directoryGroupDn)
+        self.groupID = try container.decode(String.self, forKey: .groupID)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(directoryGroupDn, forKey: .directoryGroupDn)
+        try container.encode(groupID, forKey: .groupID)
+    }
+}
+
+/// Response body for `GET /health`. `profile` and `unavailable` are additive (G-8, D-59): a
+/// client that reads only `status` is unaffected.
+public struct HealthResponse: Codable, Sendable {
+    /// The messaging profile this process runs: `full` (RabbitMQ is used) or `minimal`
+    /// (`AXIAM__AMQP__ENABLED=false`, no broker).
+    public let profile: String
+
+    /// The server's `status` field.
+    public let status: String
+
+    /// Present only in the `minimal` profile: the capabilities it does not provide —
+    /// `reactors`, `amqp_authz`, `amqp_audit_ingestion` and `decision_cache_broadcast`. Absent
+    /// in `full`.
+    public let unavailable: [String]?
+
+    public init(
+        profile: String,
+        status: String,
+        unavailable: [String]? = nil
+    ) {
+        self.profile = profile
+        self.status = status
+        self.unavailable = unavailable
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case profile = "profile"
+        case status = "status"
+        case unavailable = "unavailable"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.profile = try container.decode(String.self, forKey: .profile)
+        self.status = try container.decode(String.self, forKey: .status)
+        self.unavailable = try container.decodeIfPresent([String].self, forKey: .unavailable)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(profile, forKey: .profile)
         try container.encode(status, forKey: .status)
+        try container.encodeIfPresent(unavailable, forKey: .unavailable)
     }
 }
 
@@ -4696,6 +5687,75 @@ public struct ImportCaCertificateRequest: Codable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(privateKeyPEM?.expose(), forKey: .privateKeyPEM)
         try container.encode(publicCertPEM, forKey: .publicCertPEM)
+    }
+}
+
+/// `POST …/saml/idp-credentials` body.
+public struct IssueSamlIdpCredential: Codable, Sendable {
+    /// An active signing CA the caller may issue from.
+    public let issuerCAID: String
+
+    /// The slot to fill; it must be empty.
+    public let slot: SamlIdpSlot
+
+    /// 1 to 730, default 365; never beyond the CA's own expiry.
+    public let validityDays: Int?
+
+    public init(
+        issuerCAID: String,
+        slot: SamlIdpSlot,
+        validityDays: Int? = nil
+    ) {
+        self.issuerCAID = issuerCAID
+        self.slot = slot
+        self.validityDays = validityDays
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case issuerCAID = "issuer_ca_id"
+        case slot = "slot"
+        case validityDays = "validity_days"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.issuerCAID = try container.decode(String.self, forKey: .issuerCAID)
+        self.slot = try container.decode(SamlIdpSlot.self, forKey: .slot)
+        self.validityDays = try container.decodeIfPresent(Int.self, forKey: .validityDays)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(issuerCAID, forKey: .issuerCAID)
+        try container.encode(slot, forKey: .slot)
+        try container.encodeIfPresent(validityDays, forKey: .validityDays)
+    }
+}
+
+/// `POST /api/v1/tenants/{tenant_id}/directory/links` body.
+public struct LinkDirectoryAccount: Codable, Sendable {
+    /// The local account to link. The directory entry is found by the directory, from the
+    /// account's own username; the caller names no entry.
+    public let userID: String
+
+    public init(
+        userID: String
+    ) {
+        self.userID = userID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.userID = try container.decode(String.self, forKey: .userID)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(userID, forKey: .userID)
     }
 }
 
@@ -5283,6 +6343,15 @@ public struct OAuth2ClientResponse: Codable, Sendable {
     /// authentication-request parameters, from this endpoint rather than from the database.
     public let authnRequestParams: AuthnRequestParamsMode
 
+    /// The server's `backchannel_authentication_request_signing_alg` field.
+    public let backchannelAuthenticationRequestSigningAlg: CibaRequestSigningAlg?
+
+    /// G-7 — the ping-mode notification endpoint.
+    public let backchannelClientNotificationEndpoint: String?
+
+    /// The server's `backchannel_token_delivery_mode` field.
+    public let backchannelTokenDeliveryMode: CibaDeliveryMode?
+
     /// X7.3 — echoed for the same reason.
     public let browserSSO: Bool
 
@@ -5372,6 +6441,9 @@ public struct OAuth2ClientResponse: Codable, Sendable {
     public init(
         allowedResources: [String],
         authnRequestParams: AuthnRequestParamsMode,
+        backchannelAuthenticationRequestSigningAlg: CibaRequestSigningAlg? = nil,
+        backchannelClientNotificationEndpoint: String? = nil,
+        backchannelTokenDeliveryMode: CibaDeliveryMode? = nil,
         browserSSO: Bool,
         clientID: String,
         createdAt: String,
@@ -5399,6 +6471,9 @@ public struct OAuth2ClientResponse: Codable, Sendable {
     ) {
         self.allowedResources = allowedResources
         self.authnRequestParams = authnRequestParams
+        self.backchannelAuthenticationRequestSigningAlg = backchannelAuthenticationRequestSigningAlg
+        self.backchannelClientNotificationEndpoint = backchannelClientNotificationEndpoint
+        self.backchannelTokenDeliveryMode = backchannelTokenDeliveryMode
         self.browserSSO = browserSSO
         self.clientID = clientID
         self.createdAt = createdAt
@@ -5428,6 +6503,9 @@ public struct OAuth2ClientResponse: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case allowedResources = "allowed_resources"
         case authnRequestParams = "authn_request_params"
+        case backchannelAuthenticationRequestSigningAlg = "backchannel_authentication_request_signing_alg"
+        case backchannelClientNotificationEndpoint = "backchannel_client_notification_endpoint"
+        case backchannelTokenDeliveryMode = "backchannel_token_delivery_mode"
         case browserSSO = "browser_sso"
         case clientID = "client_id"
         case createdAt = "created_at"
@@ -5458,6 +6536,9 @@ public struct OAuth2ClientResponse: Codable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.allowedResources = try container.decode([String].self, forKey: .allowedResources)
         self.authnRequestParams = try container.decode(AuthnRequestParamsMode.self, forKey: .authnRequestParams)
+        self.backchannelAuthenticationRequestSigningAlg = try container.decodeIfPresent(CibaRequestSigningAlg.self, forKey: .backchannelAuthenticationRequestSigningAlg)
+        self.backchannelClientNotificationEndpoint = try container.decodeIfPresent(String.self, forKey: .backchannelClientNotificationEndpoint)
+        self.backchannelTokenDeliveryMode = try container.decodeIfPresent(CibaDeliveryMode.self, forKey: .backchannelTokenDeliveryMode)
         self.browserSSO = try container.decode(Bool.self, forKey: .browserSSO)
         self.clientID = try container.decode(String.self, forKey: .clientID)
         self.createdAt = try container.decode(String.self, forKey: .createdAt)
@@ -5488,6 +6569,9 @@ public struct OAuth2ClientResponse: Codable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(allowedResources, forKey: .allowedResources)
         try container.encode(authnRequestParams, forKey: .authnRequestParams)
+        try container.encodeIfPresent(backchannelAuthenticationRequestSigningAlg, forKey: .backchannelAuthenticationRequestSigningAlg)
+        try container.encodeIfPresent(backchannelClientNotificationEndpoint, forKey: .backchannelClientNotificationEndpoint)
+        try container.encodeIfPresent(backchannelTokenDeliveryMode, forKey: .backchannelTokenDeliveryMode)
         try container.encode(browserSSO, forKey: .browserSSO)
         try container.encode(clientID, forKey: .clientID)
         try container.encode(createdAt, forKey: .createdAt)
@@ -5703,23 +6787,25 @@ public struct OidcCallbackResponse: Codable, Sendable {
 /// tenant may be stricter than its organization and never more permissive: *
 /// [`Self::sensitive_scopes_enabled`], validated **disable-only** — the mirror image of
 /// `mfa_enforced`, because releasing personal data is the less-restrictive direction, so a
-/// tenant can turn its organization's decision off but never on. *
-/// [`Self::dynamic_registration`], on the ladder `disabled` → `initial_access_token` →
-/// `anonymous`: a tenant may move down it and never up. * [`Self::dcr_max_clients`] and
-/// [`Self::dcr_unused_client_ttl_days`], on the ordinary `tenant <= org` rule — with the
-/// wrinkle that `0` on the second means *never sweep*, which is the longest window of all and
-/// is handled by [`dcr_ttl_strictness`]. **Not ordered**, therefore never validated against the
-/// baseline and never clamped: * [`Self::default_locale`]. A language is a presentation
-/// preference; there is no sense in which Italian is stricter than French. *
-/// [`Self::dcr_allowed_scopes`], [`Self::dcr_allowed_redirect_hosts`] and
-/// [`Self::external_client_allowed_resources`]. Each names per-tenant resources — *this*
-/// tenant's MCP servers, *this* tenant's callback hosts — and there is no sense in which one
-/// such list is stricter than another. A subset rule would force an organization to enumerate
-/// every tenant's resource servers in its own baseline before any tenant could name one. The
-/// model's rule is "a tenant may only be more restrictive", which binds every field that *has*
-/// a restrictiveness; a field that has none cannot violate it. One cross-field interlock spans
-/// both groups and is checked on the resolved policy rather than on either input: see
-/// [`validate_dcr_policy`].
+/// tenant can turn its organization's decision off but never on. * [`Self::saml_idp_enabled`],
+/// validated **disable-only** exactly like [`Self::sensitive_scopes_enabled`] (D-20): a tenant
+/// may turn its organization's `true` off and never its `false` on. * [`Self::ssf_enabled`],
+/// validated **disable-only** the same way (D-45). * [`Self::dynamic_registration`], on the
+/// ladder `disabled` → `initial_access_token` → `anonymous`: a tenant may move down it and
+/// never up. * [`Self::dcr_max_clients`] and [`Self::dcr_unused_client_ttl_days`], on the
+/// ordinary `tenant <= org` rule — with the wrinkle that `0` on the second means *never sweep*,
+/// which is the longest window of all and is handled by [`dcr_ttl_strictness`]. **Not
+/// ordered**, therefore never validated against the baseline and never clamped: *
+/// [`Self::default_locale`]. A language is a presentation preference; there is no sense in
+/// which Italian is stricter than French. * [`Self::dcr_allowed_scopes`],
+/// [`Self::dcr_allowed_redirect_hosts`] and [`Self::external_client_allowed_resources`]. Each
+/// names per-tenant resources — *this* tenant's MCP servers, *this* tenant's callback hosts —
+/// and there is no sense in which one such list is stricter than another. A subset rule would
+/// force an organization to enumerate every tenant's resource servers in its own baseline
+/// before any tenant could name one. The model's rule is "a tenant may only be more
+/// restrictive", which binds every field that *has* a restrictiveness; a field that has none
+/// cannot violate it. One cross-field interlock spans both groups and is checked on the
+/// resolved policy rather than on either input: see [`validate_dcr_policy`].
 public struct OidcPolicy: Codable, Sendable {
     /// T21.5 — whether a URL-shaped `client_id` is resolved by fetching the document it names,
     /// and on what terms. See [`CimdPolicy`]; off unless somebody turns it on (I1). Nested, and
@@ -5789,6 +6875,21 @@ public struct OidcPolicy: Codable, Sendable {
     /// inherits the same list for the same reason.
     public let externalClientAllowedResources: [String]?
 
+    /// G-2 / D-20 — whether this tenant may act as a SAML 2.0 identity provider: publish IdP
+    /// metadata and accept `AuthnRequest`s on `/saml/v2/{tenant}/{metadata,sso,slo}`. **Off
+    /// unless an organization turns it on.** A SAML IdP issues assertions that other systems
+    /// accept as proof of identity, so a deployment that has never decided to be one issues
+    /// none, and the three endpoints answer `404` as if they did not exist. The switch lives on
+    /// this policy, beside the other OpenID Provider surface controls, because the SSO endpoint
+    /// is the same browser login hop and OP session with a different wire format.
+    /// **Disable-only**, with the shape of [`Self::sensitive_scopes_enabled`]: a tenant may
+    /// turn its organization's `true` off but never its `false` on, because the decision to
+    /// issue identity assertions on behalf of the organization's tenants is the organization's.
+    /// A deployment built without the `saml` feature answers `404` whatever this says; the
+    /// setting is a capability, not a grant (each SP must still be registered, and
+    /// `allow_idp_initiated` is its own opt-in).
+    public let samlIdpEnabled: Bool?
+
     /// Whether `address` and `phone` may be registered on a client, requested at the
     /// authorization endpoint, and released at UserInfo (X7 G8). **Off unless an organization
     /// turns it on.** The two scopes release a postal address and a telephone number —
@@ -5801,6 +6902,19 @@ public struct OidcPolicy: Codable, Sendable {
     /// for everybody at once.
     public let sensitiveScopesEnabled: Bool
 
+    /// G-5 / D-45 — whether the tenant is a Shared Signals Framework transmitter: its
+    /// `/.well-known/ssf-configuration` is served, its receivers can use the stream management
+    /// API, and events are signed and transmitted on its streams. Default **`false`**.
+    /// **Disable-only**, with the shape of [`Self::saml_idp_enabled`]: sending security events
+    /// about the organization's users to third parties is the organization's decision. Streams
+    /// can be registered while it is off; they carry nothing until it is on.
+    public let ssfEnabled: Bool?
+
+    /// **Read-only**, D-55: set on a settings response when `ssf_enabled` is on but the
+    /// transmitter is inactive anyway, saying why — the deployment holds more than one tenant
+    /// and serves no per-tenant issuers. Never stored.
+    public let ssfInactiveReason: String?
+
     public init(
         cimd: CimdPolicy? = nil,
         dcrAllowedRedirectHosts: [String]? = nil,
@@ -5810,7 +6924,10 @@ public struct OidcPolicy: Codable, Sendable {
         defaultLocale: String? = nil,
         dynamicRegistration: String? = nil,
         externalClientAllowedResources: [String]? = nil,
-        sensitiveScopesEnabled: Bool
+        samlIdpEnabled: Bool? = nil,
+        sensitiveScopesEnabled: Bool,
+        ssfEnabled: Bool? = nil,
+        ssfInactiveReason: String? = nil
     ) {
         self.cimd = cimd
         self.dcrAllowedRedirectHosts = dcrAllowedRedirectHosts
@@ -5820,7 +6937,10 @@ public struct OidcPolicy: Codable, Sendable {
         self.defaultLocale = defaultLocale
         self.dynamicRegistration = dynamicRegistration
         self.externalClientAllowedResources = externalClientAllowedResources
+        self.samlIdpEnabled = samlIdpEnabled
         self.sensitiveScopesEnabled = sensitiveScopesEnabled
+        self.ssfEnabled = ssfEnabled
+        self.ssfInactiveReason = ssfInactiveReason
     }
 
     enum CodingKeys: String, CodingKey {
@@ -5832,7 +6952,10 @@ public struct OidcPolicy: Codable, Sendable {
         case defaultLocale = "default_locale"
         case dynamicRegistration = "dynamic_registration"
         case externalClientAllowedResources = "external_client_allowed_resources"
+        case samlIdpEnabled = "saml_idp_enabled"
         case sensitiveScopesEnabled = "sensitive_scopes_enabled"
+        case ssfEnabled = "ssf_enabled"
+        case ssfInactiveReason = "ssf_inactive_reason"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -5845,7 +6968,10 @@ public struct OidcPolicy: Codable, Sendable {
         self.defaultLocale = try container.decodeIfPresent(String.self, forKey: .defaultLocale)
         self.dynamicRegistration = try container.decodeIfPresent(String.self, forKey: .dynamicRegistration)
         self.externalClientAllowedResources = try container.decodeIfPresent([String].self, forKey: .externalClientAllowedResources)
+        self.samlIdpEnabled = try container.decodeIfPresent(Bool.self, forKey: .samlIdpEnabled)
         self.sensitiveScopesEnabled = try container.decode(Bool.self, forKey: .sensitiveScopesEnabled)
+        self.ssfEnabled = try container.decodeIfPresent(Bool.self, forKey: .ssfEnabled)
+        self.ssfInactiveReason = try container.decodeIfPresent(String.self, forKey: .ssfInactiveReason)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -5858,7 +6984,10 @@ public struct OidcPolicy: Codable, Sendable {
         try container.encodeIfPresent(defaultLocale, forKey: .defaultLocale)
         try container.encodeIfPresent(dynamicRegistration, forKey: .dynamicRegistration)
         try container.encodeIfPresent(externalClientAllowedResources, forKey: .externalClientAllowedResources)
+        try container.encodeIfPresent(samlIdpEnabled, forKey: .samlIdpEnabled)
         try container.encode(sensitiveScopesEnabled, forKey: .sensitiveScopesEnabled)
+        try container.encodeIfPresent(ssfEnabled, forKey: .ssfEnabled)
+        try container.encodeIfPresent(ssfInactiveReason, forKey: .ssfInactiveReason)
     }
 }
 
@@ -6015,6 +7144,40 @@ public struct Organization: Codable, Sendable {
         try container.encode(name, forKey: .name)
         try container.encode(slug, forKey: .slug)
         try container.encode(updatedAt, forKey: .updatedAt)
+    }
+}
+
+/// `POST …/saml/parse-sp-metadata` body: **exactly one** of the two members.
+public struct ParseSamlSpMetadata: Codable, Sendable {
+    /// An `https` URL the server fetches the document from, once, through its SSRF guard.
+    public let metadataURL: String?
+
+    /// A metadata document, at most 512 KiB.
+    public let metadataXml: String?
+
+    public init(
+        metadataURL: String? = nil,
+        metadataXml: String? = nil
+    ) {
+        self.metadataURL = metadataURL
+        self.metadataXml = metadataXml
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case metadataURL = "metadata_url"
+        case metadataXml = "metadata_xml"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.metadataURL = try container.decodeIfPresent(String.self, forKey: .metadataURL)
+        self.metadataXml = try container.decodeIfPresent(String.self, forKey: .metadataXml)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(metadataURL, forKey: .metadataURL)
+        try container.encodeIfPresent(metadataXml, forKey: .metadataXml)
     }
 }
 
@@ -7271,6 +8434,1048 @@ public struct RotateSecretResponse: Codable, Sendable {
     }
 }
 
+/// The tenant's IdP signing credential, **public facts only**. There is no key on it and no
+/// field a key could be put in: the private key is generated by the server, sealed at rest,
+/// never returned by any route and destroyed on retirement (D-21).
+public struct SamlIdpCredential: Codable, Sendable {
+    /// The leaf certificate, PEM. Public: it is what the metadata publishes.
+    public let certificatePEM: String
+
+    /// When the credential was issued.
+    public let createdAt: String
+
+    /// Lower-case hex SHA-256 of the certificate's DER — what an SP administrator compares out
+    /// of band.
+    public let fingerprint: String
+
+    /// Credential id.
+    public let id: String
+
+    /// The signing CA that issued the leaf.
+    public let issuerCAID: String
+
+    /// End of the certificate's validity (at most 730 days after the start).
+    public let notAfter: String
+
+    /// Start of the certificate's validity.
+    public let notBefore: String
+
+    /// When it was retired, or null.
+    public let retiredAt: String?
+
+    /// The certificate's serial, lower-case hex.
+    public let serial: String
+
+    /// `active`, `next` or `retired`. At most one `active` and one `next` per tenant.
+    public let status: SamlIdpCredentialStatus
+
+    /// The tenant it signs for.
+    public let tenantID: String
+
+    public init(
+        certificatePEM: String,
+        createdAt: String,
+        fingerprint: String,
+        id: String,
+        issuerCAID: String,
+        notAfter: String,
+        notBefore: String,
+        retiredAt: String? = nil,
+        serial: String,
+        status: SamlIdpCredentialStatus,
+        tenantID: String
+    ) {
+        self.certificatePEM = certificatePEM
+        self.createdAt = createdAt
+        self.fingerprint = fingerprint
+        self.id = id
+        self.issuerCAID = issuerCAID
+        self.notAfter = notAfter
+        self.notBefore = notBefore
+        self.retiredAt = retiredAt
+        self.serial = serial
+        self.status = status
+        self.tenantID = tenantID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case certificatePEM = "certificate_pem"
+        case createdAt = "created_at"
+        case fingerprint = "fingerprint"
+        case id = "id"
+        case issuerCAID = "issuer_ca_id"
+        case notAfter = "not_after"
+        case notBefore = "not_before"
+        case retiredAt = "retired_at"
+        case serial = "serial"
+        case status = "status"
+        case tenantID = "tenant_id"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.certificatePEM = try container.decode(String.self, forKey: .certificatePEM)
+        self.createdAt = try container.decode(String.self, forKey: .createdAt)
+        self.fingerprint = try container.decode(String.self, forKey: .fingerprint)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.issuerCAID = try container.decode(String.self, forKey: .issuerCAID)
+        self.notAfter = try container.decode(String.self, forKey: .notAfter)
+        self.notBefore = try container.decode(String.self, forKey: .notBefore)
+        self.retiredAt = try container.decodeIfPresent(String.self, forKey: .retiredAt)
+        self.serial = try container.decode(String.self, forKey: .serial)
+        self.status = try container.decode(SamlIdpCredentialStatus.self, forKey: .status)
+        self.tenantID = try container.decode(String.self, forKey: .tenantID)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(certificatePEM, forKey: .certificatePEM)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(fingerprint, forKey: .fingerprint)
+        try container.encode(id, forKey: .id)
+        try container.encode(issuerCAID, forKey: .issuerCAID)
+        try container.encode(notAfter, forKey: .notAfter)
+        try container.encode(notBefore, forKey: .notBefore)
+        try container.encodeIfPresent(retiredAt, forKey: .retiredAt)
+        try container.encode(serial, forKey: .serial)
+        try container.encode(status, forKey: .status)
+        try container.encode(tenantID, forKey: .tenantID)
+    }
+}
+
+/// What promoting the `next` credential did.
+public struct SamlIdpCredentialPromotion: Codable, Sendable {
+    /// The credential that is now `active`.
+    public let active: SamlIdpCredential
+
+    /// The server's `retired` field.
+    public let retired: SamlIdpCredential?
+
+    public init(
+        active: SamlIdpCredential,
+        retired: SamlIdpCredential? = nil
+    ) {
+        self.active = active
+        self.retired = retired
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case active = "active"
+        case retired = "retired"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.active = try container.decode(SamlIdpCredential.self, forKey: .active)
+        self.retired = try container.decodeIfPresent(SamlIdpCredential.self, forKey: .retired)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(active, forKey: .active)
+        try container.encodeIfPresent(retired, forKey: .retired)
+    }
+}
+
+/// The tenant's SAML IdP, as the administrator needs to see it before and while switching it
+/// on: what an SP will be given, and whether it answers yet.
+public struct SamlIdpInfo: Codable, Sendable {
+    /// The `active` credential, or null.
+    public let activeCredentialID: String?
+
+    /// The IdP's entity id (the metadata URL itself).
+    public let entityID: String
+
+    /// Whether `metadata_url` answers now: SAML is available, enabled for the tenant, and an
+    /// `active` or `next` credential exists (D-40).
+    public let metadataServed: Bool
+
+    /// Where the IdP metadata is served.
+    public let metadataURL: String
+
+    /// The `next` credential, or null.
+    public let nextCredentialID: String?
+
+    /// Whether this server build serves SAML at all (it was built with the `saml` feature).
+    public let samlAvailable: Bool
+
+    /// The tenant's **effective** `saml_idp_enabled` setting (D-20). Written through the
+    /// `settings` operations, not here.
+    public let samlIdpEnabled: Bool
+
+    /// The single-logout endpoint.
+    public let sloURL: String
+
+    /// The single-sign-on endpoint.
+    public let ssoURL: String
+
+    /// The tenant.
+    public let tenantID: String
+
+    public init(
+        activeCredentialID: String? = nil,
+        entityID: String,
+        metadataServed: Bool,
+        metadataURL: String,
+        nextCredentialID: String? = nil,
+        samlAvailable: Bool,
+        samlIdpEnabled: Bool,
+        sloURL: String,
+        ssoURL: String,
+        tenantID: String
+    ) {
+        self.activeCredentialID = activeCredentialID
+        self.entityID = entityID
+        self.metadataServed = metadataServed
+        self.metadataURL = metadataURL
+        self.nextCredentialID = nextCredentialID
+        self.samlAvailable = samlAvailable
+        self.samlIdpEnabled = samlIdpEnabled
+        self.sloURL = sloURL
+        self.ssoURL = ssoURL
+        self.tenantID = tenantID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case activeCredentialID = "active_credential_id"
+        case entityID = "entity_id"
+        case metadataServed = "metadata_served"
+        case metadataURL = "metadata_url"
+        case nextCredentialID = "next_credential_id"
+        case samlAvailable = "saml_available"
+        case samlIdpEnabled = "saml_idp_enabled"
+        case sloURL = "slo_url"
+        case ssoURL = "sso_url"
+        case tenantID = "tenant_id"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.activeCredentialID = try container.decodeIfPresent(String.self, forKey: .activeCredentialID)
+        self.entityID = try container.decode(String.self, forKey: .entityID)
+        self.metadataServed = try container.decode(Bool.self, forKey: .metadataServed)
+        self.metadataURL = try container.decode(String.self, forKey: .metadataURL)
+        self.nextCredentialID = try container.decodeIfPresent(String.self, forKey: .nextCredentialID)
+        self.samlAvailable = try container.decode(Bool.self, forKey: .samlAvailable)
+        self.samlIdpEnabled = try container.decode(Bool.self, forKey: .samlIdpEnabled)
+        self.sloURL = try container.decode(String.self, forKey: .sloURL)
+        self.ssoURL = try container.decode(String.self, forKey: .ssoURL)
+        self.tenantID = try container.decode(String.self, forKey: .tenantID)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(activeCredentialID, forKey: .activeCredentialID)
+        try container.encode(entityID, forKey: .entityID)
+        try container.encode(metadataServed, forKey: .metadataServed)
+        try container.encode(metadataURL, forKey: .metadataURL)
+        try container.encodeIfPresent(nextCredentialID, forKey: .nextCredentialID)
+        try container.encode(samlAvailable, forKey: .samlAvailable)
+        try container.encode(samlIdpEnabled, forKey: .samlIdpEnabled)
+        try container.encode(sloURL, forKey: .sloURL)
+        try container.encode(ssoURL, forKey: .ssoURL)
+        try container.encode(tenantID, forKey: .tenantID)
+    }
+}
+
+/// A registered service provider, as stored.
+public struct SamlServiceProvider: Codable, Sendable {
+    /// See [`SamlServiceProviderInput::acs_urls`].
+    public let acsUrls: [AcsEndpoint]
+
+    /// See [`SamlServiceProviderInput::allow_idp_initiated`].
+    public let allowIdpInitiated: Bool
+
+    /// See [`SamlServiceProviderInput::allowed_groups`].
+    public let allowedGroups: [String]
+
+    /// See [`SamlServiceProviderInput::attribute_mappings`].
+    public let attributeMappings: [AttributeMapping]
+
+    /// When the SP was registered.
+    public let createdAt: String
+
+    /// See [`SamlServiceProviderInput::display_name`].
+    public let displayName: String
+
+    /// See [`SamlServiceProviderInput::enabled`].
+    public let enabled: Bool
+
+    /// See [`SamlServiceProviderInput::encrypt_assertions`].
+    public let encryptAssertions: Bool
+
+    /// See [`SamlServiceProviderInput::entity_id`].
+    public let entityID: String
+
+    /// Record id.
+    public let id: String
+
+    /// See [`SamlServiceProviderInput::name_id_format`].
+    public let nameIDFormat: NameIdFormat
+
+    /// See [`SamlServiceProviderInput::sign_responses`].
+    public let signResponses: Bool
+
+    /// The server's `slo_binding` field.
+    public let sloBinding: SamlBinding?
+
+    /// See [`SamlServiceProviderInput::slo_url`].
+    public let sloURL: String?
+
+    /// See [`SamlServiceProviderInput::sp_encryption_cert_pem`].
+    public let spEncryptionCertPEM: String?
+
+    /// See [`SamlServiceProviderInput::sp_signing_cert_pem`].
+    public let spSigningCertPEM: String?
+
+    /// The owning tenant.
+    public let tenantID: String
+
+    /// When it was last replaced.
+    public let updatedAt: String
+
+    /// See [`SamlServiceProviderInput::want_authn_requests_signed`].
+    public let wantAuthnRequestsSigned: Bool
+
+    public init(
+        acsUrls: [AcsEndpoint],
+        allowIdpInitiated: Bool,
+        allowedGroups: [String],
+        attributeMappings: [AttributeMapping],
+        createdAt: String,
+        displayName: String,
+        enabled: Bool,
+        encryptAssertions: Bool,
+        entityID: String,
+        id: String,
+        nameIDFormat: NameIdFormat,
+        signResponses: Bool,
+        sloBinding: SamlBinding? = nil,
+        sloURL: String? = nil,
+        spEncryptionCertPEM: String? = nil,
+        spSigningCertPEM: String? = nil,
+        tenantID: String,
+        updatedAt: String,
+        wantAuthnRequestsSigned: Bool
+    ) {
+        self.acsUrls = acsUrls
+        self.allowIdpInitiated = allowIdpInitiated
+        self.allowedGroups = allowedGroups
+        self.attributeMappings = attributeMappings
+        self.createdAt = createdAt
+        self.displayName = displayName
+        self.enabled = enabled
+        self.encryptAssertions = encryptAssertions
+        self.entityID = entityID
+        self.id = id
+        self.nameIDFormat = nameIDFormat
+        self.signResponses = signResponses
+        self.sloBinding = sloBinding
+        self.sloURL = sloURL
+        self.spEncryptionCertPEM = spEncryptionCertPEM
+        self.spSigningCertPEM = spSigningCertPEM
+        self.tenantID = tenantID
+        self.updatedAt = updatedAt
+        self.wantAuthnRequestsSigned = wantAuthnRequestsSigned
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case acsUrls = "acs_urls"
+        case allowIdpInitiated = "allow_idp_initiated"
+        case allowedGroups = "allowed_groups"
+        case attributeMappings = "attribute_mappings"
+        case createdAt = "created_at"
+        case displayName = "display_name"
+        case enabled = "enabled"
+        case encryptAssertions = "encrypt_assertions"
+        case entityID = "entity_id"
+        case id = "id"
+        case nameIDFormat = "name_id_format"
+        case signResponses = "sign_responses"
+        case sloBinding = "slo_binding"
+        case sloURL = "slo_url"
+        case spEncryptionCertPEM = "sp_encryption_cert_pem"
+        case spSigningCertPEM = "sp_signing_cert_pem"
+        case tenantID = "tenant_id"
+        case updatedAt = "updated_at"
+        case wantAuthnRequestsSigned = "want_authn_requests_signed"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.acsUrls = try container.decode([AcsEndpoint].self, forKey: .acsUrls)
+        self.allowIdpInitiated = try container.decode(Bool.self, forKey: .allowIdpInitiated)
+        self.allowedGroups = try container.decode([String].self, forKey: .allowedGroups)
+        self.attributeMappings = try container.decode([AttributeMapping].self, forKey: .attributeMappings)
+        self.createdAt = try container.decode(String.self, forKey: .createdAt)
+        self.displayName = try container.decode(String.self, forKey: .displayName)
+        self.enabled = try container.decode(Bool.self, forKey: .enabled)
+        self.encryptAssertions = try container.decode(Bool.self, forKey: .encryptAssertions)
+        self.entityID = try container.decode(String.self, forKey: .entityID)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.nameIDFormat = try container.decode(NameIdFormat.self, forKey: .nameIDFormat)
+        self.signResponses = try container.decode(Bool.self, forKey: .signResponses)
+        self.sloBinding = try container.decodeIfPresent(SamlBinding.self, forKey: .sloBinding)
+        self.sloURL = try container.decodeIfPresent(String.self, forKey: .sloURL)
+        self.spEncryptionCertPEM = try container.decodeIfPresent(String.self, forKey: .spEncryptionCertPEM)
+        self.spSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .spSigningCertPEM)
+        self.tenantID = try container.decode(String.self, forKey: .tenantID)
+        self.updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        self.wantAuthnRequestsSigned = try container.decode(Bool.self, forKey: .wantAuthnRequestsSigned)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(acsUrls, forKey: .acsUrls)
+        try container.encode(allowIdpInitiated, forKey: .allowIdpInitiated)
+        try container.encode(allowedGroups, forKey: .allowedGroups)
+        try container.encode(attributeMappings, forKey: .attributeMappings)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(displayName, forKey: .displayName)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encode(encryptAssertions, forKey: .encryptAssertions)
+        try container.encode(entityID, forKey: .entityID)
+        try container.encode(id, forKey: .id)
+        try container.encode(nameIDFormat, forKey: .nameIDFormat)
+        try container.encode(signResponses, forKey: .signResponses)
+        try container.encodeIfPresent(sloBinding, forKey: .sloBinding)
+        try container.encodeIfPresent(sloURL, forKey: .sloURL)
+        try container.encodeIfPresent(spEncryptionCertPEM, forKey: .spEncryptionCertPEM)
+        try container.encodeIfPresent(spSigningCertPEM, forKey: .spSigningCertPEM)
+        try container.encode(tenantID, forKey: .tenantID)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(wantAuthnRequestsSigned, forKey: .wantAuthnRequestsSigned)
+    }
+}
+
+/// Everything an administrator supplies when registering or replacing a service provider
+/// (`create` and `update` both take it; `update` is a full replacement). Every field but
+/// `entity_id`, `display_name` and `acs_urls` has a default, so a client written against a
+/// later revision of this struct keeps working.
+public struct SamlServiceProviderInput: Codable, Sendable {
+    /// The ACS allow-list. At least one, at most one default.
+    public let acsUrls: [AcsEndpoint]
+
+    /// Whether IdP-initiated SSO is allowed for this SP (D-3). A per-SP opt-in, off by default:
+    /// an unsolicited assertion has no `InResponseTo` to bind it to a request the SP made.
+    public let allowIdpInitiated: Bool?
+
+    /// Groups whose members may sign in to this SP. **Empty means every active user of the
+    /// tenant may.** Evaluated by the SSO endpoint (T23.2.3).
+    public let allowedGroups: [String]?
+
+    /// Attribute mapping table, at most [`MAX_ATTRIBUTE_MAPPINGS`] entries.
+    public let attributeMappings: [AttributeMapping]?
+
+    /// Human-readable name for the console.
+    public let displayName: String
+
+    /// Whether the SP may sign in at all. A disabled SP stays registered but every SSO request
+    /// for it is refused.
+    public let enabled: Bool?
+
+    /// Encrypt assertions to the SP's encryption certificate (D-2). Off by default; requires
+    /// [`Self::sp_encryption_cert_pem`].
+    public let encryptAssertions: Bool?
+
+    /// The SP's `entityID`, unique per tenant. At most [`MAX_ENTITY_ID_BYTES`].
+    public let entityID: String
+
+    /// `NameID` policy. Default: persistent, pairwise.
+    public let nameIDFormat: NameIdFormat?
+
+    /// Sign the `<samlp:Response>` envelope as well as the assertion (which is signed always).
+    /// Default **`true`**: it costs nothing and many SPs require it.
+    public let signResponses: Bool?
+
+    /// The server's `slo_binding` field.
+    public let sloBinding: SamlBinding?
+
+    /// Single-logout endpoint, if the SP supports it.
+    public let sloURL: String?
+
+    /// PEM certificate assertions are encrypted to. Required when `encrypt_assertions` is set.
+    public let spEncryptionCertPEM: String?
+
+    /// PEM certificate the SP signs its `AuthnRequest`s with.
+    public let spSigningCertPEM: String?
+
+    /// Refuse an `AuthnRequest` that is not signed by `sp_signing_cert_pem`. Requires that
+    /// certificate.
+    public let wantAuthnRequestsSigned: Bool?
+
+    public init(
+        acsUrls: [AcsEndpoint],
+        allowIdpInitiated: Bool? = nil,
+        allowedGroups: [String]? = nil,
+        attributeMappings: [AttributeMapping]? = nil,
+        displayName: String,
+        enabled: Bool? = nil,
+        encryptAssertions: Bool? = nil,
+        entityID: String,
+        nameIDFormat: NameIdFormat? = nil,
+        signResponses: Bool? = nil,
+        sloBinding: SamlBinding? = nil,
+        sloURL: String? = nil,
+        spEncryptionCertPEM: String? = nil,
+        spSigningCertPEM: String? = nil,
+        wantAuthnRequestsSigned: Bool? = nil
+    ) {
+        self.acsUrls = acsUrls
+        self.allowIdpInitiated = allowIdpInitiated
+        self.allowedGroups = allowedGroups
+        self.attributeMappings = attributeMappings
+        self.displayName = displayName
+        self.enabled = enabled
+        self.encryptAssertions = encryptAssertions
+        self.entityID = entityID
+        self.nameIDFormat = nameIDFormat
+        self.signResponses = signResponses
+        self.sloBinding = sloBinding
+        self.sloURL = sloURL
+        self.spEncryptionCertPEM = spEncryptionCertPEM
+        self.spSigningCertPEM = spSigningCertPEM
+        self.wantAuthnRequestsSigned = wantAuthnRequestsSigned
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case acsUrls = "acs_urls"
+        case allowIdpInitiated = "allow_idp_initiated"
+        case allowedGroups = "allowed_groups"
+        case attributeMappings = "attribute_mappings"
+        case displayName = "display_name"
+        case enabled = "enabled"
+        case encryptAssertions = "encrypt_assertions"
+        case entityID = "entity_id"
+        case nameIDFormat = "name_id_format"
+        case signResponses = "sign_responses"
+        case sloBinding = "slo_binding"
+        case sloURL = "slo_url"
+        case spEncryptionCertPEM = "sp_encryption_cert_pem"
+        case spSigningCertPEM = "sp_signing_cert_pem"
+        case wantAuthnRequestsSigned = "want_authn_requests_signed"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.acsUrls = try container.decode([AcsEndpoint].self, forKey: .acsUrls)
+        self.allowIdpInitiated = try container.decodeIfPresent(Bool.self, forKey: .allowIdpInitiated)
+        self.allowedGroups = try container.decodeIfPresent([String].self, forKey: .allowedGroups)
+        self.attributeMappings = try container.decodeIfPresent([AttributeMapping].self, forKey: .attributeMappings)
+        self.displayName = try container.decode(String.self, forKey: .displayName)
+        self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
+        self.encryptAssertions = try container.decodeIfPresent(Bool.self, forKey: .encryptAssertions)
+        self.entityID = try container.decode(String.self, forKey: .entityID)
+        self.nameIDFormat = try container.decodeIfPresent(NameIdFormat.self, forKey: .nameIDFormat)
+        self.signResponses = try container.decodeIfPresent(Bool.self, forKey: .signResponses)
+        self.sloBinding = try container.decodeIfPresent(SamlBinding.self, forKey: .sloBinding)
+        self.sloURL = try container.decodeIfPresent(String.self, forKey: .sloURL)
+        self.spEncryptionCertPEM = try container.decodeIfPresent(String.self, forKey: .spEncryptionCertPEM)
+        self.spSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .spSigningCertPEM)
+        self.wantAuthnRequestsSigned = try container.decodeIfPresent(Bool.self, forKey: .wantAuthnRequestsSigned)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(acsUrls, forKey: .acsUrls)
+        try container.encodeIfPresent(allowIdpInitiated, forKey: .allowIdpInitiated)
+        try container.encodeIfPresent(allowedGroups, forKey: .allowedGroups)
+        try container.encodeIfPresent(attributeMappings, forKey: .attributeMappings)
+        try container.encode(displayName, forKey: .displayName)
+        try container.encodeIfPresent(enabled, forKey: .enabled)
+        try container.encodeIfPresent(encryptAssertions, forKey: .encryptAssertions)
+        try container.encode(entityID, forKey: .entityID)
+        try container.encodeIfPresent(nameIDFormat, forKey: .nameIDFormat)
+        try container.encodeIfPresent(signResponses, forKey: .signResponses)
+        try container.encodeIfPresent(sloBinding, forKey: .sloBinding)
+        try container.encodeIfPresent(sloURL, forKey: .sloURL)
+        try container.encodeIfPresent(spEncryptionCertPEM, forKey: .spEncryptionCertPEM)
+        try container.encodeIfPresent(spSigningCertPEM, forKey: .spSigningCertPEM)
+        try container.encodeIfPresent(wantAuthnRequestsSigned, forKey: .wantAuthnRequestsSigned)
+    }
+}
+
+/// A parse of SP metadata: **a draft, not a registration**. Nothing is stored until the caller
+/// submits `service_provider` to `create_service_provider` or `update_service_provider`, and
+/// nothing in it is trusted because it came from a document (D-41).
+public struct SamlSpMetadataDraft: Codable, Sendable {
+    /// Lower-case hex SHA-256 of the encryption certificate's DER the draft carries, or null.
+    public let encryptionCertificateFingerprint: String?
+
+    /// A body `create_service_provider` accepts unchanged (bar the rules that need the
+    /// datastore). `encrypt_assertions` is never set.
+    public let serviceProvider: SamlServiceProviderInput
+
+    /// Lower-case hex SHA-256 of the signing certificate's DER the draft carries, or null.
+    public let signingCertificateFingerprint: String?
+
+    /// What to know before submitting it. Human text; do not parse it.
+    public let warnings: [String]
+
+    public init(
+        encryptionCertificateFingerprint: String? = nil,
+        serviceProvider: SamlServiceProviderInput,
+        signingCertificateFingerprint: String? = nil,
+        warnings: [String]
+    ) {
+        self.encryptionCertificateFingerprint = encryptionCertificateFingerprint
+        self.serviceProvider = serviceProvider
+        self.signingCertificateFingerprint = signingCertificateFingerprint
+        self.warnings = warnings
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case encryptionCertificateFingerprint = "encryption_certificate_fingerprint"
+        case serviceProvider = "service_provider"
+        case signingCertificateFingerprint = "signing_certificate_fingerprint"
+        case warnings = "warnings"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.encryptionCertificateFingerprint = try container.decodeIfPresent(String.self, forKey: .encryptionCertificateFingerprint)
+        self.serviceProvider = try container.decode(SamlServiceProviderInput.self, forKey: .serviceProvider)
+        self.signingCertificateFingerprint = try container.decodeIfPresent(String.self, forKey: .signingCertificateFingerprint)
+        self.warnings = try container.decode([String].self, forKey: .warnings)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(encryptionCertificateFingerprint, forKey: .encryptionCertificateFingerprint)
+        try container.encode(serviceProvider, forKey: .serviceProvider)
+        try container.encodeIfPresent(signingCertificateFingerprint, forKey: .signingCertificateFingerprint)
+        try container.encode(warnings, forKey: .warnings)
+    }
+}
+
+/// The body of a started reconciliation's `202`.
+public struct ScimReconcileAccepted: Codable, Sendable {
+    /// Always `started`.
+    public let status: String
+
+    /// The target being reconciled.
+    public let targetID: String
+
+    public init(
+        status: String,
+        targetID: String
+    ) {
+        self.status = status
+        self.targetID = targetID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case status = "status"
+        case targetID = "target_id"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.status = try container.decode(String.self, forKey: .status)
+        self.targetID = try container.decode(String.self, forKey: .targetID)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(status, forKey: .status)
+        try container.encode(targetID, forKey: .targetID)
+    }
+}
+
+/// How AXIAM authenticates to the downstream service provider, without the credential itself.
+public struct ScimTargetAuth: Codable, Sendable {
+    /// The `type` discriminator naming which variant this is.
+    public let type: String
+
+    /// The whole object as the server sent it, to read the variant's own fields from once
+    /// `type` says which it is.
+    public let raw: ManagementJSON
+
+    /// The `type` values this SDK knows (CONTRACT.md §31.2). The set is OPEN: a `type` outside
+    /// it decodes without failing, and is never sent — `encode(to:)` refuses it.
+    public static let knownTypes: Set<String> = ["bearer", "oauth2_client_credentials"]
+
+    /// Whether `type` is one this SDK knows. `false` for a value decoded from a newer server;
+    /// such a value cannot be written back.
+    public var isKnown: Bool { Self.knownTypes.contains(type) }
+
+    public init(
+        type: String,
+        raw: ManagementJSON
+    ) {
+        self.type = type
+        self.raw = raw
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case type = "type"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.type = try container.decode(String.self, forKey: .type)
+        self.raw = try ManagementJSON(from: decoder)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        // A union is forwarded EXACTLY as received. Re-encoding from the one member this SDK
+        // models would drop every field belonging to the variant it does not model — and the
+        // server round-trips those.
+        // §31.2: an unknown `type` decodes, and MUST NOT be sent. Refused before a byte is
+        // written, as a local validation failure.
+        guard isKnown else {
+            throw AxiamError.network(NetworkError(
+                "ScimTargetAuth: a `type` this SDK does not know is never "
+                    + "sent (CONTRACT.md §31.2)",
+                statusCode: 400, isValidation: true))
+        }
+        try raw.encode(to: encoder)
+    }
+}
+
+/// A target's delivery state, as `GET` projects it. Fixed vocabulary only: the failure reason
+/// is one of the deliverer's phrases, never a URL, a response body or a value.
+public struct ScimTargetDeliveryState: Codable, Sendable {
+    /// Failed attempts since the last success.
+    public let consecutiveFailures: Int
+
+    /// Deliveries dead-lettered over the target's lifetime.
+    public let deadLetteredTotal: Int
+
+    /// When a delivery attempt last failed or was dead-lettered.
+    public let lastFailureAt: String?
+
+    /// Why, in the deliverer's fixed vocabulary.
+    public let lastFailureReason: String?
+
+    /// When reconciliation last ran.
+    public let lastReconciledAt: String?
+
+    /// When a delivery last succeeded.
+    public let lastSuccessAt: String?
+
+    public init(
+        consecutiveFailures: Int,
+        deadLetteredTotal: Int,
+        lastFailureAt: String? = nil,
+        lastFailureReason: String? = nil,
+        lastReconciledAt: String? = nil,
+        lastSuccessAt: String? = nil
+    ) {
+        self.consecutiveFailures = consecutiveFailures
+        self.deadLetteredTotal = deadLetteredTotal
+        self.lastFailureAt = lastFailureAt
+        self.lastFailureReason = lastFailureReason
+        self.lastReconciledAt = lastReconciledAt
+        self.lastSuccessAt = lastSuccessAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case consecutiveFailures = "consecutive_failures"
+        case deadLetteredTotal = "dead_lettered_total"
+        case lastFailureAt = "last_failure_at"
+        case lastFailureReason = "last_failure_reason"
+        case lastReconciledAt = "last_reconciled_at"
+        case lastSuccessAt = "last_success_at"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.consecutiveFailures = try container.decode(Int.self, forKey: .consecutiveFailures)
+        self.deadLetteredTotal = try container.decode(Int.self, forKey: .deadLetteredTotal)
+        self.lastFailureAt = try container.decodeIfPresent(String.self, forKey: .lastFailureAt)
+        self.lastFailureReason = try container.decodeIfPresent(String.self, forKey: .lastFailureReason)
+        self.lastReconciledAt = try container.decodeIfPresent(String.self, forKey: .lastReconciledAt)
+        self.lastSuccessAt = try container.decodeIfPresent(String.self, forKey: .lastSuccessAt)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(consecutiveFailures, forKey: .consecutiveFailures)
+        try container.encode(deadLetteredTotal, forKey: .deadLetteredTotal)
+        try container.encodeIfPresent(lastFailureAt, forKey: .lastFailureAt)
+        try container.encodeIfPresent(lastFailureReason, forKey: .lastFailureReason)
+        try container.encodeIfPresent(lastReconciledAt, forKey: .lastReconciledAt)
+        try container.encodeIfPresent(lastSuccessAt, forKey: .lastSuccessAt)
+    }
+}
+
+/// `create` and `update` (a **replacement**) body.
+public struct ScimTargetInput: Codable, Sendable {
+    /// `bearer`, or `oauth2_client_credentials` with `token_url` (the same URL policy),
+    /// `client_id` (1–256 bytes) and an optional `scope`.
+    public let auth: ScimTargetAuth
+
+    /// The downstream's SCIM service root: an `https` URL under the outbound address policy (no
+    /// credentials or fragment, at most 2 048 bytes, no non-public address, no local name).
+    public let baseURL: String
+
+    /// **Write-only.** The bearer token or the OAuth2 client secret, 1–4 096 bytes. Required on
+    /// create. On update, absent keeps the stored one — except that moving it to another URL
+    /// (`base_url` of a bearer target, `token_url` or `base_url` of a client-credentials one)
+    /// or switching `auth.type` requires it again.
+    public let credential: Sensitive<String>?
+
+    /// `deactivate` (default: `PATCH active=false`) or `delete`.
+    public let deprovision: DeprovisionPolicy?
+
+    /// `true` by default. A disabled target receives nothing.
+    public let enabled: Bool?
+
+    /// 1–128 bytes.
+    public let name: String
+
+    /// Push groups too (every group for `all_users`, the listed ones for `groups`). `false` by
+    /// default.
+    public let pushGroups: Bool?
+
+    /// `all_users`, or `groups` with 1–100 `group_ids` of this tenant: users who are direct
+    /// members of any listed group.
+    public let scope: ScimTargetScope
+
+    /// `username` (default) or `email`.
+    public let userNameFrom: UserNameSource?
+
+    public init(
+        auth: ScimTargetAuth,
+        baseURL: String,
+        credential: Sensitive<String>? = nil,
+        deprovision: DeprovisionPolicy? = nil,
+        enabled: Bool? = nil,
+        name: String,
+        pushGroups: Bool? = nil,
+        scope: ScimTargetScope,
+        userNameFrom: UserNameSource? = nil
+    ) {
+        self.auth = auth
+        self.baseURL = baseURL
+        self.credential = credential
+        self.deprovision = deprovision
+        self.enabled = enabled
+        self.name = name
+        self.pushGroups = pushGroups
+        self.scope = scope
+        self.userNameFrom = userNameFrom
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case auth = "auth"
+        case baseURL = "base_url"
+        case credential = "credential"
+        case deprovision = "deprovision"
+        case enabled = "enabled"
+        case name = "name"
+        case pushGroups = "push_groups"
+        case scope = "scope"
+        case userNameFrom = "user_name_from"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.auth = try container.decode(ScimTargetAuth.self, forKey: .auth)
+        self.baseURL = try container.decode(String.self, forKey: .baseURL)
+        if let raw = try container.decodeIfPresent(String.self, forKey: .credential) {
+            self.credential = Sensitive(raw)
+        } else {
+            self.credential = nil
+        }
+        self.deprovision = try container.decodeIfPresent(DeprovisionPolicy.self, forKey: .deprovision)
+        self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.pushGroups = try container.decodeIfPresent(Bool.self, forKey: .pushGroups)
+        self.scope = try container.decode(ScimTargetScope.self, forKey: .scope)
+        self.userNameFrom = try container.decodeIfPresent(UserNameSource.self, forKey: .userNameFrom)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(auth, forKey: .auth)
+        try container.encode(baseURL, forKey: .baseURL)
+        try container.encodeIfPresent(credential?.expose(), forKey: .credential)
+        try container.encodeIfPresent(deprovision, forKey: .deprovision)
+        try container.encodeIfPresent(enabled, forKey: .enabled)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(pushGroups, forKey: .pushGroups)
+        try container.encode(scope, forKey: .scope)
+        try container.encodeIfPresent(userNameFrom, forKey: .userNameFrom)
+    }
+}
+
+/// A registered SCIM target, as the management API returns it. **The credential is never
+/// returned**, and there is no member that says anything about it.
+public struct ScimTargetResponse: Codable, Sendable {
+    /// How AXIAM authenticates to it (no credential).
+    public let auth: ScimTargetAuth
+
+    /// The downstream's SCIM service root.
+    public let baseURL: String
+
+    /// When the target was registered.
+    public let createdAt: String
+
+    /// What happens downstream to a user who leaves scope or is no longer active (erasure
+    /// always deletes).
+    public let deprovision: DeprovisionPolicy
+
+    /// Whether AXIAM pushes to it.
+    public let enabled: Bool
+
+    /// The target id.
+    public let id: String
+
+    /// The name.
+    public let name: String
+
+    /// Whether groups are pushed too.
+    public let pushGroups: Bool
+
+    /// Which users it provisions.
+    public let scope: ScimTargetScope
+
+    /// The server's `state` field.
+    public let state: ScimTargetDeliveryState?
+
+    /// The owning tenant.
+    public let tenantID: String
+
+    /// When it was last written: the version an update is conditional on.
+    public let updatedAt: String
+
+    /// Which attribute becomes `userName`.
+    public let userNameFrom: UserNameSource
+
+    public init(
+        auth: ScimTargetAuth,
+        baseURL: String,
+        createdAt: String,
+        deprovision: DeprovisionPolicy,
+        enabled: Bool,
+        id: String,
+        name: String,
+        pushGroups: Bool,
+        scope: ScimTargetScope,
+        state: ScimTargetDeliveryState? = nil,
+        tenantID: String,
+        updatedAt: String,
+        userNameFrom: UserNameSource
+    ) {
+        self.auth = auth
+        self.baseURL = baseURL
+        self.createdAt = createdAt
+        self.deprovision = deprovision
+        self.enabled = enabled
+        self.id = id
+        self.name = name
+        self.pushGroups = pushGroups
+        self.scope = scope
+        self.state = state
+        self.tenantID = tenantID
+        self.updatedAt = updatedAt
+        self.userNameFrom = userNameFrom
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case auth = "auth"
+        case baseURL = "base_url"
+        case createdAt = "created_at"
+        case deprovision = "deprovision"
+        case enabled = "enabled"
+        case id = "id"
+        case name = "name"
+        case pushGroups = "push_groups"
+        case scope = "scope"
+        case state = "state"
+        case tenantID = "tenant_id"
+        case updatedAt = "updated_at"
+        case userNameFrom = "user_name_from"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.auth = try container.decode(ScimTargetAuth.self, forKey: .auth)
+        self.baseURL = try container.decode(String.self, forKey: .baseURL)
+        self.createdAt = try container.decode(String.self, forKey: .createdAt)
+        self.deprovision = try container.decode(DeprovisionPolicy.self, forKey: .deprovision)
+        self.enabled = try container.decode(Bool.self, forKey: .enabled)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.pushGroups = try container.decode(Bool.self, forKey: .pushGroups)
+        self.scope = try container.decode(ScimTargetScope.self, forKey: .scope)
+        self.state = try container.decodeIfPresent(ScimTargetDeliveryState.self, forKey: .state)
+        self.tenantID = try container.decode(String.self, forKey: .tenantID)
+        self.updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        self.userNameFrom = try container.decode(UserNameSource.self, forKey: .userNameFrom)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(auth, forKey: .auth)
+        try container.encode(baseURL, forKey: .baseURL)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(deprovision, forKey: .deprovision)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(pushGroups, forKey: .pushGroups)
+        try container.encode(scope, forKey: .scope)
+        try container.encodeIfPresent(state, forKey: .state)
+        try container.encode(tenantID, forKey: .tenantID)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(userNameFrom, forKey: .userNameFrom)
+    }
+}
+
+/// Which users a target provisions.
+public struct ScimTargetScope: Codable, Sendable {
+    /// The `type` discriminator naming which variant this is.
+    public let type: String
+
+    /// The whole object as the server sent it, to read the variant's own fields from once
+    /// `type` says which it is.
+    public let raw: ManagementJSON
+
+    /// The `type` values this SDK knows (CONTRACT.md §31.2). The set is OPEN: a `type` outside
+    /// it decodes without failing, and is never sent — `encode(to:)` refuses it.
+    public static let knownTypes: Set<String> = ["all_users", "groups"]
+
+    /// Whether `type` is one this SDK knows. `false` for a value decoded from a newer server;
+    /// such a value cannot be written back.
+    public var isKnown: Bool { Self.knownTypes.contains(type) }
+
+    public init(
+        type: String,
+        raw: ManagementJSON
+    ) {
+        self.type = type
+        self.raw = raw
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case type = "type"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.type = try container.decode(String.self, forKey: .type)
+        self.raw = try ManagementJSON(from: decoder)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        // A union is forwarded EXACTLY as received. Re-encoding from the one member this SDK
+        // models would drop every field belonging to the variant it does not model — and the
+        // server round-trips those.
+        // §31.2: an unknown `type` decodes, and MUST NOT be sent. Refused before a byte is
+        // written, as a local validation failure.
+        guard isKnown else {
+            throw AxiamError.network(NetworkError(
+                "ScimTargetScope: a `type` this SDK does not know is never "
+                    + "sent (CONTRACT.md §31.2)",
+                statusCode: 400, isValidation: true))
+        }
+        try raw.encode(to: encoder)
+    }
+}
+
 /// Metadata only. The handle is never in a list response — it exists in plaintext exactly once,
 /// in [`CreateScimTokenResponse`].
 public struct ScimTokenResponse: Codable, Sendable {
@@ -7874,6 +10079,169 @@ public struct SessionResponse: Codable, Sendable {
     }
 }
 
+/// `PUT /api/v1/tenants/{tenant_id}/directory` — a **replacement**. Every `DirectoryConfig`
+/// member except `id`, `tenant_id` and the two timestamps, plus the write-only `bind_secret`.
+/// An omitted optional member is **reset to its default**, not kept.
+public struct SetDirectoryConfig: Codable, Sendable {
+    /// Where users are searched for.
+    public let baseDn: String
+
+    /// The service account the search runs as.
+    public let bindDn: String
+
+    /// The service account's password: **write-only**, 1 to 4096 octets. Required when the
+    /// tenant has no configuration yet; on a replacement, absent means *keep the stored secret*
+    /// — unless the write moves the connection (`url`, `start_tls`, `bind_dn` or
+    /// `trust_anchors_pem`), which then requires it (`400`, P23W2-01).
+    public let bindSecret: Sensitive<String>?
+
+    /// A disabled directory serves no sign-in and is not synced.
+    public let enabled: Bool
+
+    /// Defaults to null.
+    public let groupBaseDn: String?
+
+    /// Defaults to null.
+    public let groupFilter: String?
+
+    /// At most 500; every `group_id` a group of the tenant. Default empty.
+    public let groupMappings: [GroupMapping]?
+
+    /// Defaults by `kind`.
+    public let groupMemberAttribute: String?
+
+    /// `0..=10`, default 5.
+    public let groupNestingDepth: Int?
+
+    /// Default false.
+    public let jitProvisioning: Bool?
+
+    /// Chooses defaults only.
+    public let kind: DirectoryKind
+
+    /// Upgrade an `ldap://` connection with StartTLS before any bind.
+    public let startTLS: Bool
+
+    /// `300..=86400`, default 3600.
+    public let syncIntervalSecs: Int?
+
+    /// At most 16 CA certificates in PEM. Default empty (the public roots).
+    public let trustAnchorsPEM: [String]?
+
+    /// `ldaps://host[:port]`, or `ldap://host[:port]` with `start_tls`.
+    public let url: String
+
+    /// The server's `user_attribute_map` field.
+    public let userAttributeMap: UserAttributeMap?
+
+    /// One `{username}` placeholder in value position.
+    public let userFilter: String
+
+    public init(
+        baseDn: String,
+        bindDn: String,
+        bindSecret: Sensitive<String>? = nil,
+        enabled: Bool,
+        groupBaseDn: String? = nil,
+        groupFilter: String? = nil,
+        groupMappings: [GroupMapping]? = nil,
+        groupMemberAttribute: String? = nil,
+        groupNestingDepth: Int? = nil,
+        jitProvisioning: Bool? = nil,
+        kind: DirectoryKind,
+        startTLS: Bool,
+        syncIntervalSecs: Int? = nil,
+        trustAnchorsPEM: [String]? = nil,
+        url: String,
+        userAttributeMap: UserAttributeMap? = nil,
+        userFilter: String
+    ) {
+        self.baseDn = baseDn
+        self.bindDn = bindDn
+        self.bindSecret = bindSecret
+        self.enabled = enabled
+        self.groupBaseDn = groupBaseDn
+        self.groupFilter = groupFilter
+        self.groupMappings = groupMappings
+        self.groupMemberAttribute = groupMemberAttribute
+        self.groupNestingDepth = groupNestingDepth
+        self.jitProvisioning = jitProvisioning
+        self.kind = kind
+        self.startTLS = startTLS
+        self.syncIntervalSecs = syncIntervalSecs
+        self.trustAnchorsPEM = trustAnchorsPEM
+        self.url = url
+        self.userAttributeMap = userAttributeMap
+        self.userFilter = userFilter
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case baseDn = "base_dn"
+        case bindDn = "bind_dn"
+        case bindSecret = "bind_secret"
+        case enabled = "enabled"
+        case groupBaseDn = "group_base_dn"
+        case groupFilter = "group_filter"
+        case groupMappings = "group_mappings"
+        case groupMemberAttribute = "group_member_attribute"
+        case groupNestingDepth = "group_nesting_depth"
+        case jitProvisioning = "jit_provisioning"
+        case kind = "kind"
+        case startTLS = "start_tls"
+        case syncIntervalSecs = "sync_interval_secs"
+        case trustAnchorsPEM = "trust_anchors_pem"
+        case url = "url"
+        case userAttributeMap = "user_attribute_map"
+        case userFilter = "user_filter"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.baseDn = try container.decode(String.self, forKey: .baseDn)
+        self.bindDn = try container.decode(String.self, forKey: .bindDn)
+        if let raw = try container.decodeIfPresent(String.self, forKey: .bindSecret) {
+            self.bindSecret = Sensitive(raw)
+        } else {
+            self.bindSecret = nil
+        }
+        self.enabled = try container.decode(Bool.self, forKey: .enabled)
+        self.groupBaseDn = try container.decodeIfPresent(String.self, forKey: .groupBaseDn)
+        self.groupFilter = try container.decodeIfPresent(String.self, forKey: .groupFilter)
+        self.groupMappings = try container.decodeIfPresent([GroupMapping].self, forKey: .groupMappings)
+        self.groupMemberAttribute = try container.decodeIfPresent(String.self, forKey: .groupMemberAttribute)
+        self.groupNestingDepth = try container.decodeIfPresent(Int.self, forKey: .groupNestingDepth)
+        self.jitProvisioning = try container.decodeIfPresent(Bool.self, forKey: .jitProvisioning)
+        self.kind = try container.decode(DirectoryKind.self, forKey: .kind)
+        self.startTLS = try container.decode(Bool.self, forKey: .startTLS)
+        self.syncIntervalSecs = try container.decodeIfPresent(Int.self, forKey: .syncIntervalSecs)
+        self.trustAnchorsPEM = try container.decodeIfPresent([String].self, forKey: .trustAnchorsPEM)
+        self.url = try container.decode(String.self, forKey: .url)
+        self.userAttributeMap = try container.decodeIfPresent(UserAttributeMap.self, forKey: .userAttributeMap)
+        self.userFilter = try container.decode(String.self, forKey: .userFilter)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(baseDn, forKey: .baseDn)
+        try container.encode(bindDn, forKey: .bindDn)
+        try container.encodeIfPresent(bindSecret?.expose(), forKey: .bindSecret)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encodeIfPresent(groupBaseDn, forKey: .groupBaseDn)
+        try container.encodeIfPresent(groupFilter, forKey: .groupFilter)
+        try container.encodeIfPresent(groupMappings, forKey: .groupMappings)
+        try container.encodeIfPresent(groupMemberAttribute, forKey: .groupMemberAttribute)
+        try container.encodeIfPresent(groupNestingDepth, forKey: .groupNestingDepth)
+        try container.encodeIfPresent(jitProvisioning, forKey: .jitProvisioning)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(startTLS, forKey: .startTLS)
+        try container.encodeIfPresent(syncIntervalSecs, forKey: .syncIntervalSecs)
+        try container.encodeIfPresent(trustAnchorsPEM, forKey: .trustAnchorsPEM)
+        try container.encode(url, forKey: .url)
+        try container.encodeIfPresent(userAttributeMap, forKey: .userAttributeMap)
+        try container.encode(userFilter, forKey: .userFilter)
+    }
+}
+
 /// Body for `PUT .../ca-certificates/{id}/mtls-trust-anchor`.
 public struct SetMtlsTrustAnchor: Codable, Sendable {
     /// Whether this CA should be trusted for client-certificate authentication.
@@ -8057,12 +10425,20 @@ public struct SetOrgSettings: Codable, Sendable {
     /// The server's `require_uppercase` field.
     public let requireUppercase: Bool
 
+    /// G-2 / D-20 — defaulted, so an API client written before the SAML identity provider
+    /// existed lands on `false`, which is what every deployment did before (I1).
+    public let samlIdpEnabled: Bool?
+
     /// The server's `sensitive_scopes_enabled` field.
     public let sensitiveScopesEnabled: Bool?
 
     /// S-7 — defaulted to empty, so an API client written before the field lands on "no
     /// `Server` certificate is issued" (I1).
     public let serverCertAllowedNames: [String]?
+
+    /// G-5 / D-45 — defaulted, so an API client written before the SSF transmitter existed
+    /// lands on `false`, which is what every deployment did before (I1).
+    public let ssfEnabled: Bool?
 
     /// The server's `webauthn_user_verification` field.
     public let webauthnUserVerification: String?
@@ -8100,8 +10476,10 @@ public struct SetOrgSettings: Codable, Sendable {
         requireLowercase: Bool,
         requireSymbols: Bool,
         requireUppercase: Bool,
+        samlIdpEnabled: Bool? = nil,
         sensitiveScopesEnabled: Bool? = nil,
         serverCertAllowedNames: [String]? = nil,
+        ssfEnabled: Bool? = nil,
         webauthnUserVerification: String? = nil
     ) {
         self.accessTokenLifetimeSecs = accessTokenLifetimeSecs
@@ -8136,8 +10514,10 @@ public struct SetOrgSettings: Codable, Sendable {
         self.requireLowercase = requireLowercase
         self.requireSymbols = requireSymbols
         self.requireUppercase = requireUppercase
+        self.samlIdpEnabled = samlIdpEnabled
         self.sensitiveScopesEnabled = sensitiveScopesEnabled
         self.serverCertAllowedNames = serverCertAllowedNames
+        self.ssfEnabled = ssfEnabled
         self.webauthnUserVerification = webauthnUserVerification
     }
 
@@ -8174,8 +10554,10 @@ public struct SetOrgSettings: Codable, Sendable {
         case requireLowercase = "require_lowercase"
         case requireSymbols = "require_symbols"
         case requireUppercase = "require_uppercase"
+        case samlIdpEnabled = "saml_idp_enabled"
         case sensitiveScopesEnabled = "sensitive_scopes_enabled"
         case serverCertAllowedNames = "server_cert_allowed_names"
+        case ssfEnabled = "ssf_enabled"
         case webauthnUserVerification = "webauthn_user_verification"
     }
 
@@ -8213,8 +10595,10 @@ public struct SetOrgSettings: Codable, Sendable {
         self.requireLowercase = try container.decode(Bool.self, forKey: .requireLowercase)
         self.requireSymbols = try container.decode(Bool.self, forKey: .requireSymbols)
         self.requireUppercase = try container.decode(Bool.self, forKey: .requireUppercase)
+        self.samlIdpEnabled = try container.decodeIfPresent(Bool.self, forKey: .samlIdpEnabled)
         self.sensitiveScopesEnabled = try container.decodeIfPresent(Bool.self, forKey: .sensitiveScopesEnabled)
         self.serverCertAllowedNames = try container.decodeIfPresent([String].self, forKey: .serverCertAllowedNames)
+        self.ssfEnabled = try container.decodeIfPresent(Bool.self, forKey: .ssfEnabled)
         self.webauthnUserVerification = try container.decodeIfPresent(String.self, forKey: .webauthnUserVerification)
     }
 
@@ -8252,8 +10636,10 @@ public struct SetOrgSettings: Codable, Sendable {
         try container.encode(requireLowercase, forKey: .requireLowercase)
         try container.encode(requireSymbols, forKey: .requireSymbols)
         try container.encode(requireUppercase, forKey: .requireUppercase)
+        try container.encodeIfPresent(samlIdpEnabled, forKey: .samlIdpEnabled)
         try container.encodeIfPresent(sensitiveScopesEnabled, forKey: .sensitiveScopesEnabled)
         try container.encodeIfPresent(serverCertAllowedNames, forKey: .serverCertAllowedNames)
+        try container.encodeIfPresent(ssfEnabled, forKey: .ssfEnabled)
         try container.encodeIfPresent(webauthnUserVerification, forKey: .webauthnUserVerification)
     }
 }
@@ -8522,6 +10908,311 @@ public struct SmtpConfig: Codable, Sendable {
     }
 }
 
+/// A registered SSF stream, as the management API returns it. **The push `Authorization` header
+/// is never returned**; `authorization_header_set` says whether one is stored.
+public struct SsfStream: Codable, Sendable {
+    /// The SET `aud`. Unique across the deployment.
+    public let audience: String
+
+    /// Whether a push `Authorization` header is stored.
+    public let authorizationHeaderSet: Bool
+
+    /// When the stream was registered.
+    public let createdAt: String
+
+    /// `push` (RFC 8935) or `poll` (RFC 8936).
+    public let deliveryMethod: SsfDeliveryMethod
+
+    /// A description.
+    public let description: String?
+
+    /// The push endpoint, or null for a poll stream.
+    public let endpointURL: String?
+
+    /// The event types the receiver may have.
+    public let eventsAllowed: [SsfEventType]
+
+    /// What the stream carries: the intersection of the two.
+    public let eventsDelivered: [SsfEventType]
+
+    /// The event types the receiver asked for (a subset of `events_allowed`).
+    public let eventsRequested: [SsfEventType]
+
+    /// The stream id, also the SSF `stream_id`.
+    public let id: String
+
+    /// When the receiver last asked for a verification event, or null.
+    public let lastVerificationAt: String?
+
+    /// The OAuth2 `client_id` whose client-credentials token (scope `ssf.manage`) is this
+    /// stream's receiver on the stream management API.
+    public let receiverClientID: String
+
+    /// `enabled`, `paused` or `disabled`.
+    public let status: SsfStreamStatus
+
+    /// Who set the status: `admin` or `receiver`.
+    public let statusActor: SsfStatusActor
+
+    /// Why, if anyone said.
+    public let statusReason: String?
+
+    /// `iss_sub` (default) or `email`.
+    public let subjectFormat: SsfSubjectFormat
+
+    /// The owning tenant.
+    public let tenantID: String
+
+    /// Whether the tenant's transmitter is active: its `ssf_enabled` is on and the deployment
+    /// does not make every tenant share one issuer (D-55). A stream of an inactive transmitter
+    /// is kept, and carries nothing.
+    public let transmitterActive: Bool
+
+    /// Why the transmitter is inactive, when it is.
+    public let transmitterInactiveReason: String?
+
+    /// When it was last written.
+    public let updatedAt: String
+
+    public init(
+        audience: String,
+        authorizationHeaderSet: Bool,
+        createdAt: String,
+        deliveryMethod: SsfDeliveryMethod,
+        description: String? = nil,
+        endpointURL: String? = nil,
+        eventsAllowed: [SsfEventType],
+        eventsDelivered: [SsfEventType],
+        eventsRequested: [SsfEventType],
+        id: String,
+        lastVerificationAt: String? = nil,
+        receiverClientID: String,
+        status: SsfStreamStatus,
+        statusActor: SsfStatusActor,
+        statusReason: String? = nil,
+        subjectFormat: SsfSubjectFormat,
+        tenantID: String,
+        transmitterActive: Bool,
+        transmitterInactiveReason: String? = nil,
+        updatedAt: String
+    ) {
+        self.audience = audience
+        self.authorizationHeaderSet = authorizationHeaderSet
+        self.createdAt = createdAt
+        self.deliveryMethod = deliveryMethod
+        self.description = description
+        self.endpointURL = endpointURL
+        self.eventsAllowed = eventsAllowed
+        self.eventsDelivered = eventsDelivered
+        self.eventsRequested = eventsRequested
+        self.id = id
+        self.lastVerificationAt = lastVerificationAt
+        self.receiverClientID = receiverClientID
+        self.status = status
+        self.statusActor = statusActor
+        self.statusReason = statusReason
+        self.subjectFormat = subjectFormat
+        self.tenantID = tenantID
+        self.transmitterActive = transmitterActive
+        self.transmitterInactiveReason = transmitterInactiveReason
+        self.updatedAt = updatedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case audience = "audience"
+        case authorizationHeaderSet = "authorization_header_set"
+        case createdAt = "created_at"
+        case deliveryMethod = "delivery_method"
+        case description = "description"
+        case endpointURL = "endpoint_url"
+        case eventsAllowed = "events_allowed"
+        case eventsDelivered = "events_delivered"
+        case eventsRequested = "events_requested"
+        case id = "id"
+        case lastVerificationAt = "last_verification_at"
+        case receiverClientID = "receiver_client_id"
+        case status = "status"
+        case statusActor = "status_actor"
+        case statusReason = "status_reason"
+        case subjectFormat = "subject_format"
+        case tenantID = "tenant_id"
+        case transmitterActive = "transmitter_active"
+        case transmitterInactiveReason = "transmitter_inactive_reason"
+        case updatedAt = "updated_at"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.audience = try container.decode(String.self, forKey: .audience)
+        self.authorizationHeaderSet = try container.decode(Bool.self, forKey: .authorizationHeaderSet)
+        self.createdAt = try container.decode(String.self, forKey: .createdAt)
+        self.deliveryMethod = try container.decode(SsfDeliveryMethod.self, forKey: .deliveryMethod)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
+        self.endpointURL = try container.decodeIfPresent(String.self, forKey: .endpointURL)
+        self.eventsAllowed = try container.decode([SsfEventType].self, forKey: .eventsAllowed)
+        self.eventsDelivered = try container.decode([SsfEventType].self, forKey: .eventsDelivered)
+        self.eventsRequested = try container.decode([SsfEventType].self, forKey: .eventsRequested)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.lastVerificationAt = try container.decodeIfPresent(String.self, forKey: .lastVerificationAt)
+        self.receiverClientID = try container.decode(String.self, forKey: .receiverClientID)
+        self.status = try container.decode(SsfStreamStatus.self, forKey: .status)
+        self.statusActor = try container.decode(SsfStatusActor.self, forKey: .statusActor)
+        self.statusReason = try container.decodeIfPresent(String.self, forKey: .statusReason)
+        self.subjectFormat = try container.decode(SsfSubjectFormat.self, forKey: .subjectFormat)
+        self.tenantID = try container.decode(String.self, forKey: .tenantID)
+        self.transmitterActive = try container.decode(Bool.self, forKey: .transmitterActive)
+        self.transmitterInactiveReason = try container.decodeIfPresent(String.self, forKey: .transmitterInactiveReason)
+        self.updatedAt = try container.decode(String.self, forKey: .updatedAt)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(audience, forKey: .audience)
+        try container.encode(authorizationHeaderSet, forKey: .authorizationHeaderSet)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(deliveryMethod, forKey: .deliveryMethod)
+        try container.encodeIfPresent(description, forKey: .description)
+        try container.encodeIfPresent(endpointURL, forKey: .endpointURL)
+        try container.encode(eventsAllowed, forKey: .eventsAllowed)
+        try container.encode(eventsDelivered, forKey: .eventsDelivered)
+        try container.encode(eventsRequested, forKey: .eventsRequested)
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(lastVerificationAt, forKey: .lastVerificationAt)
+        try container.encode(receiverClientID, forKey: .receiverClientID)
+        try container.encode(status, forKey: .status)
+        try container.encode(statusActor, forKey: .statusActor)
+        try container.encodeIfPresent(statusReason, forKey: .statusReason)
+        try container.encode(subjectFormat, forKey: .subjectFormat)
+        try container.encode(tenantID, forKey: .tenantID)
+        try container.encode(transmitterActive, forKey: .transmitterActive)
+        try container.encodeIfPresent(transmitterInactiveReason, forKey: .transmitterInactiveReason)
+        try container.encode(updatedAt, forKey: .updatedAt)
+    }
+}
+
+/// `create_stream` and `update_stream` (a **replacement**) body.
+public struct SsfStreamInput: Codable, Sendable {
+    /// 1–512 bytes; unique across the deployment.
+    public let audience: String
+
+    /// **Write-only.** The `Authorization` header value AXIAM sends to a push endpoint. On
+    /// update, absent keeps the stored one — except that moving the endpoint to another origin
+    /// requires it again.
+    public let authorizationHeader: Sensitive<String>?
+
+    /// On update: remove the stored header. Refused together with `authorization_header`.
+    public let clearAuthorizationHeader: Bool?
+
+    /// `push` or `poll`.
+    public let deliveryMethod: SsfDeliveryMethod
+
+    /// At most 256 bytes.
+    public let description: String?
+
+    /// Required for `push` (an `https` URL under the outbound address policy), refused for
+    /// `poll`.
+    public let endpointURL: String?
+
+    /// 1–6 event types.
+    public let eventsAllowed: [SsfEventType]
+
+    /// A subset of `events_allowed`; absent means all of them. The receiver may narrow it
+    /// later, never widen it.
+    public let eventsRequested: [SsfEventType]?
+
+    /// An OAuth2 client of the tenant with the `client_credentials` grant and the `ssf.manage`
+    /// scope.
+    public let receiverClientID: String
+
+    /// `enabled` by default.
+    public let status: SsfStreamStatus?
+
+    /// At most 256 bytes.
+    public let statusReason: String?
+
+    /// `iss_sub` by default.
+    public let subjectFormat: SsfSubjectFormat?
+
+    public init(
+        audience: String,
+        authorizationHeader: Sensitive<String>? = nil,
+        clearAuthorizationHeader: Bool? = nil,
+        deliveryMethod: SsfDeliveryMethod,
+        description: String? = nil,
+        endpointURL: String? = nil,
+        eventsAllowed: [SsfEventType],
+        eventsRequested: [SsfEventType]? = nil,
+        receiverClientID: String,
+        status: SsfStreamStatus? = nil,
+        statusReason: String? = nil,
+        subjectFormat: SsfSubjectFormat? = nil
+    ) {
+        self.audience = audience
+        self.authorizationHeader = authorizationHeader
+        self.clearAuthorizationHeader = clearAuthorizationHeader
+        self.deliveryMethod = deliveryMethod
+        self.description = description
+        self.endpointURL = endpointURL
+        self.eventsAllowed = eventsAllowed
+        self.eventsRequested = eventsRequested
+        self.receiverClientID = receiverClientID
+        self.status = status
+        self.statusReason = statusReason
+        self.subjectFormat = subjectFormat
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case audience = "audience"
+        case authorizationHeader = "authorization_header"
+        case clearAuthorizationHeader = "clear_authorization_header"
+        case deliveryMethod = "delivery_method"
+        case description = "description"
+        case endpointURL = "endpoint_url"
+        case eventsAllowed = "events_allowed"
+        case eventsRequested = "events_requested"
+        case receiverClientID = "receiver_client_id"
+        case status = "status"
+        case statusReason = "status_reason"
+        case subjectFormat = "subject_format"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.audience = try container.decode(String.self, forKey: .audience)
+        if let raw = try container.decodeIfPresent(String.self, forKey: .authorizationHeader) {
+            self.authorizationHeader = Sensitive(raw)
+        } else {
+            self.authorizationHeader = nil
+        }
+        self.clearAuthorizationHeader = try container.decodeIfPresent(Bool.self, forKey: .clearAuthorizationHeader)
+        self.deliveryMethod = try container.decode(SsfDeliveryMethod.self, forKey: .deliveryMethod)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
+        self.endpointURL = try container.decodeIfPresent(String.self, forKey: .endpointURL)
+        self.eventsAllowed = try container.decode([SsfEventType].self, forKey: .eventsAllowed)
+        self.eventsRequested = try container.decodeIfPresent([SsfEventType].self, forKey: .eventsRequested)
+        self.receiverClientID = try container.decode(String.self, forKey: .receiverClientID)
+        self.status = try container.decodeIfPresent(SsfStreamStatus.self, forKey: .status)
+        self.statusReason = try container.decodeIfPresent(String.self, forKey: .statusReason)
+        self.subjectFormat = try container.decodeIfPresent(SsfSubjectFormat.self, forKey: .subjectFormat)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(audience, forKey: .audience)
+        try container.encodeIfPresent(authorizationHeader?.expose(), forKey: .authorizationHeader)
+        try container.encodeIfPresent(clearAuthorizationHeader, forKey: .clearAuthorizationHeader)
+        try container.encode(deliveryMethod, forKey: .deliveryMethod)
+        try container.encodeIfPresent(description, forKey: .description)
+        try container.encodeIfPresent(endpointURL, forKey: .endpointURL)
+        try container.encode(eventsAllowed, forKey: .eventsAllowed)
+        try container.encodeIfPresent(eventsRequested, forKey: .eventsRequested)
+        try container.encode(receiverClientID, forKey: .receiverClientID)
+        try container.encodeIfPresent(status, forKey: .status)
+        try container.encodeIfPresent(statusReason, forKey: .statusReason)
+        try container.encodeIfPresent(subjectFormat, forKey: .subjectFormat)
+    }
+}
+
 /// A tenant is an isolated context within an organization. Each tenant has its own set of
 /// users, roles, permissions, resources, certificates, and configuration. Tenants can represent
 /// environments (dev/staging/prod) or separate business contexts.
@@ -8715,6 +11406,10 @@ public struct TenantSettingsOverride: Codable, Sendable {
     /// The server's `require_uppercase` field.
     public let requireUppercase: Bool?
 
+    /// G-2 / D-20 — disable-only, like `sensitive_scopes_enabled`; see
+    /// [`OidcPolicy::saml_idp_enabled`].
+    public let samlIdpEnabled: Bool?
+
     /// The server's `sensitive_scopes_enabled` field.
     public let sensitiveScopesEnabled: Bool?
 
@@ -8722,6 +11417,9 @@ public struct TenantSettingsOverride: Codable, Sendable {
     /// means this tenant issues no `Server` certificate at all, which is different from an
     /// absent field (inherit the organization's list).
     public let serverCertAllowedNames: [String]?
+
+    /// G-5 / D-45 — disable-only, like `saml_idp_enabled`; see [`OidcPolicy::ssf_enabled`].
+    public let ssfEnabled: Bool?
 
     /// The server's `webauthn_user_verification` field.
     public let webauthnUserVerification: String?
@@ -8759,8 +11457,10 @@ public struct TenantSettingsOverride: Codable, Sendable {
         requireLowercase: Bool? = nil,
         requireSymbols: Bool? = nil,
         requireUppercase: Bool? = nil,
+        samlIdpEnabled: Bool? = nil,
         sensitiveScopesEnabled: Bool? = nil,
         serverCertAllowedNames: [String]? = nil,
+        ssfEnabled: Bool? = nil,
         webauthnUserVerification: String? = nil
     ) {
         self.accessTokenLifetimeSecs = accessTokenLifetimeSecs
@@ -8795,8 +11495,10 @@ public struct TenantSettingsOverride: Codable, Sendable {
         self.requireLowercase = requireLowercase
         self.requireSymbols = requireSymbols
         self.requireUppercase = requireUppercase
+        self.samlIdpEnabled = samlIdpEnabled
         self.sensitiveScopesEnabled = sensitiveScopesEnabled
         self.serverCertAllowedNames = serverCertAllowedNames
+        self.ssfEnabled = ssfEnabled
         self.webauthnUserVerification = webauthnUserVerification
     }
 
@@ -8833,8 +11535,10 @@ public struct TenantSettingsOverride: Codable, Sendable {
         case requireLowercase = "require_lowercase"
         case requireSymbols = "require_symbols"
         case requireUppercase = "require_uppercase"
+        case samlIdpEnabled = "saml_idp_enabled"
         case sensitiveScopesEnabled = "sensitive_scopes_enabled"
         case serverCertAllowedNames = "server_cert_allowed_names"
+        case ssfEnabled = "ssf_enabled"
         case webauthnUserVerification = "webauthn_user_verification"
     }
 
@@ -8872,8 +11576,10 @@ public struct TenantSettingsOverride: Codable, Sendable {
         self.requireLowercase = try container.decodeIfPresent(Bool.self, forKey: .requireLowercase)
         self.requireSymbols = try container.decodeIfPresent(Bool.self, forKey: .requireSymbols)
         self.requireUppercase = try container.decodeIfPresent(Bool.self, forKey: .requireUppercase)
+        self.samlIdpEnabled = try container.decodeIfPresent(Bool.self, forKey: .samlIdpEnabled)
         self.sensitiveScopesEnabled = try container.decodeIfPresent(Bool.self, forKey: .sensitiveScopesEnabled)
         self.serverCertAllowedNames = try container.decodeIfPresent([String].self, forKey: .serverCertAllowedNames)
+        self.ssfEnabled = try container.decodeIfPresent(Bool.self, forKey: .ssfEnabled)
         self.webauthnUserVerification = try container.decodeIfPresent(String.self, forKey: .webauthnUserVerification)
     }
 
@@ -8911,8 +11617,10 @@ public struct TenantSettingsOverride: Codable, Sendable {
         try container.encodeIfPresent(requireLowercase, forKey: .requireLowercase)
         try container.encodeIfPresent(requireSymbols, forKey: .requireSymbols)
         try container.encodeIfPresent(requireUppercase, forKey: .requireUppercase)
+        try container.encodeIfPresent(samlIdpEnabled, forKey: .samlIdpEnabled)
         try container.encodeIfPresent(sensitiveScopesEnabled, forKey: .sensitiveScopesEnabled)
         try container.encodeIfPresent(serverCertAllowedNames, forKey: .serverCertAllowedNames)
+        try container.encodeIfPresent(ssfEnabled, forKey: .ssfEnabled)
         try container.encodeIfPresent(webauthnUserVerification, forKey: .webauthnUserVerification)
     }
 }
@@ -9088,6 +11796,167 @@ public struct TokenPolicy: Codable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(accessTokenLifetimeSecs, forKey: .accessTokenLifetimeSecs)
         try container.encode(refreshTokenLifetimeSecs, forKey: .refreshTokenLifetimeSecs)
+    }
+}
+
+/// `PATCH /api/v1/tenants/{tenant_id}/directory` — a **sparse** update. Every member optional:
+/// absent leaves the stored value, and for the two nullable members an explicit `null` clears
+/// it.
+public struct UpdateDirectoryConfig: Codable, Sendable {
+    /// See [`SetDirectoryConfig::base_dn`].
+    public let baseDn: String?
+
+    /// See [`SetDirectoryConfig::bind_dn`].
+    public let bindDn: String?
+
+    /// See [`SetDirectoryConfig::bind_secret`]; absent keeps the stored secret, subject to the
+    /// same P23W2-01 rule.
+    public let bindSecret: Sensitive<String>?
+
+    /// See [`SetDirectoryConfig::enabled`].
+    public let enabled: Bool?
+
+    /// Explicit `null` clears it.
+    public let groupBaseDn: String?
+
+    /// Explicit `null` clears it.
+    public let groupFilter: String?
+
+    /// Replaces the whole table when present.
+    public let groupMappings: [GroupMapping]?
+
+    /// See [`SetDirectoryConfig::group_member_attribute`].
+    public let groupMemberAttribute: String?
+
+    /// See [`SetDirectoryConfig::group_nesting_depth`].
+    public let groupNestingDepth: Int?
+
+    /// See [`SetDirectoryConfig::jit_provisioning`].
+    public let jitProvisioning: Bool?
+
+    /// The server's `kind` field.
+    public let kind: DirectoryKind?
+
+    /// See [`SetDirectoryConfig::start_tls`].
+    public let startTLS: Bool?
+
+    /// See [`SetDirectoryConfig::sync_interval_secs`].
+    public let syncIntervalSecs: Int?
+
+    /// Replaces the whole list when present.
+    public let trustAnchorsPEM: [String]?
+
+    /// See [`SetDirectoryConfig::url`].
+    public let url: String?
+
+    /// The server's `user_attribute_map` field.
+    public let userAttributeMap: UserAttributeMap?
+
+    /// See [`SetDirectoryConfig::user_filter`].
+    public let userFilter: String?
+
+    public init(
+        baseDn: String? = nil,
+        bindDn: String? = nil,
+        bindSecret: Sensitive<String>? = nil,
+        enabled: Bool? = nil,
+        groupBaseDn: String? = nil,
+        groupFilter: String? = nil,
+        groupMappings: [GroupMapping]? = nil,
+        groupMemberAttribute: String? = nil,
+        groupNestingDepth: Int? = nil,
+        jitProvisioning: Bool? = nil,
+        kind: DirectoryKind? = nil,
+        startTLS: Bool? = nil,
+        syncIntervalSecs: Int? = nil,
+        trustAnchorsPEM: [String]? = nil,
+        url: String? = nil,
+        userAttributeMap: UserAttributeMap? = nil,
+        userFilter: String? = nil
+    ) {
+        self.baseDn = baseDn
+        self.bindDn = bindDn
+        self.bindSecret = bindSecret
+        self.enabled = enabled
+        self.groupBaseDn = groupBaseDn
+        self.groupFilter = groupFilter
+        self.groupMappings = groupMappings
+        self.groupMemberAttribute = groupMemberAttribute
+        self.groupNestingDepth = groupNestingDepth
+        self.jitProvisioning = jitProvisioning
+        self.kind = kind
+        self.startTLS = startTLS
+        self.syncIntervalSecs = syncIntervalSecs
+        self.trustAnchorsPEM = trustAnchorsPEM
+        self.url = url
+        self.userAttributeMap = userAttributeMap
+        self.userFilter = userFilter
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case baseDn = "base_dn"
+        case bindDn = "bind_dn"
+        case bindSecret = "bind_secret"
+        case enabled = "enabled"
+        case groupBaseDn = "group_base_dn"
+        case groupFilter = "group_filter"
+        case groupMappings = "group_mappings"
+        case groupMemberAttribute = "group_member_attribute"
+        case groupNestingDepth = "group_nesting_depth"
+        case jitProvisioning = "jit_provisioning"
+        case kind = "kind"
+        case startTLS = "start_tls"
+        case syncIntervalSecs = "sync_interval_secs"
+        case trustAnchorsPEM = "trust_anchors_pem"
+        case url = "url"
+        case userAttributeMap = "user_attribute_map"
+        case userFilter = "user_filter"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.baseDn = try container.decodeIfPresent(String.self, forKey: .baseDn)
+        self.bindDn = try container.decodeIfPresent(String.self, forKey: .bindDn)
+        if let raw = try container.decodeIfPresent(String.self, forKey: .bindSecret) {
+            self.bindSecret = Sensitive(raw)
+        } else {
+            self.bindSecret = nil
+        }
+        self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
+        self.groupBaseDn = try container.decodeIfPresent(String.self, forKey: .groupBaseDn)
+        self.groupFilter = try container.decodeIfPresent(String.self, forKey: .groupFilter)
+        self.groupMappings = try container.decodeIfPresent([GroupMapping].self, forKey: .groupMappings)
+        self.groupMemberAttribute = try container.decodeIfPresent(String.self, forKey: .groupMemberAttribute)
+        self.groupNestingDepth = try container.decodeIfPresent(Int.self, forKey: .groupNestingDepth)
+        self.jitProvisioning = try container.decodeIfPresent(Bool.self, forKey: .jitProvisioning)
+        self.kind = try container.decodeIfPresent(DirectoryKind.self, forKey: .kind)
+        self.startTLS = try container.decodeIfPresent(Bool.self, forKey: .startTLS)
+        self.syncIntervalSecs = try container.decodeIfPresent(Int.self, forKey: .syncIntervalSecs)
+        self.trustAnchorsPEM = try container.decodeIfPresent([String].self, forKey: .trustAnchorsPEM)
+        self.url = try container.decodeIfPresent(String.self, forKey: .url)
+        self.userAttributeMap = try container.decodeIfPresent(UserAttributeMap.self, forKey: .userAttributeMap)
+        self.userFilter = try container.decodeIfPresent(String.self, forKey: .userFilter)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(baseDn, forKey: .baseDn)
+        try container.encodeIfPresent(bindDn, forKey: .bindDn)
+        try container.encodeIfPresent(bindSecret?.expose(), forKey: .bindSecret)
+        try container.encodeIfPresent(enabled, forKey: .enabled)
+        try container.encodeIfPresent(groupBaseDn, forKey: .groupBaseDn)
+        try container.encodeIfPresent(groupFilter, forKey: .groupFilter)
+        try container.encodeIfPresent(groupMappings, forKey: .groupMappings)
+        try container.encodeIfPresent(groupMemberAttribute, forKey: .groupMemberAttribute)
+        try container.encodeIfPresent(groupNestingDepth, forKey: .groupNestingDepth)
+        try container.encodeIfPresent(jitProvisioning, forKey: .jitProvisioning)
+        try container.encodeIfPresent(kind, forKey: .kind)
+        try container.encodeIfPresent(startTLS, forKey: .startTLS)
+        try container.encodeIfPresent(syncIntervalSecs, forKey: .syncIntervalSecs)
+        try container.encodeIfPresent(trustAnchorsPEM, forKey: .trustAnchorsPEM)
+        try container.encodeIfPresent(url, forKey: .url)
+        try container.encodeIfPresent(userAttributeMap, forKey: .userAttributeMap)
+        try container.encodeIfPresent(userFilter, forKey: .userFilter)
     }
 }
 
@@ -9383,9 +12252,21 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
     /// The server's `authn_request_params` field.
     public let authnRequestParams: AuthnRequestParamsMode?
 
+    /// G-7 — see the create DTO. `""` clears.
+    public let backchannelAuthenticationRequestSigningAlg: String?
+
+    /// G-7 — see the create DTO. `""` clears.
+    public let backchannelClientNotificationEndpoint: String?
+
     /// Pass an empty string to clear a previously registered URI — the one edit an operator
     /// makes when an RP is decommissioned.
     public let backchannelLogoutURI: String?
+
+    /// G-7 — see the create DTO. `""` clears.
+    public let backchannelTokenDeliveryMode: String?
+
+    /// G-7 — `true` refused, as on create.
+    public let backchannelUserCodeParameter: Bool?
 
     /// X7.3 — see [`CreateOAuth2ClientRequest::browser_sso`].
     public let browserSSO: Bool?
@@ -9445,7 +12326,11 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
     public init(
         allowedResources: [String]? = nil,
         authnRequestParams: AuthnRequestParamsMode? = nil,
+        backchannelAuthenticationRequestSigningAlg: String? = nil,
+        backchannelClientNotificationEndpoint: String? = nil,
         backchannelLogoutURI: String? = nil,
+        backchannelTokenDeliveryMode: String? = nil,
+        backchannelUserCodeParameter: Bool? = nil,
         browserSSO: Bool? = nil,
         dpopBoundAccessTokens: Bool? = nil,
         dpopRequireNonce: Bool? = nil,
@@ -9467,7 +12352,11 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
     ) {
         self.allowedResources = allowedResources
         self.authnRequestParams = authnRequestParams
+        self.backchannelAuthenticationRequestSigningAlg = backchannelAuthenticationRequestSigningAlg
+        self.backchannelClientNotificationEndpoint = backchannelClientNotificationEndpoint
         self.backchannelLogoutURI = backchannelLogoutURI
+        self.backchannelTokenDeliveryMode = backchannelTokenDeliveryMode
+        self.backchannelUserCodeParameter = backchannelUserCodeParameter
         self.browserSSO = browserSSO
         self.dpopBoundAccessTokens = dpopBoundAccessTokens
         self.dpopRequireNonce = dpopRequireNonce
@@ -9491,7 +12380,11 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case allowedResources = "allowed_resources"
         case authnRequestParams = "authn_request_params"
+        case backchannelAuthenticationRequestSigningAlg = "backchannel_authentication_request_signing_alg"
+        case backchannelClientNotificationEndpoint = "backchannel_client_notification_endpoint"
         case backchannelLogoutURI = "backchannel_logout_uri"
+        case backchannelTokenDeliveryMode = "backchannel_token_delivery_mode"
+        case backchannelUserCodeParameter = "backchannel_user_code_parameter"
         case browserSSO = "browser_sso"
         case dpopBoundAccessTokens = "dpop_bound_access_tokens"
         case dpopRequireNonce = "dpop_require_nonce"
@@ -9516,7 +12409,11 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.allowedResources = try container.decodeIfPresent([String].self, forKey: .allowedResources)
         self.authnRequestParams = try container.decodeIfPresent(AuthnRequestParamsMode.self, forKey: .authnRequestParams)
+        self.backchannelAuthenticationRequestSigningAlg = try container.decodeIfPresent(String.self, forKey: .backchannelAuthenticationRequestSigningAlg)
+        self.backchannelClientNotificationEndpoint = try container.decodeIfPresent(String.self, forKey: .backchannelClientNotificationEndpoint)
         self.backchannelLogoutURI = try container.decodeIfPresent(String.self, forKey: .backchannelLogoutURI)
+        self.backchannelTokenDeliveryMode = try container.decodeIfPresent(String.self, forKey: .backchannelTokenDeliveryMode)
+        self.backchannelUserCodeParameter = try container.decodeIfPresent(Bool.self, forKey: .backchannelUserCodeParameter)
         self.browserSSO = try container.decodeIfPresent(Bool.self, forKey: .browserSSO)
         self.dpopBoundAccessTokens = try container.decodeIfPresent(Bool.self, forKey: .dpopBoundAccessTokens)
         self.dpopRequireNonce = try container.decodeIfPresent(Bool.self, forKey: .dpopRequireNonce)
@@ -9541,7 +12438,11 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(allowedResources, forKey: .allowedResources)
         try container.encodeIfPresent(authnRequestParams, forKey: .authnRequestParams)
+        try container.encodeIfPresent(backchannelAuthenticationRequestSigningAlg, forKey: .backchannelAuthenticationRequestSigningAlg)
+        try container.encodeIfPresent(backchannelClientNotificationEndpoint, forKey: .backchannelClientNotificationEndpoint)
         try container.encodeIfPresent(backchannelLogoutURI, forKey: .backchannelLogoutURI)
+        try container.encodeIfPresent(backchannelTokenDeliveryMode, forKey: .backchannelTokenDeliveryMode)
+        try container.encodeIfPresent(backchannelUserCodeParameter, forKey: .backchannelUserCodeParameter)
         try container.encodeIfPresent(browserSSO, forKey: .browserSSO)
         try container.encodeIfPresent(dpopBoundAccessTokens, forKey: .dpopBoundAccessTokens)
         try container.encodeIfPresent(dpopRequireNonce, forKey: .dpopRequireNonce)
@@ -10049,6 +12950,56 @@ public struct UpdateWebhookRequest: Codable, Sendable {
         try container.encodeIfPresent(retryPolicy, forKey: .retryPolicy)
         try container.encodeIfPresent(secret?.expose(), forKey: .secret)
         try container.encodeIfPresent(url, forKey: .url)
+    }
+}
+
+/// Which directory attribute feeds each AXIAM user field.
+public struct UserAttributeMap: Codable, Sendable {
+    /// The attribute holding the human-readable name.
+    public let displayName: String
+
+    /// The attribute holding the e-mail address.
+    public let email: String
+
+    /// The attribute holding the immutable entry identifier (`entryUUID`, `objectGUID`).
+    public let externalID: String
+
+    /// The attribute holding the login name (`uid`, `sAMAccountName`).
+    public let username: String
+
+    public init(
+        displayName: String,
+        email: String,
+        externalID: String,
+        username: String
+    ) {
+        self.displayName = displayName
+        self.email = email
+        self.externalID = externalID
+        self.username = username
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case displayName = "display_name"
+        case email = "email"
+        case externalID = "external_id"
+        case username = "username"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.displayName = try container.decode(String.self, forKey: .displayName)
+        self.email = try container.decode(String.self, forKey: .email)
+        self.externalID = try container.decode(String.self, forKey: .externalID)
+        self.username = try container.decode(String.self, forKey: .username)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(displayName, forKey: .displayName)
+        try container.encode(email, forKey: .email)
+        try container.encode(externalID, forKey: .externalID)
+        try container.encode(username, forKey: .username)
     }
 }
 

@@ -55,7 +55,22 @@ SCHEMAS: dict[str, Any] = SPEC["components"]["schemas"]
 # §27.4 rule 3: `{org_id}` always defaults from the client. `{tenant_id}`
 # defaults from the client only where it names the *context*; in `tenants` and
 # the signing-CA routes it names the object being acted on.
-IMPLICIT_TENANT_NAMESPACES = {"email_config", "settings", "webauthn_policy"}
+#
+# The §29 (`saml`), §30 (`directory`) and §32 (`ssf`) namespaces of contract 1.54-1.56
+# carry `{tenant_id}` as the context on every route, and their sections say so in as
+# many words ("defaulted from the client's configured tenant per §27.4 rule 3").
+# `scim_targets` (§31) has no tenant path parameter at all.
+IMPLICIT_TENANT_NAMESPACES = {
+    "directory", "email_config", "saml", "settings", "ssf", "webauthn_policy",
+}
+
+# Internally-tagged unions whose tag is an OPEN set. CONTRACT.md §31.2: "an SDK MUST
+# decode an unknown `type` without failing" and MUST NOT send one. Every union already
+# DECODES an unknown tag (the tag is a `String` and the object is kept as received); for
+# these the generated `encode(to:)` additionally refuses a tag outside the known arms, so
+# a value read from a newer server cannot be written back as a spelling this SDK never
+# understood.
+OPEN_UNIONS = {"ScimTargetAuth", "ScimTargetScope"}
 
 # Swift has one module and no nested namespaces, so a generated model shares a name space
 # with every type the hand-written SDK already declares -- and a collision there is a hard
@@ -464,8 +479,17 @@ def model_type(name: str) -> str:
 
 
 def enum_case(value: str) -> str:
-    """A Swift enum case name for one wire value."""
-    return ident(swift_case(value))
+    """A Swift enum case name for one wire value.
+
+    Most values are snake_case words. §32's `SsfEventType` values are event-type URIs
+    (`https://schemas.openid.net/secevent/caep/event-type/session-revoked`); the last
+    path segment is what names the event, so that names the case (`sessionRevoked`) and
+    the URI stays the raw value.
+    """
+    text = str(value)
+    if "/" in text:
+        text = text.rstrip("/").rsplit("/", 1)[-1]
+    return ident(swift_case(text))
 
 
 def doc(text: str, indent: str = "", width: int = 96) -> list[str]:
@@ -1078,6 +1102,24 @@ def emit_models() -> str:
             out.append("    public var inherits: Bool { inherit ?? true }")
             out.append("")
 
+        open_union = rendered in OPEN_UNIONS
+        if open_union:
+            union = discriminated(SCHEMAS.get(name) or {})
+            assert union is not None, f"OPEN_UNIONS names {name}, which is not a tagged union"
+            tag, arms = union
+            known = ", ".join(f'"{value}"' for value, _ in arms)
+            out.extend(doc(
+                f"The `{tag}` values this SDK knows (CONTRACT.md §31.2). The set is OPEN: "
+                f"a `{tag}` outside it decodes without failing, and is never sent — "
+                "`encode(to:)` refuses it.", "    "))
+            out.append(f"    public static let knownTypes: Set<String> = [{known}]")
+            out.append("")
+            out.extend(doc(
+                f"Whether `{tag}` is one this SDK knows. `false` for a value decoded from a "
+                "newer server; such a value cannot be written back.", "    "))
+            out.append(f"    public var isKnown: Bool {{ Self.knownTypes.contains({field(tag)}) }}")
+            out.append("")
+
         # memberwise init — Swift synthesises one, but only `internal`, and a public struct
         # in a library that consumers cannot construct is a request body nobody can send.
         args = []
@@ -1120,6 +1162,16 @@ def emit_models() -> str:
                 "A union is forwarded EXACTLY as received. Re-encoding from the one member "
                 "this SDK models would drop every field belonging to the variant it does "
                 "not model — and the server round-trips those.", "        "))
+            if open_union:
+                out.extend(comment(
+                    "§31.2: an unknown `type` decodes, and MUST NOT be sent. Refused before "
+                    "a byte is written, as a local validation failure.", "        "))
+                out.append("        guard isKnown else {")
+                out.append("            throw AxiamError.network(NetworkError(")
+                out.append(f'                "{rendered}: a `type` this SDK does not know is never "')
+                out.append('                    + "sent (CONTRACT.md §31.2)",')
+                out.append("                statusCode: 400, isValidation: true))")
+                out.append("        }")
             for f in fields:
                 if f["kind"] == "union_raw":
                     out.extend(encode_expr(f))

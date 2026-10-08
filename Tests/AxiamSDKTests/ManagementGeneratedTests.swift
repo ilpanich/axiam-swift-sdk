@@ -100,7 +100,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureCreateOAuth2ClientRequest: CreateOAuth2ClientRequest = decodeFixture(
         CreateOAuth2ClientRequest.self,
-        "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_logout_uri\": \"example\", \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}",
+        "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"example\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_logout_uri\": \"example\", \"backchannel_token_delivery_mode\": \"example\", \"backchannel_user_code_parameter\": true, \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}",
         "CreateOAuth2ClientRequest")
 
     static let fixtureCreatePermissionRequest: CreatePermissionRequest = decodeFixture(
@@ -188,6 +188,16 @@ final class ManagementGeneratedTests: XCTestCase {
         "{\"private_key_pem\": \"example\", \"public_cert_pem\": \"example\"}",
         "ImportCaCertificateRequest")
 
+    static let fixtureIssueSamlIdpCredential: IssueSamlIdpCredential = decodeFixture(
+        IssueSamlIdpCredential.self,
+        "{\"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"slot\": \"active\", \"validity_days\": 1}",
+        "IssueSamlIdpCredential")
+
+    static let fixtureLinkDirectoryAccount: LinkDirectoryAccount = decodeFixture(
+        LinkDirectoryAccount.self,
+        "{\"user_id\": \"11111111-1111-4111-8111-111111111111\"}",
+        "LinkDirectoryAccount")
+
     static let fixtureOidcAuthorizeRequest: OidcAuthorizeRequest = decodeFixture(
         OidcAuthorizeRequest.self,
         "{\"config_id\": \"11111111-1111-4111-8111-111111111111\", \"nonce\": \"example\", \"redirect_uri\": \"example\", \"state\": \"example\"}",
@@ -197,6 +207,26 @@ final class ManagementGeneratedTests: XCTestCase {
         OidcCallbackRequest.self,
         "{\"code\": \"example\", \"config_id\": \"11111111-1111-4111-8111-111111111111\", \"nonce\": \"example\", \"redirect_uri\": \"example\", \"state\": \"example\"}",
         "OidcCallbackRequest")
+
+    static let fixtureParseSamlSpMetadata: ParseSamlSpMetadata = decodeFixture(
+        ParseSamlSpMetadata.self,
+        "{\"metadata_url\": \"example\", \"metadata_xml\": \"example\"}",
+        "ParseSamlSpMetadata")
+
+    static let fixtureSamlServiceProviderInput: SamlServiceProviderInput = decodeFixture(
+        SamlServiceProviderInput.self,
+        "{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}",
+        "SamlServiceProviderInput")
+
+    static let fixtureScimTargetInput: ScimTargetInput = decodeFixture(
+        ScimTargetInput.self,
+        "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"credential\": \"example\", \"deprovision\": \"deactivate\", \"enabled\": true, \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"user_name_from\": \"username\"}",
+        "ScimTargetInput")
+
+    static let fixtureSetDirectoryConfig: SetDirectoryConfig = decodeFixture(
+        SetDirectoryConfig.self,
+        "{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"bind_secret\": \"example\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"trust_anchors_pem\": [\"example\"], \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}",
+        "SetDirectoryConfig")
 
     static let fixtureSetMtlsTrustAnchor: SetMtlsTrustAnchor = decodeFixture(
         SetMtlsTrustAnchor.self,
@@ -210,7 +240,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureSetOrgSettings: SetOrgSettings = decodeFixture(
         SetOrgSettings.self,
-        "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}",
+        "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}",
         "SetOrgSettings")
 
     static let fixtureSignAuditBatchRequest: SignAuditBatchRequest = decodeFixture(
@@ -228,10 +258,20 @@ final class ManagementGeneratedTests: XCTestCase {
         "{\"csr_pem\": \"example\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}",
         "SignIntermediateCsrRequest")
 
+    static let fixtureSsfStreamInput: SsfStreamInput = decodeFixture(
+        SsfStreamInput.self,
+        "{\"audience\": \"example\", \"authorization_header\": \"example\", \"clear_authorization_header\": true, \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\"}",
+        "SsfStreamInput")
+
     static let fixtureTenantSettingsOverride: TenantSettingsOverride = decodeFixture(
         TenantSettingsOverride.self,
-        "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}",
+        "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}",
         "TenantSettingsOverride")
+
+    static let fixtureUpdateDirectoryConfig: UpdateDirectoryConfig = decodeFixture(
+        UpdateDirectoryConfig.self,
+        "{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"bind_secret\": \"example\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"trust_anchors_pem\": [\"example\"], \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}",
+        "UpdateDirectoryConfig")
 
     static let fixtureUpdateFederationConfigRequest: UpdateFederationConfigRequest = decodeFixture(
         UpdateFederationConfigRequest.self,
@@ -250,7 +290,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureUpdateOAuth2ClientRequest: UpdateOAuth2ClientRequest = decodeFixture(
         UpdateOAuth2ClientRequest.self,
-        "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_logout_uri\": \"example\", \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}",
+        "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"example\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_logout_uri\": \"example\", \"backchannel_token_delivery_mode\": \"example\", \"backchannel_user_code_parameter\": true, \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}",
         "UpdateOAuth2ClientRequest")
 
     static let fixtureUpdateOrganizationRequest: UpdateOrganizationRequest = decodeFixture(
@@ -1320,7 +1360,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testOauth2ClientsListReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"items\": [{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+            [(status: 200, body: "{\"items\": [{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"PS256\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_token_delivery_mode\": \"poll\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
         _ = try await client.oauth2Clients.list()
 
         XCTAssertEqual(transport.count, 1)
@@ -1340,7 +1380,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testOauth2ClientsGetReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+            [(status: 200, body: "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"PS256\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_token_delivery_mode\": \"poll\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
         _ = try await client.oauth2Clients.get(id: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -1350,7 +1390,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testOauth2ClientsUpdateReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+            [(status: 200, body: "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"PS256\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_token_delivery_mode\": \"poll\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
         _ = try await client.oauth2Clients.update(id: "11111111-1111-4111-8111-111111111111", body: Self.fixtureUpdateOAuth2ClientRequest)
 
         XCTAssertEqual(transport.count, 1)
@@ -1608,9 +1648,289 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/email-config/test")
     }
 
+    func testDirectoryGetReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"trust_anchors_pem\": [\"example\"], \"updated_at\": \"2026-08-26T00:00:00Z\", \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}")])
+        _ = try await client.directory.get()
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/directory")
+    }
+
+    func testDirectorySetReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"trust_anchors_pem\": [\"example\"], \"updated_at\": \"2026-08-26T00:00:00Z\", \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}")])
+        _ = try await client.directory.set(body: Self.fixtureSetDirectoryConfig)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "PUT")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/directory")
+    }
+
+    func testDirectoryUpdateReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"trust_anchors_pem\": [\"example\"], \"updated_at\": \"2026-08-26T00:00:00Z\", \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}")])
+        _ = try await client.directory.update(body: Self.fixtureUpdateDirectoryConfig)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "PATCH")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/directory")
+    }
+
+    func testDirectoryDeleteReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 204, body: "")])
+        _ = try await client.directory.delete()
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "DELETE")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/directory")
+    }
+
+    func testDirectoryLinkAccountReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"certificates_revoked\": 1, \"directory_external_id\": \"example\", \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"was_already_linked\": true, \"webauthn_credentials_deleted\": 1}")])
+        _ = try await client.directory.linkAccount(body: Self.fixtureLinkDirectoryAccount)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/directory/links")
+    }
+
+    func testDirectoryGetSyncStatusReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"full_required\": true, \"has_watermark\": true, \"last_attempt_at\": \"2026-08-26T00:00:00Z\", \"last_full_run_at\": \"2026-08-26T00:00:00Z\", \"last_result\": \"example\"}")])
+        _ = try await client.directory.getSyncStatus()
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/directory/sync-status")
+    }
+
+    func testSamlGetIdpReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"active_credential_id\": \"11111111-1111-4111-8111-111111111111\", \"entity_id\": \"example\", \"metadata_served\": true, \"metadata_url\": \"example\", \"next_credential_id\": \"11111111-1111-4111-8111-111111111111\", \"saml_available\": true, \"saml_idp_enabled\": true, \"slo_url\": \"example\", \"sso_url\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}")])
+        _ = try await client.saml.getIdp()
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/saml/idp")
+    }
+
+    func testSamlListServiceProvidersReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"items\": [{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"created_at\": \"2026-08-26T00:00:00Z\", \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"want_authn_requests_signed\": true}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+        _ = try await client.saml.listServiceProviders()
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/saml/service-providers")
+    }
+
+    func testSamlCreateServiceProviderReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"created_at\": \"2026-08-26T00:00:00Z\", \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"want_authn_requests_signed\": true}")])
+        _ = try await client.saml.createServiceProvider(body: Self.fixtureSamlServiceProviderInput)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/saml/service-providers")
+    }
+
+    func testSamlGetServiceProviderReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"created_at\": \"2026-08-26T00:00:00Z\", \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"want_authn_requests_signed\": true}")])
+        _ = try await client.saml.getServiceProvider(spID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/saml/service-providers/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testSamlUpdateServiceProviderReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"created_at\": \"2026-08-26T00:00:00Z\", \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"want_authn_requests_signed\": true}")])
+        _ = try await client.saml.updateServiceProvider(spID: "11111111-1111-4111-8111-111111111111", body: Self.fixtureSamlServiceProviderInput)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "PUT")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/saml/service-providers/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testSamlDeleteServiceProviderReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 204, body: "")])
+        _ = try await client.saml.deleteServiceProvider(spID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "DELETE")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/saml/service-providers/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testSamlParseSpMetadataReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"encryption_certificate_fingerprint\": \"example\", \"service_provider\": {\"acs_urls\": [{\"binding\": null, \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": null}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}, \"signing_certificate_fingerprint\": \"example\", \"warnings\": [\"example\"]}")])
+        _ = try await client.saml.parseSpMetadata(body: Self.fixtureParseSamlSpMetadata)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/saml/parse-sp-metadata")
+    }
+
+    func testSamlListIdpCredentialsReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "[{\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}]")])
+        _ = try await client.saml.listIdpCredentials()
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/saml/idp-credentials")
+    }
+
+    func testSamlIssueIdpCredentialReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}")])
+        _ = try await client.saml.issueIdpCredential(body: Self.fixtureIssueSamlIdpCredential)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/saml/idp-credentials")
+    }
+
+    func testSamlPromoteIdpCredentialReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"active\": {\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}, \"retired\": {\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}}")])
+        _ = try await client.saml.promoteIdpCredential(credentialID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/saml/idp-credentials/11111111-1111-4111-8111-111111111111/promote")
+    }
+
+    func testSamlRetireIdpCredentialReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}")])
+        _ = try await client.saml.retireIdpCredential(credentialID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/saml/idp-credentials/11111111-1111-4111-8111-111111111111/retire")
+    }
+
+    func testSsfListStreamsReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"items\": [{\"audience\": \"example\", \"authorization_header_set\": true, \"created_at\": \"2026-08-26T00:00:00Z\", \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_delivered\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_verification_at\": \"2026-08-26T00:00:00Z\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_actor\": \"admin\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"transmitter_active\": true, \"transmitter_inactive_reason\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+        _ = try await client.ssf.listStreams()
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/ssf/streams")
+    }
+
+    func testSsfCreateStreamReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"audience\": \"example\", \"authorization_header_set\": true, \"created_at\": \"2026-08-26T00:00:00Z\", \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_delivered\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_verification_at\": \"2026-08-26T00:00:00Z\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_actor\": \"admin\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"transmitter_active\": true, \"transmitter_inactive_reason\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+        _ = try await client.ssf.createStream(body: Self.fixtureSsfStreamInput)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/ssf/streams")
+    }
+
+    func testSsfGetStreamReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"audience\": \"example\", \"authorization_header_set\": true, \"created_at\": \"2026-08-26T00:00:00Z\", \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_delivered\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_verification_at\": \"2026-08-26T00:00:00Z\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_actor\": \"admin\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"transmitter_active\": true, \"transmitter_inactive_reason\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+        _ = try await client.ssf.getStream(streamID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/ssf/streams/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testSsfUpdateStreamReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"audience\": \"example\", \"authorization_header_set\": true, \"created_at\": \"2026-08-26T00:00:00Z\", \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_delivered\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_verification_at\": \"2026-08-26T00:00:00Z\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_actor\": \"admin\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"transmitter_active\": true, \"transmitter_inactive_reason\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+        _ = try await client.ssf.updateStream(streamID: "11111111-1111-4111-8111-111111111111", body: Self.fixtureSsfStreamInput)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "PUT")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/ssf/streams/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testSsfDeleteStreamReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 204, body: "")])
+        _ = try await client.ssf.deleteStream(streamID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "DELETE")
+        XCTAssertEqual(transport.last?.path, "/api/v1/tenants/11111111-1111-4111-8111-111111111111/ssf/streams/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testScimTargetsListReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"items\": [{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"deprovision\": \"deactivate\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"state\": {\"consecutive_failures\": 1, \"dead_lettered_total\": 1, \"last_failure_at\": \"2026-08-26T00:00:00Z\", \"last_failure_reason\": \"example\", \"last_reconciled_at\": \"2026-08-26T00:00:00Z\", \"last_success_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"user_name_from\": \"username\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+        _ = try await client.scimTargets.list()
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/scim-targets")
+    }
+
+    func testScimTargetsCreateReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"deprovision\": \"deactivate\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"state\": {\"consecutive_failures\": 1, \"dead_lettered_total\": 1, \"last_failure_at\": \"2026-08-26T00:00:00Z\", \"last_failure_reason\": \"example\", \"last_reconciled_at\": \"2026-08-26T00:00:00Z\", \"last_success_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"user_name_from\": \"username\"}")])
+        _ = try await client.scimTargets.create(body: Self.fixtureScimTargetInput)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/scim-targets")
+    }
+
+    func testScimTargetsGetReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"deprovision\": \"deactivate\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"state\": {\"consecutive_failures\": 1, \"dead_lettered_total\": 1, \"last_failure_at\": \"2026-08-26T00:00:00Z\", \"last_failure_reason\": \"example\", \"last_reconciled_at\": \"2026-08-26T00:00:00Z\", \"last_success_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"user_name_from\": \"username\"}")])
+        _ = try await client.scimTargets.get(id: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/scim-targets/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testScimTargetsUpdateReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"deprovision\": \"deactivate\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"state\": {\"consecutive_failures\": 1, \"dead_lettered_total\": 1, \"last_failure_at\": \"2026-08-26T00:00:00Z\", \"last_failure_reason\": \"example\", \"last_reconciled_at\": \"2026-08-26T00:00:00Z\", \"last_success_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"user_name_from\": \"username\"}")])
+        _ = try await client.scimTargets.update(id: "11111111-1111-4111-8111-111111111111", body: Self.fixtureScimTargetInput)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "PUT")
+        XCTAssertEqual(transport.last?.path, "/api/v1/scim-targets/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testScimTargetsDeleteReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 204, body: "")])
+        _ = try await client.scimTargets.delete(id: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "DELETE")
+        XCTAssertEqual(transport.last?.path, "/api/v1/scim-targets/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testScimTargetsReconcileReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"status\": \"example\", \"target_id\": \"11111111-1111-4111-8111-111111111111\"}")])
+        _ = try await client.scimTargets.reconcile(id: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/scim-targets/11111111-1111-4111-8111-111111111111/reconcile")
+    }
+
     func testSettingsGetOrgReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
+            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
         _ = try await client.settings.getOrg()
 
         XCTAssertEqual(transport.count, 1)
@@ -1620,7 +1940,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testSettingsSetOrgReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
+            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
         _ = try await client.settings.setOrg(body: Self.fixtureSetOrgSettings)
 
         XCTAssertEqual(transport.count, 1)
@@ -1630,7 +1950,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testSettingsGetEffectiveReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
+            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
         _ = try await client.settings.getEffective()
 
         XCTAssertEqual(transport.count, 1)
@@ -1640,7 +1960,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testSettingsSetEffectiveReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
+            [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
         _ = try await client.settings.setEffective(body: Self.fixtureTenantSettingsOverride)
 
         XCTAssertEqual(transport.count, 1)
@@ -1650,7 +1970,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testSettingsGetTenantOverrideReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}")])
+            [(status: 200, body: "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}")])
         _ = try await client.settings.getTenantOverride()
 
         XCTAssertEqual(transport.count, 1)
@@ -1660,7 +1980,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testSettingsSetTenantOverrideReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}")])
+            [(status: 200, body: "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}")])
         _ = try await client.settings.setTenantOverride(body: Self.fixtureTenantSettingsOverride)
 
         XCTAssertEqual(transport.count, 1)
@@ -1890,7 +2210,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testPlatformHealthReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"status\": \"example\"}")])
+            [(status: 200, body: "{\"profile\": \"example\", \"status\": \"example\", \"unavailable\": [\"example\"]}")])
         _ = try await client.platform.health()
 
         XCTAssertEqual(transport.count, 1)
@@ -1926,6 +2246,32 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(transport.count, 1)
         XCTAssertEqual(transport.last?.method, "POST")
         XCTAssertEqual(transport.last?.path, "/api/v1/mds/refresh")
+    }
+
+    func testAcsEndpointRoundTripsWithoutLosingAField() throws {
+        let json = "{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(AcsEndpoint.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(AcsEndpoint.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
     func testAddMemberRequestRoundTripsWithoutLosingAField() throws {
@@ -2078,6 +2424,32 @@ final class ManagementGeneratedTests: XCTestCase {
         // And encoding is a fixed point — a second pass changes nothing.
         let twice = try JSONEncoder().encode(
             try JSONDecoder().decode(AssignRoleToUserRequest.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testAttributeMappingRoundTripsWithoutLosingAField() throws {
+        let json = "{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(AttributeMapping.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(AttributeMapping.self, from: encoded))
         let third = try XCTUnwrap(
             JSONSerialization.jsonObject(with: twice) as? [String: Any])
         XCTAssertEqual(
@@ -2449,7 +2821,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCreateOAuth2ClientRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_logout_uri\": \"example\", \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}"
+        let json = "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"example\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_logout_uri\": \"example\", \"backchannel_token_delivery_mode\": \"example\", \"backchannel_user_code_parameter\": true, \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -2832,6 +3204,84 @@ final class ManagementGeneratedTests: XCTestCase {
         // And encoding is a fixed point — a second pass changes nothing.
         let twice = try JSONEncoder().encode(
             try JSONDecoder().decode(CreateWebhookRequest.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testDirectoryConfigRoundTripsWithoutLosingAField() throws {
+        let json = "{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"trust_anchors_pem\": [\"example\"], \"updated_at\": \"2026-08-26T00:00:00Z\", \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(DirectoryConfig.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(DirectoryConfig.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testDirectoryLinkResultRoundTripsWithoutLosingAField() throws {
+        let json = "{\"certificates_revoked\": 1, \"directory_external_id\": \"example\", \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"was_already_linked\": true, \"webauthn_credentials_deleted\": 1}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(DirectoryLinkResult.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(DirectoryLinkResult.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testDirectorySyncStatusRoundTripsWithoutLosingAField() throws {
+        let json = "{\"full_required\": true, \"has_watermark\": true, \"last_attempt_at\": \"2026-08-26T00:00:00Z\", \"last_full_run_at\": \"2026-08-26T00:00:00Z\", \"last_result\": \"example\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(DirectorySyncStatus.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(DirectorySyncStatus.self, from: encoded))
         let third = try XCTUnwrap(
             JSONSerialization.jsonObject(with: twice) as? [String: Any])
         XCTAssertEqual(
@@ -3228,8 +3678,34 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
+    func testGroupMappingRoundTripsWithoutLosingAField() throws {
+        let json = "{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(GroupMapping.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(GroupMapping.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
     func testHealthResponseRoundTripsWithoutLosingAField() throws {
-        let json = "{\"status\": \"example\"}"
+        let json = "{\"profile\": \"example\", \"status\": \"example\", \"unavailable\": [\"example\"]}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -3274,6 +3750,58 @@ final class ManagementGeneratedTests: XCTestCase {
         // And encoding is a fixed point — a second pass changes nothing.
         let twice = try JSONEncoder().encode(
             try JSONDecoder().decode(ImportCaCertificateRequest.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testIssueSamlIdpCredentialRoundTripsWithoutLosingAField() throws {
+        let json = "{\"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"slot\": \"active\", \"validity_days\": 1}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(IssueSamlIdpCredential.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(IssueSamlIdpCredential.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testLinkDirectoryAccountRoundTripsWithoutLosingAField() throws {
+        let json = "{\"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(LinkDirectoryAccount.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(LinkDirectoryAccount.self, from: encoded))
         let third = try XCTUnwrap(
             JSONSerialization.jsonObject(with: twice) as? [String: Any])
         XCTAssertEqual(
@@ -3541,7 +4069,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testOAuth2ClientResponseRoundTripsWithoutLosingAField() throws {
-        let json = "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let json = "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"PS256\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_token_delivery_mode\": \"poll\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -3671,7 +4199,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testOidcPolicyRoundTripsWithoutLosingAField() throws {
-        let json = "{\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}"
+        let json = "{\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -3768,6 +4296,32 @@ final class ManagementGeneratedTests: XCTestCase {
         // And encoding is a fixed point — a second pass changes nothing.
         let twice = try JSONEncoder().encode(
             try JSONDecoder().decode(Organization.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testParseSamlSpMetadataRoundTripsWithoutLosingAField() throws {
+        let json = "{\"metadata_url\": \"example\", \"metadata_xml\": \"example\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(ParseSamlSpMetadata.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(ParseSamlSpMetadata.self, from: encoded))
         let third = try XCTUnwrap(
             JSONSerialization.jsonObject(with: twice) as? [String: Any])
         XCTAssertEqual(
@@ -4268,6 +4822,318 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
+    func testSamlIdpCredentialRoundTripsWithoutLosingAField() throws {
+        let json = "{\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(SamlIdpCredential.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(SamlIdpCredential.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testSamlIdpCredentialPromotionRoundTripsWithoutLosingAField() throws {
+        let json = "{\"active\": {\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}, \"retired\": {\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(SamlIdpCredentialPromotion.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(SamlIdpCredentialPromotion.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testSamlIdpInfoRoundTripsWithoutLosingAField() throws {
+        let json = "{\"active_credential_id\": \"11111111-1111-4111-8111-111111111111\", \"entity_id\": \"example\", \"metadata_served\": true, \"metadata_url\": \"example\", \"next_credential_id\": \"11111111-1111-4111-8111-111111111111\", \"saml_available\": true, \"saml_idp_enabled\": true, \"slo_url\": \"example\", \"sso_url\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(SamlIdpInfo.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(SamlIdpInfo.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testSamlServiceProviderRoundTripsWithoutLosingAField() throws {
+        let json = "{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"created_at\": \"2026-08-26T00:00:00Z\", \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"want_authn_requests_signed\": true}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(SamlServiceProvider.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(SamlServiceProvider.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testSamlServiceProviderInputRoundTripsWithoutLosingAField() throws {
+        let json = "{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(SamlServiceProviderInput.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(SamlServiceProviderInput.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testSamlSpMetadataDraftRoundTripsWithoutLosingAField() throws {
+        let json = "{\"encryption_certificate_fingerprint\": \"example\", \"service_provider\": {\"acs_urls\": [{\"binding\": null, \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": null}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}, \"signing_certificate_fingerprint\": \"example\", \"warnings\": [\"example\"]}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(SamlSpMetadataDraft.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(SamlSpMetadataDraft.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testScimReconcileAcceptedRoundTripsWithoutLosingAField() throws {
+        let json = "{\"status\": \"example\", \"target_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(ScimReconcileAccepted.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(ScimReconcileAccepted.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testScimTargetAuthRoundTripsWithoutLosingAField() throws {
+        let json = "{\"type\": \"bearer\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(ScimTargetAuth.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(ScimTargetAuth.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testScimTargetDeliveryStateRoundTripsWithoutLosingAField() throws {
+        let json = "{\"consecutive_failures\": 1, \"dead_lettered_total\": 1, \"last_failure_at\": \"2026-08-26T00:00:00Z\", \"last_failure_reason\": \"example\", \"last_reconciled_at\": \"2026-08-26T00:00:00Z\", \"last_success_at\": \"2026-08-26T00:00:00Z\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(ScimTargetDeliveryState.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(ScimTargetDeliveryState.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testScimTargetInputRoundTripsWithoutLosingAField() throws {
+        let json = "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"credential\": \"example\", \"deprovision\": \"deactivate\", \"enabled\": true, \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"user_name_from\": \"username\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(ScimTargetInput.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(ScimTargetInput.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testScimTargetResponseRoundTripsWithoutLosingAField() throws {
+        let json = "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"deprovision\": \"deactivate\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"state\": {\"consecutive_failures\": 1, \"dead_lettered_total\": 1, \"last_failure_at\": \"2026-08-26T00:00:00Z\", \"last_failure_reason\": \"example\", \"last_reconciled_at\": \"2026-08-26T00:00:00Z\", \"last_success_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"user_name_from\": \"username\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(ScimTargetResponse.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(ScimTargetResponse.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testScimTargetScopeRoundTripsWithoutLosingAField() throws {
+        let json = "{\"type\": \"all_users\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(ScimTargetScope.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(ScimTargetScope.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
     func testScimTokenResponseRoundTripsWithoutLosingAField() throws {
         let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"expires_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_used_at\": \"2026-08-26T00:00:00Z\", \"name\": \"example\", \"revoked_at\": \"2026-08-26T00:00:00Z\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
         let wire = try XCTUnwrap(
@@ -4321,7 +5187,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSecuritySettingsRoundTripsWithoutLosingAField() throws {
-        let json = "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}"
+        let json = "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4424,6 +5290,32 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
+    func testSetDirectoryConfigRoundTripsWithoutLosingAField() throws {
+        let json = "{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"bind_secret\": \"example\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"trust_anchors_pem\": [\"example\"], \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(SetDirectoryConfig.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(SetDirectoryConfig.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
     func testSetMtlsTrustAnchorRoundTripsWithoutLosingAField() throws {
         let json = "{\"enabled\": true}"
         let wire = try XCTUnwrap(
@@ -4477,7 +5369,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSetOrgSettingsRoundTripsWithoutLosingAField() throws {
-        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}"
+        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4632,6 +5524,58 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
+    func testSsfStreamRoundTripsWithoutLosingAField() throws {
+        let json = "{\"audience\": \"example\", \"authorization_header_set\": true, \"created_at\": \"2026-08-26T00:00:00Z\", \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_delivered\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_verification_at\": \"2026-08-26T00:00:00Z\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_actor\": \"admin\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"transmitter_active\": true, \"transmitter_inactive_reason\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(SsfStream.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(SsfStream.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testSsfStreamInputRoundTripsWithoutLosingAField() throws {
+        let json = "{\"audience\": \"example\", \"authorization_header\": \"example\", \"clear_authorization_header\": true, \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(SsfStreamInput.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(SsfStreamInput.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
     func testTenantRoundTripsWithoutLosingAField() throws {
         let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
         let wire = try XCTUnwrap(
@@ -4659,7 +5603,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testTenantSettingsOverrideRoundTripsWithoutLosingAField() throws {
-        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}"
+        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4762,6 +5706,32 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
+    func testUpdateDirectoryConfigRoundTripsWithoutLosingAField() throws {
+        let json = "{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"bind_secret\": \"example\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"trust_anchors_pem\": [\"example\"], \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(UpdateDirectoryConfig.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(UpdateDirectoryConfig.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
     func testUpdateFederationConfigRequestRoundTripsWithoutLosingAField() throws {
         let json = "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}"
         let wire = try XCTUnwrap(
@@ -4841,7 +5811,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testUpdateOAuth2ClientRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_logout_uri\": \"example\", \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}"
+        let json = "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"example\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_logout_uri\": \"example\", \"backchannel_token_delivery_mode\": \"example\", \"backchannel_user_code_parameter\": true, \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -5126,6 +6096,32 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
+    func testUserAttributeMapRoundTripsWithoutLosingAField() throws {
+        let json = "{\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(UserAttributeMap.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(UserAttributeMap.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
     func testUserResponseRoundTripsWithoutLosingAField() throws {
         let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}"
         let wire = try XCTUnwrap(
@@ -5228,6 +6224,29 @@ final class ManagementGeneratedTests: XCTestCase {
             JSONSerialization.jsonObject(with: twice) as? [String: Any])
         XCTAssertEqual(
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testAcsEndpointMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}"
+        let decoded = try JSONDecoder().decode(AcsEndpoint.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = AcsEndpoint(
+            binding: decoded.binding,
+            index: decoded.index,
+            isDefault: decoded.isDefault,
+            url: decoded.url)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
     }
 
     func testAddMemberRequestMemberwiseInitializerAssignsEveryProperty() throws {
@@ -5349,6 +6368,28 @@ final class ManagementGeneratedTests: XCTestCase {
             resourceID: decoded.resourceID,
             tenantScope: decoded.tenantScope,
             userID: decoded.userID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testAttributeMappingMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}"
+        let decoded = try JSONDecoder().decode(AttributeMapping.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = AttributeMapping(
+            nameFormat: decoded.nameFormat,
+            samlName: decoded.samlName,
+            source: decoded.source)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -5735,7 +6776,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCreateOAuth2ClientRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_logout_uri\": \"example\", \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}"
+        let json = "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"example\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_logout_uri\": \"example\", \"backchannel_token_delivery_mode\": \"example\", \"backchannel_user_code_parameter\": true, \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}"
         let decoded = try JSONDecoder().decode(CreateOAuth2ClientRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -5745,7 +6786,11 @@ final class ManagementGeneratedTests: XCTestCase {
         let rebuilt = CreateOAuth2ClientRequest(
             allowedResources: decoded.allowedResources,
             authnRequestParams: decoded.authnRequestParams,
+            backchannelAuthenticationRequestSigningAlg: decoded.backchannelAuthenticationRequestSigningAlg,
+            backchannelClientNotificationEndpoint: decoded.backchannelClientNotificationEndpoint,
             backchannelLogoutURI: decoded.backchannelLogoutURI,
+            backchannelTokenDeliveryMode: decoded.backchannelTokenDeliveryMode,
+            backchannelUserCodeParameter: decoded.backchannelUserCodeParameter,
             browserSSO: decoded.browserSSO,
             dpopBoundAccessTokens: decoded.dpopBoundAccessTokens,
             dpopRequireNonce: decoded.dpopRequireNonce,
@@ -6085,6 +7130,93 @@ final class ManagementGeneratedTests: XCTestCase {
             retryPolicy: decoded.retryPolicy,
             secret: decoded.secret,
             url: decoded.url)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testDirectoryConfigMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"trust_anchors_pem\": [\"example\"], \"updated_at\": \"2026-08-26T00:00:00Z\", \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}"
+        let decoded = try JSONDecoder().decode(DirectoryConfig.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = DirectoryConfig(
+            baseDn: decoded.baseDn,
+            bindDn: decoded.bindDn,
+            createdAt: decoded.createdAt,
+            enabled: decoded.enabled,
+            groupBaseDn: decoded.groupBaseDn,
+            groupFilter: decoded.groupFilter,
+            groupMappings: decoded.groupMappings,
+            groupMemberAttribute: decoded.groupMemberAttribute,
+            groupNestingDepth: decoded.groupNestingDepth,
+            id: decoded.id,
+            jitProvisioning: decoded.jitProvisioning,
+            kind: decoded.kind,
+            startTLS: decoded.startTLS,
+            syncIntervalSecs: decoded.syncIntervalSecs,
+            tenantID: decoded.tenantID,
+            trustAnchorsPEM: decoded.trustAnchorsPEM,
+            updatedAt: decoded.updatedAt,
+            url: decoded.url,
+            userAttributeMap: decoded.userAttributeMap,
+            userFilter: decoded.userFilter)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testDirectoryLinkResultMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"certificates_revoked\": 1, \"directory_external_id\": \"example\", \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"was_already_linked\": true, \"webauthn_credentials_deleted\": 1}"
+        let decoded = try JSONDecoder().decode(DirectoryLinkResult.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = DirectoryLinkResult(
+            certificatesRevoked: decoded.certificatesRevoked,
+            directoryExternalID: decoded.directoryExternalID,
+            userID: decoded.userID,
+            wasAlreadyLinked: decoded.wasAlreadyLinked,
+            webauthnCredentialsDeleted: decoded.webauthnCredentialsDeleted)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testDirectorySyncStatusMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"full_required\": true, \"has_watermark\": true, \"last_attempt_at\": \"2026-08-26T00:00:00Z\", \"last_full_run_at\": \"2026-08-26T00:00:00Z\", \"last_result\": \"example\"}"
+        let decoded = try JSONDecoder().decode(DirectorySyncStatus.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = DirectorySyncStatus(
+            fullRequired: decoded.fullRequired,
+            hasWatermark: decoded.hasWatermark,
+            lastAttemptAt: decoded.lastAttemptAt,
+            lastFullRunAt: decoded.lastFullRunAt,
+            lastResult: decoded.lastResult)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -6495,8 +7627,29 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: fromDecoded))
     }
 
+    func testGroupMappingMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(GroupMapping.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = GroupMapping(
+            directoryGroupDn: decoded.directoryGroupDn,
+            groupID: decoded.groupID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
     func testHealthResponseMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"status\": \"example\"}"
+        let json = "{\"profile\": \"example\", \"status\": \"example\", \"unavailable\": [\"example\"]}"
         let decoded = try JSONDecoder().decode(HealthResponse.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -6504,7 +7657,9 @@ final class ManagementGeneratedTests: XCTestCase {
         // decode-only test cannot see -- the JSON round trip above would pass, because it never
         // constructs one by hand.
         let rebuilt = HealthResponse(
-            status: decoded.status)
+            profile: decoded.profile,
+            status: decoded.status,
+            unavailable: decoded.unavailable)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -6526,6 +7681,48 @@ final class ManagementGeneratedTests: XCTestCase {
         let rebuilt = ImportCaCertificateRequest(
             privateKeyPEM: decoded.privateKeyPEM,
             publicCertPEM: decoded.publicCertPEM)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testIssueSamlIdpCredentialMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"slot\": \"active\", \"validity_days\": 1}"
+        let decoded = try JSONDecoder().decode(IssueSamlIdpCredential.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = IssueSamlIdpCredential(
+            issuerCAID: decoded.issuerCAID,
+            slot: decoded.slot,
+            validityDays: decoded.validityDays)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testLinkDirectoryAccountMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(LinkDirectoryAccount.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = LinkDirectoryAccount(
+            userID: decoded.userID)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -6774,7 +7971,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testOAuth2ClientResponseMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let json = "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"PS256\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_token_delivery_mode\": \"poll\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
         let decoded = try JSONDecoder().decode(OAuth2ClientResponse.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -6784,6 +7981,9 @@ final class ManagementGeneratedTests: XCTestCase {
         let rebuilt = OAuth2ClientResponse(
             allowedResources: decoded.allowedResources,
             authnRequestParams: decoded.authnRequestParams,
+            backchannelAuthenticationRequestSigningAlg: decoded.backchannelAuthenticationRequestSigningAlg,
+            backchannelClientNotificationEndpoint: decoded.backchannelClientNotificationEndpoint,
+            backchannelTokenDeliveryMode: decoded.backchannelTokenDeliveryMode,
             browserSSO: decoded.browserSSO,
             clientID: decoded.clientID,
             createdAt: decoded.createdAt,
@@ -6908,7 +8108,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testOidcPolicyMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}"
+        let json = "{\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}"
         let decoded = try JSONDecoder().decode(OidcPolicy.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -6924,7 +8124,10 @@ final class ManagementGeneratedTests: XCTestCase {
             defaultLocale: decoded.defaultLocale,
             dynamicRegistration: decoded.dynamicRegistration,
             externalClientAllowedResources: decoded.externalClientAllowedResources,
-            sensitiveScopesEnabled: decoded.sensitiveScopesEnabled)
+            samlIdpEnabled: decoded.samlIdpEnabled,
+            sensitiveScopesEnabled: decoded.sensitiveScopesEnabled,
+            ssfEnabled: decoded.ssfEnabled,
+            ssfInactiveReason: decoded.ssfInactiveReason)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -6993,6 +8196,27 @@ final class ManagementGeneratedTests: XCTestCase {
             name: decoded.name,
             slug: decoded.slug,
             updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testParseSamlSpMetadataMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"metadata_url\": \"example\", \"metadata_xml\": \"example\"}"
+        let decoded = try JSONDecoder().decode(ParseSamlSpMetadata.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ParseSamlSpMetadata(
+            metadataURL: decoded.metadataURL,
+            metadataXml: decoded.metadataXml)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -7468,6 +8692,329 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: fromDecoded))
     }
 
+    func testSamlIdpCredentialMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(SamlIdpCredential.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SamlIdpCredential(
+            certificatePEM: decoded.certificatePEM,
+            createdAt: decoded.createdAt,
+            fingerprint: decoded.fingerprint,
+            id: decoded.id,
+            issuerCAID: decoded.issuerCAID,
+            notAfter: decoded.notAfter,
+            notBefore: decoded.notBefore,
+            retiredAt: decoded.retiredAt,
+            serial: decoded.serial,
+            status: decoded.status,
+            tenantID: decoded.tenantID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSamlIdpCredentialPromotionMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"active\": {\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}, \"retired\": {\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}}"
+        let decoded = try JSONDecoder().decode(SamlIdpCredentialPromotion.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SamlIdpCredentialPromotion(
+            active: decoded.active,
+            retired: decoded.retired)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSamlIdpInfoMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"active_credential_id\": \"11111111-1111-4111-8111-111111111111\", \"entity_id\": \"example\", \"metadata_served\": true, \"metadata_url\": \"example\", \"next_credential_id\": \"11111111-1111-4111-8111-111111111111\", \"saml_available\": true, \"saml_idp_enabled\": true, \"slo_url\": \"example\", \"sso_url\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(SamlIdpInfo.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SamlIdpInfo(
+            activeCredentialID: decoded.activeCredentialID,
+            entityID: decoded.entityID,
+            metadataServed: decoded.metadataServed,
+            metadataURL: decoded.metadataURL,
+            nextCredentialID: decoded.nextCredentialID,
+            samlAvailable: decoded.samlAvailable,
+            samlIdpEnabled: decoded.samlIdpEnabled,
+            sloURL: decoded.sloURL,
+            ssoURL: decoded.ssoURL,
+            tenantID: decoded.tenantID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSamlServiceProviderMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"created_at\": \"2026-08-26T00:00:00Z\", \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"want_authn_requests_signed\": true}"
+        let decoded = try JSONDecoder().decode(SamlServiceProvider.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SamlServiceProvider(
+            acsUrls: decoded.acsUrls,
+            allowIdpInitiated: decoded.allowIdpInitiated,
+            allowedGroups: decoded.allowedGroups,
+            attributeMappings: decoded.attributeMappings,
+            createdAt: decoded.createdAt,
+            displayName: decoded.displayName,
+            enabled: decoded.enabled,
+            encryptAssertions: decoded.encryptAssertions,
+            entityID: decoded.entityID,
+            id: decoded.id,
+            nameIDFormat: decoded.nameIDFormat,
+            signResponses: decoded.signResponses,
+            sloBinding: decoded.sloBinding,
+            sloURL: decoded.sloURL,
+            spEncryptionCertPEM: decoded.spEncryptionCertPEM,
+            spSigningCertPEM: decoded.spSigningCertPEM,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt,
+            wantAuthnRequestsSigned: decoded.wantAuthnRequestsSigned)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSamlServiceProviderInputMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}"
+        let decoded = try JSONDecoder().decode(SamlServiceProviderInput.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SamlServiceProviderInput(
+            acsUrls: decoded.acsUrls,
+            allowIdpInitiated: decoded.allowIdpInitiated,
+            allowedGroups: decoded.allowedGroups,
+            attributeMappings: decoded.attributeMappings,
+            displayName: decoded.displayName,
+            enabled: decoded.enabled,
+            encryptAssertions: decoded.encryptAssertions,
+            entityID: decoded.entityID,
+            nameIDFormat: decoded.nameIDFormat,
+            signResponses: decoded.signResponses,
+            sloBinding: decoded.sloBinding,
+            sloURL: decoded.sloURL,
+            spEncryptionCertPEM: decoded.spEncryptionCertPEM,
+            spSigningCertPEM: decoded.spSigningCertPEM,
+            wantAuthnRequestsSigned: decoded.wantAuthnRequestsSigned)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSamlSpMetadataDraftMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"encryption_certificate_fingerprint\": \"example\", \"service_provider\": {\"acs_urls\": [{\"binding\": null, \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": null}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}, \"signing_certificate_fingerprint\": \"example\", \"warnings\": [\"example\"]}"
+        let decoded = try JSONDecoder().decode(SamlSpMetadataDraft.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SamlSpMetadataDraft(
+            encryptionCertificateFingerprint: decoded.encryptionCertificateFingerprint,
+            serviceProvider: decoded.serviceProvider,
+            signingCertificateFingerprint: decoded.signingCertificateFingerprint,
+            warnings: decoded.warnings)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testScimReconcileAcceptedMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"status\": \"example\", \"target_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let decoded = try JSONDecoder().decode(ScimReconcileAccepted.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ScimReconcileAccepted(
+            status: decoded.status,
+            targetID: decoded.targetID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testScimTargetAuthMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"type\": \"bearer\"}"
+        let decoded = try JSONDecoder().decode(ScimTargetAuth.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ScimTargetAuth(
+            type: decoded.type,
+            raw: decoded.raw)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testScimTargetDeliveryStateMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"consecutive_failures\": 1, \"dead_lettered_total\": 1, \"last_failure_at\": \"2026-08-26T00:00:00Z\", \"last_failure_reason\": \"example\", \"last_reconciled_at\": \"2026-08-26T00:00:00Z\", \"last_success_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(ScimTargetDeliveryState.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ScimTargetDeliveryState(
+            consecutiveFailures: decoded.consecutiveFailures,
+            deadLetteredTotal: decoded.deadLetteredTotal,
+            lastFailureAt: decoded.lastFailureAt,
+            lastFailureReason: decoded.lastFailureReason,
+            lastReconciledAt: decoded.lastReconciledAt,
+            lastSuccessAt: decoded.lastSuccessAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testScimTargetInputMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"credential\": \"example\", \"deprovision\": \"deactivate\", \"enabled\": true, \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"user_name_from\": \"username\"}"
+        let decoded = try JSONDecoder().decode(ScimTargetInput.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ScimTargetInput(
+            auth: decoded.auth,
+            baseURL: decoded.baseURL,
+            credential: decoded.credential,
+            deprovision: decoded.deprovision,
+            enabled: decoded.enabled,
+            name: decoded.name,
+            pushGroups: decoded.pushGroups,
+            scope: decoded.scope,
+            userNameFrom: decoded.userNameFrom)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testScimTargetResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"deprovision\": \"deactivate\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"state\": {\"consecutive_failures\": 1, \"dead_lettered_total\": 1, \"last_failure_at\": \"2026-08-26T00:00:00Z\", \"last_failure_reason\": \"example\", \"last_reconciled_at\": \"2026-08-26T00:00:00Z\", \"last_success_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"user_name_from\": \"username\"}"
+        let decoded = try JSONDecoder().decode(ScimTargetResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ScimTargetResponse(
+            auth: decoded.auth,
+            baseURL: decoded.baseURL,
+            createdAt: decoded.createdAt,
+            deprovision: decoded.deprovision,
+            enabled: decoded.enabled,
+            id: decoded.id,
+            name: decoded.name,
+            pushGroups: decoded.pushGroups,
+            scope: decoded.scope,
+            state: decoded.state,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt,
+            userNameFrom: decoded.userNameFrom)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testScimTargetScopeMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"type\": \"all_users\"}"
+        let decoded = try JSONDecoder().decode(ScimTargetScope.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ScimTargetScope(
+            type: decoded.type,
+            raw: decoded.raw)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
     func testScimTokenResponseMemberwiseInitializerAssignsEveryProperty() throws {
         let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"expires_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_used_at\": \"2026-08-26T00:00:00Z\", \"name\": \"example\", \"revoked_at\": \"2026-08-26T00:00:00Z\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
         let decoded = try JSONDecoder().decode(ScimTokenResponse.self, from: Data(json.utf8))
@@ -7524,7 +9071,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSecuritySettingsMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}"
+        let json = "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}"
         let decoded = try JSONDecoder().decode(SecuritySettings.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7643,6 +9190,42 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: fromDecoded))
     }
 
+    func testSetDirectoryConfigMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"bind_secret\": \"example\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"trust_anchors_pem\": [\"example\"], \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}"
+        let decoded = try JSONDecoder().decode(SetDirectoryConfig.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SetDirectoryConfig(
+            baseDn: decoded.baseDn,
+            bindDn: decoded.bindDn,
+            bindSecret: decoded.bindSecret,
+            enabled: decoded.enabled,
+            groupBaseDn: decoded.groupBaseDn,
+            groupFilter: decoded.groupFilter,
+            groupMappings: decoded.groupMappings,
+            groupMemberAttribute: decoded.groupMemberAttribute,
+            groupNestingDepth: decoded.groupNestingDepth,
+            jitProvisioning: decoded.jitProvisioning,
+            kind: decoded.kind,
+            startTLS: decoded.startTLS,
+            syncIntervalSecs: decoded.syncIntervalSecs,
+            trustAnchorsPEM: decoded.trustAnchorsPEM,
+            url: decoded.url,
+            userAttributeMap: decoded.userAttributeMap,
+            userFilter: decoded.userFilter)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
     func testSetMtlsTrustAnchorMemberwiseInitializerAssignsEveryProperty() throws {
         let json = "{\"enabled\": true}"
         let decoded = try JSONDecoder().decode(SetMtlsTrustAnchor.self, from: Data(json.utf8))
@@ -7688,7 +9271,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSetOrgSettingsMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}"
+        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}"
         let decoded = try JSONDecoder().decode(SetOrgSettings.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7728,8 +9311,10 @@ final class ManagementGeneratedTests: XCTestCase {
             requireLowercase: decoded.requireLowercase,
             requireSymbols: decoded.requireSymbols,
             requireUppercase: decoded.requireUppercase,
+            samlIdpEnabled: decoded.samlIdpEnabled,
             sensitiveScopesEnabled: decoded.sensitiveScopesEnabled,
             serverCertAllowedNames: decoded.serverCertAllowedNames,
+            ssfEnabled: decoded.ssfEnabled,
             webauthnUserVerification: decoded.webauthnUserVerification)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
@@ -7856,6 +9441,76 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: fromDecoded))
     }
 
+    func testSsfStreamMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"audience\": \"example\", \"authorization_header_set\": true, \"created_at\": \"2026-08-26T00:00:00Z\", \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_delivered\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_verification_at\": \"2026-08-26T00:00:00Z\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_actor\": \"admin\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"transmitter_active\": true, \"transmitter_inactive_reason\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let decoded = try JSONDecoder().decode(SsfStream.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SsfStream(
+            audience: decoded.audience,
+            authorizationHeaderSet: decoded.authorizationHeaderSet,
+            createdAt: decoded.createdAt,
+            deliveryMethod: decoded.deliveryMethod,
+            description: decoded.description,
+            endpointURL: decoded.endpointURL,
+            eventsAllowed: decoded.eventsAllowed,
+            eventsDelivered: decoded.eventsDelivered,
+            eventsRequested: decoded.eventsRequested,
+            id: decoded.id,
+            lastVerificationAt: decoded.lastVerificationAt,
+            receiverClientID: decoded.receiverClientID,
+            status: decoded.status,
+            statusActor: decoded.statusActor,
+            statusReason: decoded.statusReason,
+            subjectFormat: decoded.subjectFormat,
+            tenantID: decoded.tenantID,
+            transmitterActive: decoded.transmitterActive,
+            transmitterInactiveReason: decoded.transmitterInactiveReason,
+            updatedAt: decoded.updatedAt)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testSsfStreamInputMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"audience\": \"example\", \"authorization_header\": \"example\", \"clear_authorization_header\": true, \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\"}"
+        let decoded = try JSONDecoder().decode(SsfStreamInput.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = SsfStreamInput(
+            audience: decoded.audience,
+            authorizationHeader: decoded.authorizationHeader,
+            clearAuthorizationHeader: decoded.clearAuthorizationHeader,
+            deliveryMethod: decoded.deliveryMethod,
+            description: decoded.description,
+            endpointURL: decoded.endpointURL,
+            eventsAllowed: decoded.eventsAllowed,
+            eventsRequested: decoded.eventsRequested,
+            receiverClientID: decoded.receiverClientID,
+            status: decoded.status,
+            statusReason: decoded.statusReason,
+            subjectFormat: decoded.subjectFormat)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
     func testTenantMemberwiseInitializerAssignsEveryProperty() throws {
         let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
         let decoded = try JSONDecoder().decode(Tenant.self, from: Data(json.utf8))
@@ -7885,7 +9540,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testTenantSettingsOverrideMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}"
+        let json = "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}"
         let decoded = try JSONDecoder().decode(TenantSettingsOverride.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7925,8 +9580,10 @@ final class ManagementGeneratedTests: XCTestCase {
             requireLowercase: decoded.requireLowercase,
             requireSymbols: decoded.requireSymbols,
             requireUppercase: decoded.requireUppercase,
+            samlIdpEnabled: decoded.samlIdpEnabled,
             sensitiveScopesEnabled: decoded.sensitiveScopesEnabled,
             serverCertAllowedNames: decoded.serverCertAllowedNames,
+            ssfEnabled: decoded.ssfEnabled,
             webauthnUserVerification: decoded.webauthnUserVerification)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
@@ -7999,6 +9656,42 @@ final class ManagementGeneratedTests: XCTestCase {
         let rebuilt = TokenPolicy(
             accessTokenLifetimeSecs: decoded.accessTokenLifetimeSecs,
             refreshTokenLifetimeSecs: decoded.refreshTokenLifetimeSecs)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testUpdateDirectoryConfigMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"bind_secret\": \"example\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"trust_anchors_pem\": [\"example\"], \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}"
+        let decoded = try JSONDecoder().decode(UpdateDirectoryConfig.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UpdateDirectoryConfig(
+            baseDn: decoded.baseDn,
+            bindDn: decoded.bindDn,
+            bindSecret: decoded.bindSecret,
+            enabled: decoded.enabled,
+            groupBaseDn: decoded.groupBaseDn,
+            groupFilter: decoded.groupFilter,
+            groupMappings: decoded.groupMappings,
+            groupMemberAttribute: decoded.groupMemberAttribute,
+            groupNestingDepth: decoded.groupNestingDepth,
+            jitProvisioning: decoded.jitProvisioning,
+            kind: decoded.kind,
+            startTLS: decoded.startTLS,
+            syncIntervalSecs: decoded.syncIntervalSecs,
+            trustAnchorsPEM: decoded.trustAnchorsPEM,
+            url: decoded.url,
+            userAttributeMap: decoded.userAttributeMap,
+            userFilter: decoded.userFilter)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -8095,7 +9788,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testUpdateOAuth2ClientRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_logout_uri\": \"example\", \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}"
+        let json = "{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"example\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_logout_uri\": \"example\", \"backchannel_token_delivery_mode\": \"example\", \"backchannel_user_code_parameter\": true, \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}"
         let decoded = try JSONDecoder().decode(UpdateOAuth2ClientRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -8105,7 +9798,11 @@ final class ManagementGeneratedTests: XCTestCase {
         let rebuilt = UpdateOAuth2ClientRequest(
             allowedResources: decoded.allowedResources,
             authnRequestParams: decoded.authnRequestParams,
+            backchannelAuthenticationRequestSigningAlg: decoded.backchannelAuthenticationRequestSigningAlg,
+            backchannelClientNotificationEndpoint: decoded.backchannelClientNotificationEndpoint,
             backchannelLogoutURI: decoded.backchannelLogoutURI,
+            backchannelTokenDeliveryMode: decoded.backchannelTokenDeliveryMode,
+            backchannelUserCodeParameter: decoded.backchannelUserCodeParameter,
             browserSSO: decoded.browserSSO,
             dpopBoundAccessTokens: decoded.dpopBoundAccessTokens,
             dpopRequireNonce: decoded.dpopRequireNonce,
@@ -8362,6 +10059,29 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: fromDecoded))
     }
 
+    func testUserAttributeMapMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}"
+        let decoded = try JSONDecoder().decode(UserAttributeMap.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = UserAttributeMap(
+            displayName: decoded.displayName,
+            email: decoded.email,
+            externalID: decoded.externalID,
+            username: decoded.username)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
     func testUserResponseMemberwiseInitializerAssignsEveryProperty() throws {
         let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}"
         let decoded = try JSONDecoder().decode(UserResponse.self, from: Data(json.utf8))
@@ -8525,6 +10245,47 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"none\"]")
     }
 
+    func testAttributeSourceMapsEveryValueBothWays() throws {
+        XCTAssertEqual(AttributeSource.allCases.count, 8)
+        XCTAssertEqual(AttributeSource.username.rawValue, "username")
+        XCTAssertEqual(AttributeSource(rawValue: "username"), AttributeSource.username)
+        XCTAssertEqual(AttributeSource.email.rawValue, "email")
+        XCTAssertEqual(AttributeSource(rawValue: "email"), AttributeSource.email)
+        XCTAssertEqual(AttributeSource.displayName.rawValue, "display_name")
+        XCTAssertEqual(AttributeSource(rawValue: "display_name"), AttributeSource.displayName)
+        XCTAssertEqual(AttributeSource.givenName.rawValue, "given_name")
+        XCTAssertEqual(AttributeSource(rawValue: "given_name"), AttributeSource.givenName)
+        XCTAssertEqual(AttributeSource.familyName.rawValue, "family_name")
+        XCTAssertEqual(AttributeSource(rawValue: "family_name"), AttributeSource.familyName)
+        XCTAssertEqual(AttributeSource.groups.rawValue, "groups")
+        XCTAssertEqual(AttributeSource(rawValue: "groups"), AttributeSource.groups)
+        XCTAssertEqual(AttributeSource.roles.rawValue, "roles")
+        XCTAssertEqual(AttributeSource(rawValue: "roles"), AttributeSource.roles)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(AttributeSource(rawValue: "__not_a_attribute_source__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [AttributeSource].self,
+            from: Data("[\"__not_a_attribute_source__\"]".utf8))
+        XCTAssertEqual(stranger, [AttributeSource.unknown])
+        XCTAssertNotEqual(AttributeSource.unknown, AttributeSource.username)
+        XCTAssertNotEqual(AttributeSource.unknown, AttributeSource.email)
+        XCTAssertNotEqual(AttributeSource.unknown, AttributeSource.displayName)
+        XCTAssertNotEqual(AttributeSource.unknown, AttributeSource.givenName)
+        XCTAssertNotEqual(AttributeSource.unknown, AttributeSource.familyName)
+        XCTAssertNotEqual(AttributeSource.unknown, AttributeSource.groups)
+        XCTAssertNotEqual(AttributeSource.unknown, AttributeSource.roles)
+        XCTAssertEqual(AttributeSource.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([AttributeSource.username])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"username\"]")
+    }
+
     func testAuditOutcomeMapsEveryValueBothWays() throws {
         XCTAssertEqual(AuditOutcome.allCases.count, 4)
         XCTAssertEqual(AuditOutcome.success.rawValue, "Success")
@@ -8679,6 +10440,61 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"L1\"]")
     }
 
+    func testCibaDeliveryModeMapsEveryValueBothWays() throws {
+        XCTAssertEqual(CibaDeliveryMode.allCases.count, 3)
+        XCTAssertEqual(CibaDeliveryMode.poll.rawValue, "poll")
+        XCTAssertEqual(CibaDeliveryMode(rawValue: "poll"), CibaDeliveryMode.poll)
+        XCTAssertEqual(CibaDeliveryMode.ping.rawValue, "ping")
+        XCTAssertEqual(CibaDeliveryMode(rawValue: "ping"), CibaDeliveryMode.ping)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(CibaDeliveryMode(rawValue: "__not_a_ciba_delivery_mode__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [CibaDeliveryMode].self,
+            from: Data("[\"__not_a_ciba_delivery_mode__\"]".utf8))
+        XCTAssertEqual(stranger, [CibaDeliveryMode.unknown])
+        XCTAssertNotEqual(CibaDeliveryMode.unknown, CibaDeliveryMode.poll)
+        XCTAssertNotEqual(CibaDeliveryMode.unknown, CibaDeliveryMode.ping)
+        XCTAssertEqual(CibaDeliveryMode.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([CibaDeliveryMode.poll])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"poll\"]")
+    }
+
+    func testCibaRequestSigningAlgMapsEveryValueBothWays() throws {
+        XCTAssertEqual(CibaRequestSigningAlg.allCases.count, 4)
+        XCTAssertEqual(CibaRequestSigningAlg.ps256.rawValue, "PS256")
+        XCTAssertEqual(CibaRequestSigningAlg(rawValue: "PS256"), CibaRequestSigningAlg.ps256)
+        XCTAssertEqual(CibaRequestSigningAlg.es256.rawValue, "ES256")
+        XCTAssertEqual(CibaRequestSigningAlg(rawValue: "ES256"), CibaRequestSigningAlg.es256)
+        XCTAssertEqual(CibaRequestSigningAlg.edDSA.rawValue, "EdDSA")
+        XCTAssertEqual(CibaRequestSigningAlg(rawValue: "EdDSA"), CibaRequestSigningAlg.edDSA)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(CibaRequestSigningAlg(rawValue: "__not_a_ciba_request_signing_alg__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [CibaRequestSigningAlg].self,
+            from: Data("[\"__not_a_ciba_request_signing_alg__\"]".utf8))
+        XCTAssertEqual(stranger, [CibaRequestSigningAlg.unknown])
+        XCTAssertNotEqual(CibaRequestSigningAlg.unknown, CibaRequestSigningAlg.ps256)
+        XCTAssertNotEqual(CibaRequestSigningAlg.unknown, CibaRequestSigningAlg.es256)
+        XCTAssertNotEqual(CibaRequestSigningAlg.unknown, CibaRequestSigningAlg.edDSA)
+        XCTAssertEqual(CibaRequestSigningAlg.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([CibaRequestSigningAlg.ps256])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"PS256\"]")
+    }
+
     func testClientAuthMethodMapsEveryValueBothWays() throws {
         XCTAssertEqual(ClientAuthMethod.allCases.count, 7)
         XCTAssertEqual(ClientAuthMethod.clientSecretPost.rawValue, "client_secret_post")
@@ -8741,6 +10557,58 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(ClientProfile.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([ClientProfile.standard])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"standard\"]")
+    }
+
+    func testDeprovisionPolicyMapsEveryValueBothWays() throws {
+        XCTAssertEqual(DeprovisionPolicy.allCases.count, 3)
+        XCTAssertEqual(DeprovisionPolicy.deactivate.rawValue, "deactivate")
+        XCTAssertEqual(DeprovisionPolicy(rawValue: "deactivate"), DeprovisionPolicy.deactivate)
+        XCTAssertEqual(DeprovisionPolicy.delete.rawValue, "delete")
+        XCTAssertEqual(DeprovisionPolicy(rawValue: "delete"), DeprovisionPolicy.delete)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(DeprovisionPolicy(rawValue: "__not_a_deprovision_policy__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [DeprovisionPolicy].self,
+            from: Data("[\"__not_a_deprovision_policy__\"]".utf8))
+        XCTAssertEqual(stranger, [DeprovisionPolicy.unknown])
+        XCTAssertNotEqual(DeprovisionPolicy.unknown, DeprovisionPolicy.deactivate)
+        XCTAssertNotEqual(DeprovisionPolicy.unknown, DeprovisionPolicy.delete)
+        XCTAssertEqual(DeprovisionPolicy.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([DeprovisionPolicy.deactivate])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"deactivate\"]")
+    }
+
+    func testDirectoryKindMapsEveryValueBothWays() throws {
+        XCTAssertEqual(DirectoryKind.allCases.count, 3)
+        XCTAssertEqual(DirectoryKind.openLdap.rawValue, "open_ldap")
+        XCTAssertEqual(DirectoryKind(rawValue: "open_ldap"), DirectoryKind.openLdap)
+        XCTAssertEqual(DirectoryKind.activeDirectory.rawValue, "active_directory")
+        XCTAssertEqual(DirectoryKind(rawValue: "active_directory"), DirectoryKind.activeDirectory)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(DirectoryKind(rawValue: "__not_a_directory_kind__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [DirectoryKind].self,
+            from: Data("[\"__not_a_directory_kind__\"]".utf8))
+        XCTAssertEqual(stranger, [DirectoryKind.unknown])
+        XCTAssertNotEqual(DirectoryKind.unknown, DirectoryKind.openLdap)
+        XCTAssertNotEqual(DirectoryKind.unknown, DirectoryKind.activeDirectory)
+        XCTAssertEqual(DirectoryKind.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([DirectoryKind.openLdap])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"open_ldap\"]")
     }
 
     func testFailurePolicyMapsEveryValueBothWays() throws {
@@ -8853,8 +10721,34 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Totp\"]")
     }
 
+    func testNameIdFormatMapsEveryValueBothWays() throws {
+        XCTAssertEqual(NameIdFormat.allCases.count, 3)
+        XCTAssertEqual(NameIdFormat.persistent.rawValue, "persistent")
+        XCTAssertEqual(NameIdFormat(rawValue: "persistent"), NameIdFormat.persistent)
+        XCTAssertEqual(NameIdFormat.emailAddress.rawValue, "email_address")
+        XCTAssertEqual(NameIdFormat(rawValue: "email_address"), NameIdFormat.emailAddress)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(NameIdFormat(rawValue: "__not_a_name_id_format__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [NameIdFormat].self,
+            from: Data("[\"__not_a_name_id_format__\"]".utf8))
+        XCTAssertEqual(stranger, [NameIdFormat.unknown])
+        XCTAssertNotEqual(NameIdFormat.unknown, NameIdFormat.persistent)
+        XCTAssertNotEqual(NameIdFormat.unknown, NameIdFormat.emailAddress)
+        XCTAssertEqual(NameIdFormat.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([NameIdFormat.persistent])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"persistent\"]")
+    }
+
     func testNotificationEventTypeMapsEveryValueBothWays() throws {
-        XCTAssertEqual(NotificationEventType.allCases.count, 18)
+        XCTAssertEqual(NotificationEventType.allCases.count, 19)
         XCTAssertEqual(NotificationEventType.loginFailure.rawValue, "login_failure")
         XCTAssertEqual(NotificationEventType(rawValue: "login_failure"), NotificationEventType.loginFailure)
         XCTAssertEqual(NotificationEventType.accountLocked.rawValue, "account_locked")
@@ -8889,6 +10783,8 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(NotificationEventType(rawValue: "service_account_created"), NotificationEventType.serviceAccountCreated)
         XCTAssertEqual(NotificationEventType.serviceAccountDeleted.rawValue, "service_account_deleted")
         XCTAssertEqual(NotificationEventType(rawValue: "service_account_deleted"), NotificationEventType.serviceAccountDeleted)
+        XCTAssertEqual(NotificationEventType.scimDeliveryFailed.rawValue, "scim_delivery_failed")
+        XCTAssertEqual(NotificationEventType(rawValue: "scim_delivery_failed"), NotificationEventType.scimDeliveryFailed)
 
         // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
         // case happens to be first. Code that parses a raw string keeps its check.
@@ -8919,6 +10815,7 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.userUpdated)
         XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.serviceAccountCreated)
         XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.serviceAccountDeleted)
+        XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.scimDeliveryFailed)
         XCTAssertEqual(NotificationEventType.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([NotificationEventType.loginFailure])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"login_failure\"]")
@@ -9054,6 +10951,87 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"intercept\"]")
     }
 
+    func testSamlBindingMapsEveryValueBothWays() throws {
+        XCTAssertEqual(SamlBinding.allCases.count, 3)
+        XCTAssertEqual(SamlBinding.httpPost.rawValue, "http_post")
+        XCTAssertEqual(SamlBinding(rawValue: "http_post"), SamlBinding.httpPost)
+        XCTAssertEqual(SamlBinding.httpRedirect.rawValue, "http_redirect")
+        XCTAssertEqual(SamlBinding(rawValue: "http_redirect"), SamlBinding.httpRedirect)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(SamlBinding(rawValue: "__not_a_saml_binding__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [SamlBinding].self,
+            from: Data("[\"__not_a_saml_binding__\"]".utf8))
+        XCTAssertEqual(stranger, [SamlBinding.unknown])
+        XCTAssertNotEqual(SamlBinding.unknown, SamlBinding.httpPost)
+        XCTAssertNotEqual(SamlBinding.unknown, SamlBinding.httpRedirect)
+        XCTAssertEqual(SamlBinding.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([SamlBinding.httpPost])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"http_post\"]")
+    }
+
+    func testSamlIdpCredentialStatusMapsEveryValueBothWays() throws {
+        XCTAssertEqual(SamlIdpCredentialStatus.allCases.count, 4)
+        XCTAssertEqual(SamlIdpCredentialStatus.active.rawValue, "active")
+        XCTAssertEqual(SamlIdpCredentialStatus(rawValue: "active"), SamlIdpCredentialStatus.active)
+        XCTAssertEqual(SamlIdpCredentialStatus.next.rawValue, "next")
+        XCTAssertEqual(SamlIdpCredentialStatus(rawValue: "next"), SamlIdpCredentialStatus.next)
+        XCTAssertEqual(SamlIdpCredentialStatus.retired.rawValue, "retired")
+        XCTAssertEqual(SamlIdpCredentialStatus(rawValue: "retired"), SamlIdpCredentialStatus.retired)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(SamlIdpCredentialStatus(rawValue: "__not_a_saml_idp_credential_status__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [SamlIdpCredentialStatus].self,
+            from: Data("[\"__not_a_saml_idp_credential_status__\"]".utf8))
+        XCTAssertEqual(stranger, [SamlIdpCredentialStatus.unknown])
+        XCTAssertNotEqual(SamlIdpCredentialStatus.unknown, SamlIdpCredentialStatus.active)
+        XCTAssertNotEqual(SamlIdpCredentialStatus.unknown, SamlIdpCredentialStatus.next)
+        XCTAssertNotEqual(SamlIdpCredentialStatus.unknown, SamlIdpCredentialStatus.retired)
+        XCTAssertEqual(SamlIdpCredentialStatus.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([SamlIdpCredentialStatus.active])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"active\"]")
+    }
+
+    func testSamlIdpSlotMapsEveryValueBothWays() throws {
+        XCTAssertEqual(SamlIdpSlot.allCases.count, 3)
+        XCTAssertEqual(SamlIdpSlot.active.rawValue, "active")
+        XCTAssertEqual(SamlIdpSlot(rawValue: "active"), SamlIdpSlot.active)
+        XCTAssertEqual(SamlIdpSlot.next.rawValue, "next")
+        XCTAssertEqual(SamlIdpSlot(rawValue: "next"), SamlIdpSlot.next)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(SamlIdpSlot(rawValue: "__not_a_saml_idp_slot__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [SamlIdpSlot].self,
+            from: Data("[\"__not_a_saml_idp_slot__\"]".utf8))
+        XCTAssertEqual(stranger, [SamlIdpSlot.unknown])
+        XCTAssertNotEqual(SamlIdpSlot.unknown, SamlIdpSlot.active)
+        XCTAssertNotEqual(SamlIdpSlot.unknown, SamlIdpSlot.next)
+        XCTAssertEqual(SamlIdpSlot.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([SamlIdpSlot.active])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"active\"]")
+    }
+
     func testScimTokenStatusMapsEveryValueBothWays() throws {
         XCTAssertEqual(ScimTokenStatus.allCases.count, 4)
         XCTAssertEqual(ScimTokenStatus.active.rawValue, "active")
@@ -9107,6 +11085,151 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(SettingsScope.unknown.rawValue, "")
         let encoded = try JSONEncoder().encode([SettingsScope.org])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Org\"]")
+    }
+
+    func testSsfDeliveryMethodMapsEveryValueBothWays() throws {
+        XCTAssertEqual(SsfDeliveryMethod.allCases.count, 3)
+        XCTAssertEqual(SsfDeliveryMethod.push.rawValue, "push")
+        XCTAssertEqual(SsfDeliveryMethod(rawValue: "push"), SsfDeliveryMethod.push)
+        XCTAssertEqual(SsfDeliveryMethod.poll.rawValue, "poll")
+        XCTAssertEqual(SsfDeliveryMethod(rawValue: "poll"), SsfDeliveryMethod.poll)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(SsfDeliveryMethod(rawValue: "__not_a_ssf_delivery_method__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [SsfDeliveryMethod].self,
+            from: Data("[\"__not_a_ssf_delivery_method__\"]".utf8))
+        XCTAssertEqual(stranger, [SsfDeliveryMethod.unknown])
+        XCTAssertNotEqual(SsfDeliveryMethod.unknown, SsfDeliveryMethod.push)
+        XCTAssertNotEqual(SsfDeliveryMethod.unknown, SsfDeliveryMethod.poll)
+        XCTAssertEqual(SsfDeliveryMethod.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([SsfDeliveryMethod.push])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"push\"]")
+    }
+
+    func testSsfEventTypeMapsEveryValueBothWays() throws {
+        XCTAssertEqual(SsfEventType.allCases.count, 7)
+        XCTAssertEqual(SsfEventType.sessionRevoked.rawValue, "https://schemas.openid.net/secevent/caep/event-type/session-revoked")
+        XCTAssertEqual(SsfEventType(rawValue: "https://schemas.openid.net/secevent/caep/event-type/session-revoked"), SsfEventType.sessionRevoked)
+        XCTAssertEqual(SsfEventType.credentialChange.rawValue, "https://schemas.openid.net/secevent/caep/event-type/credential-change")
+        XCTAssertEqual(SsfEventType(rawValue: "https://schemas.openid.net/secevent/caep/event-type/credential-change"), SsfEventType.credentialChange)
+        XCTAssertEqual(SsfEventType.assuranceLevelChange.rawValue, "https://schemas.openid.net/secevent/caep/event-type/assurance-level-change")
+        XCTAssertEqual(SsfEventType(rawValue: "https://schemas.openid.net/secevent/caep/event-type/assurance-level-change"), SsfEventType.assuranceLevelChange)
+        XCTAssertEqual(SsfEventType.accountDisabled.rawValue, "https://schemas.openid.net/secevent/risc/event-type/account-disabled")
+        XCTAssertEqual(SsfEventType(rawValue: "https://schemas.openid.net/secevent/risc/event-type/account-disabled"), SsfEventType.accountDisabled)
+        XCTAssertEqual(SsfEventType.accountEnabled.rawValue, "https://schemas.openid.net/secevent/risc/event-type/account-enabled")
+        XCTAssertEqual(SsfEventType(rawValue: "https://schemas.openid.net/secevent/risc/event-type/account-enabled"), SsfEventType.accountEnabled)
+        XCTAssertEqual(SsfEventType.accountPurged.rawValue, "https://schemas.openid.net/secevent/risc/event-type/account-purged")
+        XCTAssertEqual(SsfEventType(rawValue: "https://schemas.openid.net/secevent/risc/event-type/account-purged"), SsfEventType.accountPurged)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(SsfEventType(rawValue: "__not_a_ssf_event_type__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [SsfEventType].self,
+            from: Data("[\"__not_a_ssf_event_type__\"]".utf8))
+        XCTAssertEqual(stranger, [SsfEventType.unknown])
+        XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.sessionRevoked)
+        XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.credentialChange)
+        XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.assuranceLevelChange)
+        XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.accountDisabled)
+        XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.accountEnabled)
+        XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.accountPurged)
+        XCTAssertEqual(SsfEventType.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([SsfEventType.sessionRevoked])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"]")
+    }
+
+    func testSsfStatusActorMapsEveryValueBothWays() throws {
+        XCTAssertEqual(SsfStatusActor.allCases.count, 3)
+        XCTAssertEqual(SsfStatusActor.admin.rawValue, "admin")
+        XCTAssertEqual(SsfStatusActor(rawValue: "admin"), SsfStatusActor.admin)
+        XCTAssertEqual(SsfStatusActor.receiver.rawValue, "receiver")
+        XCTAssertEqual(SsfStatusActor(rawValue: "receiver"), SsfStatusActor.receiver)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(SsfStatusActor(rawValue: "__not_a_ssf_status_actor__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [SsfStatusActor].self,
+            from: Data("[\"__not_a_ssf_status_actor__\"]".utf8))
+        XCTAssertEqual(stranger, [SsfStatusActor.unknown])
+        XCTAssertNotEqual(SsfStatusActor.unknown, SsfStatusActor.admin)
+        XCTAssertNotEqual(SsfStatusActor.unknown, SsfStatusActor.receiver)
+        XCTAssertEqual(SsfStatusActor.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([SsfStatusActor.admin])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"admin\"]")
+    }
+
+    func testSsfStreamStatusMapsEveryValueBothWays() throws {
+        XCTAssertEqual(SsfStreamStatus.allCases.count, 4)
+        XCTAssertEqual(SsfStreamStatus.enabled.rawValue, "enabled")
+        XCTAssertEqual(SsfStreamStatus(rawValue: "enabled"), SsfStreamStatus.enabled)
+        XCTAssertEqual(SsfStreamStatus.paused.rawValue, "paused")
+        XCTAssertEqual(SsfStreamStatus(rawValue: "paused"), SsfStreamStatus.paused)
+        XCTAssertEqual(SsfStreamStatus.disabled.rawValue, "disabled")
+        XCTAssertEqual(SsfStreamStatus(rawValue: "disabled"), SsfStreamStatus.disabled)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(SsfStreamStatus(rawValue: "__not_a_ssf_stream_status__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [SsfStreamStatus].self,
+            from: Data("[\"__not_a_ssf_stream_status__\"]".utf8))
+        XCTAssertEqual(stranger, [SsfStreamStatus.unknown])
+        XCTAssertNotEqual(SsfStreamStatus.unknown, SsfStreamStatus.enabled)
+        XCTAssertNotEqual(SsfStreamStatus.unknown, SsfStreamStatus.paused)
+        XCTAssertNotEqual(SsfStreamStatus.unknown, SsfStreamStatus.disabled)
+        XCTAssertEqual(SsfStreamStatus.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([SsfStreamStatus.enabled])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"enabled\"]")
+    }
+
+    func testSsfSubjectFormatMapsEveryValueBothWays() throws {
+        XCTAssertEqual(SsfSubjectFormat.allCases.count, 3)
+        XCTAssertEqual(SsfSubjectFormat.issSub.rawValue, "iss_sub")
+        XCTAssertEqual(SsfSubjectFormat(rawValue: "iss_sub"), SsfSubjectFormat.issSub)
+        XCTAssertEqual(SsfSubjectFormat.email.rawValue, "email")
+        XCTAssertEqual(SsfSubjectFormat(rawValue: "email"), SsfSubjectFormat.email)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(SsfSubjectFormat(rawValue: "__not_a_ssf_subject_format__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [SsfSubjectFormat].self,
+            from: Data("[\"__not_a_ssf_subject_format__\"]".utf8))
+        XCTAssertEqual(stranger, [SsfSubjectFormat.unknown])
+        XCTAssertNotEqual(SsfSubjectFormat.unknown, SsfSubjectFormat.issSub)
+        XCTAssertNotEqual(SsfSubjectFormat.unknown, SsfSubjectFormat.email)
+        XCTAssertEqual(SsfSubjectFormat.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([SsfSubjectFormat.issSub])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"iss_sub\"]")
     }
 
     func testTenantKindMapsEveryValueBothWays() throws {
@@ -9187,6 +11310,32 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"allow\"]")
     }
 
+    func testUserNameSourceMapsEveryValueBothWays() throws {
+        XCTAssertEqual(UserNameSource.allCases.count, 3)
+        XCTAssertEqual(UserNameSource.username.rawValue, "username")
+        XCTAssertEqual(UserNameSource(rawValue: "username"), UserNameSource.username)
+        XCTAssertEqual(UserNameSource.email.rawValue, "email")
+        XCTAssertEqual(UserNameSource(rawValue: "email"), UserNameSource.email)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(UserNameSource(rawValue: "__not_a_user_name_source__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [UserNameSource].self,
+            from: Data("[\"__not_a_user_name_source__\"]".utf8))
+        XCTAssertEqual(stranger, [UserNameSource.unknown])
+        XCTAssertNotEqual(UserNameSource.unknown, UserNameSource.username)
+        XCTAssertNotEqual(UserNameSource.unknown, UserNameSource.email)
+        XCTAssertEqual(UserNameSource.unknown.rawValue, "")
+        let encoded = try JSONEncoder().encode([UserNameSource.username])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"username\"]")
+    }
+
     func testUserStatusMapsEveryValueBothWays() throws {
         XCTAssertEqual(UserStatus.allCases.count, 7)
         XCTAssertEqual(UserStatus.active.rawValue, "Active")
@@ -9225,8 +11374,8 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
-    // §27.9: this file covers 162 operations, 127 models (127 of them also through their
-    // memberwise initializer) and 25 enums.
+    // §27.9: this file covers 190 operations, 153 models (153 of them also through their
+    // memberwise initializer) and 40 enums.
     //
     // The counts above are literals THIS generator wrote, so comparing them to each other would
     // be a tautology a bad regeneration still satisfies. They are compared against the vendored
@@ -9247,8 +11396,8 @@ final class ManagementGeneratedTests: XCTestCase {
         let declared = namespaces.values.reduce(into: 0) { total, namespace in
             total += (namespace["operations"] as? [String: Any])?.count ?? 0
         }
-        XCTAssertEqual(declared, 162,
+        XCTAssertEqual(declared, 190,
                        "the registry declares a different number of operations than this file covers — regenerate with Scripts/gen_management.py")
-        XCTAssertEqual(namespaces.count, 24)
+        XCTAssertEqual(namespaces.count, 28)
     }
 }

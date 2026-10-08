@@ -262,6 +262,11 @@ enum ManagementCodec {
     static func encode<T: Encodable>(_ value: T) throws -> Data {
         do {
             return try JSONEncoder().encode(value)
+        } catch let refusal as AxiamError {
+            // A model's own `encode(to:)` refused the value locally (e.g. an open union's
+            // unknown `type`, CONTRACT.md §31.2). That refusal is already in the §2
+            // taxonomy; wrapping it would turn a validation failure into a transport one.
+            throw refusal
         } catch {
             throw AxiamError.network(
                 NetworkError("Failed to encode a management request body", cause: error))
