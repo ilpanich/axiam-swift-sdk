@@ -770,8 +770,14 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
              "description": f"The `{tag}` discriminator naming which variant this is."},
             {"wire": "", "name": "raw", "decl": "ManagementJSON", "kind": "union_raw",
              "ref": "", "required": True, "schema": {}, "secret": False,
-             "description": "The whole object as the server sent it, to read the "
-                            f"variant's own fields from once `{tag}` says which it is."},
+             "description": (
+                 f"The members the `{tag}` arm declares, as the server sent them, to read "
+                 f"the variant's own fields from once `{tag}` says which it is. Nothing "
+                 "else the server sent is kept, and an unknown arm keeps only the "
+                 f"`{tag}` (CONTRACT.md §34.2 P12.1)."
+                 if schema_name in OPEN_UNIONS else
+                 "The whole object as the server sent it, to read the "
+                 f"variant's own fields from once `{tag}` says which it is.")},
         ], schema.get("description"))
 
     props, required, description = flatten(schema_name)
@@ -1327,6 +1333,24 @@ def emit_models() -> str:
                 "newer server; such a value cannot be written back.", "    "))
             out.append(f"    public var isKnown: Bool {{ Self.knownTypes.contains({field(tag)}) }}")
             out.append("")
+            # §34.2 P12.1: only DECLARED members are kept from a response — a known arm keeps
+            # its own members, an unknown arm its discriminator and nothing else. Keeping the
+            # server's whole object would surface (and echo back on a read-modify-write) any
+            # member the server should not have sent, a secret included.
+            out.extend(doc(
+                f"The members each known arm declares, `{tag}` included. Decoding keeps these "
+                f"and drops the rest; an unknown `{tag}` keeps the discriminator alone "
+                "(CONTRACT.md §34.2 P12.1).", "    "))
+            out.append("    public static let declaredMembers: [String: Set<String>] = [")
+            for value, payload in arms:
+                members = {tag}
+                resolved = resolve_ref(payload) if isinstance(payload, dict) and "$ref" in payload \
+                    else payload
+                members.update((resolved or {}).get("properties") or {})
+                listed = ", ".join(f'"{m}"' for m in sorted(members))
+                out.append(f'        "{value}": [{listed}],')
+            out.append("    ]")
+            out.append("")
 
         # memberwise init — Swift synthesises one, but only `internal`, and a public struct
         # in a library that consumers cannot construct is a request body nobody can send.
@@ -1358,6 +1382,16 @@ def emit_models() -> str:
         if keyed:
             out.append("        let container = try decoder.container(keyedBy: CodingKeys.self)")
         for f in fields:
+            if open_union and f["kind"] == "union_raw":
+                tag_name = next(x["name"] for x in fields if x["kind"] != "union_raw")
+                tag_wire = next(x["wire"] for x in fields if x["kind"] != "union_raw")
+                out.append(f"        let declared = Self.declaredMembers[self.{tag_name}] ?? [\"{tag_wire}\"]")
+                out.append("        if case .object(let members) = try ManagementJSON(from: decoder) {")
+                out.append(f"            self.{f['name']} = .object(members.filter {{ declared.contains($0.key) }})")
+                out.append("        } else {")
+                out.append(f"            self.{f['name']} = .object([\"{tag_wire}\": .string(self.{tag_name})])")
+                out.append("        }")
+                continue
             out.extend(decode_expr(f))
         if not fields:
             out.append("        _ = decoder")
@@ -1366,10 +1400,15 @@ def emit_models() -> str:
 
         out.append("    public func encode(to encoder: any Encoder) throws {")
         if any(f["kind"] == "union_raw" for f in fields):
-            out.extend(comment(
-                "A union is forwarded EXACTLY as received. Re-encoding from the one member "
-                "this SDK models would drop every field belonging to the variant it does "
-                "not model — and the server round-trips those.", "        "))
+            if open_union:
+                out.extend(comment(
+                    "A known arm is forwarded with the members it declares, as received — "
+                    "decoding already dropped the rest (§34.2 P12.1).", "        "))
+            else:
+                out.extend(comment(
+                    "A union is forwarded EXACTLY as received. Re-encoding from the one member "
+                    "this SDK models would drop every field belonging to the variant it does "
+                    "not model — and the server round-trips those.", "        "))
             if open_union:
                 out.extend(comment(
                     "§31.2: an unknown `type` decodes, and MUST NOT be sent. Refused before "

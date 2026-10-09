@@ -9118,8 +9118,9 @@ public struct ScimTargetAuth: Codable, Sendable {
     /// The `type` discriminator naming which variant this is.
     public let type: String
 
-    /// The whole object as the server sent it, to read the variant's own fields from once
-    /// `type` says which it is.
+    /// The members the `type` arm declares, as the server sent them, to read the variant's own
+    /// fields from once `type` says which it is. Nothing else the server sent is kept, and an
+    /// unknown arm keeps only the `type` (CONTRACT.md §34.2 P12.1).
     public let raw: ManagementJSON
 
     /// The `type` values this SDK knows (CONTRACT.md §31.2). The set is OPEN: a `type` outside
@@ -9129,6 +9130,13 @@ public struct ScimTargetAuth: Codable, Sendable {
     /// Whether `type` is one this SDK knows. `false` for a value decoded from a newer server;
     /// such a value cannot be written back.
     public var isKnown: Bool { Self.knownTypes.contains(type) }
+
+    /// The members each known arm declares, `type` included. Decoding keeps these and drops the
+    /// rest; an unknown `type` keeps the discriminator alone (CONTRACT.md §34.2 P12.1).
+    public static let declaredMembers: [String: Set<String>] = [
+        "bearer": ["type"],
+        "oauth2_client_credentials": ["client_id", "scope", "token_url", "type"],
+    ]
 
     public init(
         type: String,
@@ -9145,13 +9153,17 @@ public struct ScimTargetAuth: Codable, Sendable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.type = try container.decode(String.self, forKey: .type)
-        self.raw = try ManagementJSON(from: decoder)
+        let declared = Self.declaredMembers[self.type] ?? ["type"]
+        if case .object(let members) = try ManagementJSON(from: decoder) {
+            self.raw = .object(members.filter { declared.contains($0.key) })
+        } else {
+            self.raw = .object(["type": .string(self.type)])
+        }
     }
 
     public func encode(to encoder: any Encoder) throws {
-        // A union is forwarded EXACTLY as received. Re-encoding from the one member this SDK
-        // models would drop every field belonging to the variant it does not model — and the
-        // server round-trips those.
+        // A known arm is forwarded with the members it declares, as received — decoding already
+        // dropped the rest (§34.2 P12.1).
         // §31.2: an unknown `type` decodes, and MUST NOT be sent. Refused before a byte is
         // written, as a local validation failure.
         guard isKnown else {
@@ -9461,8 +9473,9 @@ public struct ScimTargetScope: Codable, Sendable {
     /// The `type` discriminator naming which variant this is.
     public let type: String
 
-    /// The whole object as the server sent it, to read the variant's own fields from once
-    /// `type` says which it is.
+    /// The members the `type` arm declares, as the server sent them, to read the variant's own
+    /// fields from once `type` says which it is. Nothing else the server sent is kept, and an
+    /// unknown arm keeps only the `type` (CONTRACT.md §34.2 P12.1).
     public let raw: ManagementJSON
 
     /// The `type` values this SDK knows (CONTRACT.md §31.2). The set is OPEN: a `type` outside
@@ -9472,6 +9485,13 @@ public struct ScimTargetScope: Codable, Sendable {
     /// Whether `type` is one this SDK knows. `false` for a value decoded from a newer server;
     /// such a value cannot be written back.
     public var isKnown: Bool { Self.knownTypes.contains(type) }
+
+    /// The members each known arm declares, `type` included. Decoding keeps these and drops the
+    /// rest; an unknown `type` keeps the discriminator alone (CONTRACT.md §34.2 P12.1).
+    public static let declaredMembers: [String: Set<String>] = [
+        "all_users": ["type"],
+        "groups": ["group_ids", "type"],
+    ]
 
     public init(
         type: String,
@@ -9488,13 +9508,17 @@ public struct ScimTargetScope: Codable, Sendable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.type = try container.decode(String.self, forKey: .type)
-        self.raw = try ManagementJSON(from: decoder)
+        let declared = Self.declaredMembers[self.type] ?? ["type"]
+        if case .object(let members) = try ManagementJSON(from: decoder) {
+            self.raw = .object(members.filter { declared.contains($0.key) })
+        } else {
+            self.raw = .object(["type": .string(self.type)])
+        }
     }
 
     public func encode(to encoder: any Encoder) throws {
-        // A union is forwarded EXACTLY as received. Re-encoding from the one member this SDK
-        // models would drop every field belonging to the variant it does not model — and the
-        // server round-trips those.
+        // A known arm is forwarded with the members it declares, as received — decoding already
+        // dropped the rest (§34.2 P12.1).
         // §31.2: an unknown `type` decodes, and MUST NOT be sent. Refused before a byte is
         // written, as a local validation failure.
         guard isKnown else {

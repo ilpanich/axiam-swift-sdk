@@ -98,6 +98,62 @@ final class ScimTargetsManagementTests: XCTestCase {
         // compile.
     }
 
+    /// §34.2 P12.1 (R-20, SW-9): only DECLARED members are kept from a response union — in a
+    /// known arm its own members, in an unknown arm the discriminator and nothing else. A
+    /// member the server (wrongly) put inside `auth` or `scope` is neither surfaced nor echoed
+    /// back by `ScimTargetInput(copying:)`.
+    func testAuthAndScopeKeepOnlyTheirDeclaredMembers() async throws {
+        let leaked = Self.credential()
+        let group = UUID().uuidString.lowercased()
+        let known = Self.targetObject([
+            "auth": [
+                "type": "oauth2_client_credentials", "token_url": "https://idp.example/token",
+                "client_id": "axiam", "scope": "scim", "client_secret": leaked,
+            ],
+            "scope": ["type": "groups", "group_ids": [group], "extra": leaked] as [String: Any],
+        ])
+        let unknown = Self.targetObject([
+            "auth": ["type": "mtls", "private_key_pem": leaked],
+            "scope": ["type": "everyone_in_a_region", "region": leaked],
+        ])
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.json(known)),
+            (status: 200, body: Self.json(unknown)),
+            (status: 200, body: Self.json(Self.targetObject())),
+        ])
+
+        let first = try await client.scimTargets.get(id: UUID().uuidString.lowercased())
+        XCTAssertEqual(first.auth.raw, .object([
+            "type": .string("oauth2_client_credentials"),
+            "token_url": .string("https://idp.example/token"),
+            "client_id": .string("axiam"), "scope": .string("scim"),
+        ]))
+        XCTAssertEqual(first.scope.raw, .object([
+            "type": .string("groups"), "group_ids": .array([.string(group)]),
+        ]))
+
+        let second = try await client.scimTargets.get(id: UUID().uuidString.lowercased())
+        XCTAssertEqual(second.auth.type, "mtls")
+        XCTAssertEqual(second.auth.raw, .object(["type": .string("mtls")]), "the tag and nothing else")
+        XCTAssertEqual(second.scope.raw, .object(["type": .string("everyone_in_a_region")]))
+
+        for target in [first, second] {
+            let reencoded = String(decoding: try JSONEncoder().encode(target.auth.raw), as: UTF8.self)
+            for rendering in SecretKit.renderings(target) + [reencoded] {
+                XCTAssertFalse(SecretKit.leaks(rendering, leaked), "an undeclared member was kept")
+            }
+        }
+
+        // The read-modify-write echo sends the declared members only.
+        _ = try await client.scimTargets.update(id: first.id, body: ScimTargetInput(copying: first))
+        let sent = try XCTUnwrap(transport.last?.jsonBody)
+        XCTAssertEqual(
+            Set(try XCTUnwrap(sent["auth"] as? [String: Any]).keys),
+            ["type", "token_url", "client_id", "scope"])
+        XCTAssertEqual(Set(try XCTUnwrap(sent["scope"] as? [String: Any]).keys), ["type", "group_ids"])
+        XCTAssertFalse(SecretKit.leaks(String(decoding: transport.last?.body ?? Data(), as: UTF8.self), leaked))
+    }
+
     // MARK: - 3. Replacement and the omitted credential
 
     func testUpdateWithoutACredentialSendsNoKeyAndTheVariantsKeepTheirShape() async throws {
