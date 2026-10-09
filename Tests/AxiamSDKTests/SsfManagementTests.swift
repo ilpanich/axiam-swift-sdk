@@ -174,23 +174,26 @@ final class SsfManagementTests: XCTestCase {
         let page2 = Self.json(["items": [Self.streamObject()], "total": 2, "offset": 1, "limit": 1])
         let empty = Self.json(["items": [Any](), "total": 2, "offset": 2, "limit": 1])
         let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: page1),
             (status: 200, body: page1), (status: 200, body: page2), (status: 200, body: empty),
         ])
 
-        var request = PageRequest(offset: 0, limit: 1, search: "rp.example")
+        let request = PageRequest(offset: 0, limit: 1, search: "rp.example")
+        let first = try await client.ssf.listStreams(page: request)
+        XCTAssertEqual(first.total, 2)
+        XCTAssertEqual(first.count, 1)
+        // §27.4 rule 4's auto-paging form.
         var all: [SsfStream] = []
-        while true {
-            let page = try await client.ssf.listStreams(page: request)
-            XCTAssertEqual(page.total, 2)
-            if page.isEmpty { break }
-            all.append(contentsOf: page.items)
-            request = page.nextRequest
+        for try await stream in client.ssf.listStreamsAll(page: request) {
+            all.append(stream)
         }
         XCTAssertEqual(all.count, 2)
-        XCTAssertEqual(transport.count, 3)
-        for sent in transport.requests {
-            XCTAssertTrue(sent.query.contains("search=rp.example"), "every page carries the search")
-        }
+        XCTAssertEqual(transport.count, 4)
+        XCTAssertEqual(transport.requests.dropFirst().map(\.query), [
+            "offset=0&limit=1&search=rp.example",
+            "offset=1&limit=1&search=rp.example",
+            "offset=2&limit=1&search=rp.example",
+        ], "every page of the walk carries the search")
     }
 
     // MARK: - 5. No retry

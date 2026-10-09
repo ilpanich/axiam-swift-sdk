@@ -219,18 +219,19 @@ final class ScimTargetsManagementTests: XCTestCase {
         ])
         let (client, transport) = try await ManagementFixture.signedIn([
             (status: 200, body: Self.json(["items": [odd], "total": 2, "offset": 0, "limit": 1])),
+            (status: 200, body: Self.json(["items": [odd], "total": 2, "offset": 0, "limit": 1])),
             (status: 200, body: Self.json(["items": [failing], "total": 2, "offset": 1, "limit": 1])),
             (status: 200, body: Self.json(["items": [Any](), "total": 2, "offset": 2, "limit": 1])),
         ])
 
-        var request = PageRequest(offset: 0, limit: 1, search: "downstream")
+        let request = PageRequest(offset: 0, limit: 1, search: "downstream")
+        let first = try await client.scimTargets.list(page: request)
+        XCTAssertEqual(first.total, 2)
+        XCTAssertEqual(first.count, 1)
+        // §27.4 rule 4's auto-paging form.
         var all: [ScimTargetResponse] = []
-        while true {
-            let page = try await client.scimTargets.list(page: request)
-            XCTAssertEqual(page.total, 2)
-            if page.isEmpty { break }
-            all.append(contentsOf: page.items)
-            request = page.nextRequest
+        for try await target in client.scimTargets.listAll(page: request) {
+            all.append(target)
         }
         XCTAssertEqual(all.count, 2)
         XCTAssertEqual(all[0].auth.type, "mtls", "an unknown auth.type decodes")
@@ -240,10 +241,12 @@ final class ScimTargetsManagementTests: XCTestCase {
         XCTAssertNil(all[0].state)
         XCTAssertEqual(all[1].state?.lastFailureReason, "a reason this SDK has never seen")
         XCTAssertEqual(all[1].state?.consecutiveFailures, 3)
-        XCTAssertEqual(transport.count, 3)
-        for sent in transport.requests {
-            XCTAssertTrue(sent.query.contains("search=downstream"), "every page carries the search")
-        }
+        XCTAssertEqual(transport.count, 4)
+        XCTAssertEqual(transport.requests.dropFirst().map(\.query), [
+            "offset=0&limit=1&search=downstream",
+            "offset=1&limit=1&search=downstream",
+            "offset=2&limit=1&search=downstream",
+        ], "every page of the walk carries the search")
 
         // An unknown variant decodes but is never sent: the write is refused locally, before
         // any request, as a ValidationError.
@@ -254,7 +257,7 @@ final class ScimTargetsManagementTests: XCTestCase {
         } catch AxiamError.network(let error) {
             XCTAssertTrue(error.isValidation)
         }
-        XCTAssertEqual(transport.count, 3, "nothing was sent")
+        XCTAssertEqual(transport.count, 4, "nothing was sent")
         XCTAssertThrowsError(try JSONEncoder().encode(all[0].auth))
     }
 

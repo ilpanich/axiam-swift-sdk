@@ -160,23 +160,18 @@ final class ManagementSemanticsTests: XCTestCase {
             (status: 200, body: Self.emptyPage),
         ])
 
-        var request = PageRequest()
+        // §27.4 rule 4's auto-paging form: an async sequence of items over every page.
         var seen = 0
-        var offsets: [String] = []
-        while true {
-            let page = try await client.roles.list(page: request)
-            offsets.append(transport.last?.query ?? "")
-            if page.isEmpty { break }
-            seen += page.count
-            request = page.nextRequest
+        for try await _ in client.roles.listAll() {
+            seen += 1
         }
 
         XCTAssertEqual(seen, 2)
         XCTAssertEqual(transport.count, 3)
         // Advanced by the REQUESTED limit, never by the short count — advancing by 1 would
         // re-request rows the caller has already seen.
-        XCTAssertEqual(offsets, ["offset=0&limit=50", "offset=50&limit=50",
-                                 "offset=100&limit=50"])
+        XCTAssertEqual(transport.requests.map(\.query), ["offset=0&limit=50", "offset=50&limit=50",
+                                                          "offset=100&limit=50"])
     }
 
     func testABareArrayOperationIsNotModelledAsAPage() async throws {
@@ -256,12 +251,7 @@ final class ManagementSemanticsTests: XCTestCase {
             (status: 200, body: Self.emptyPage),
         ])
 
-        var request = PageRequest(offset: 0, limit: 50, search: "ada")
-        while true {
-            let page = try await client.roles.list(page: request)
-            if page.isEmpty { break }
-            request = page.nextRequest
-        }
+        for try await _ in client.roles.listAll(page: PageRequest(offset: 0, limit: 50, search: "ada")) {}
 
         // Asserted on EVERY recorded request, not on the count: a walk that filtered only
         // its first request returns the matches followed by the unfiltered tail, which

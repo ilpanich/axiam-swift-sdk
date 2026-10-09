@@ -229,26 +229,29 @@ final class SamlManagementTests: XCTestCase {
         let credentials = Self.json([Self.credentialObject("next"), Self.credentialObject("active")])
         let (client, transport) = try await ManagementFixture.signedIn([
             (status: 200, body: page1),
+            (status: 200, body: page1),
             (status: 200, body: page2),
             (status: 200, body: empty),
             (status: 200, body: credentials),
         ])
 
-        var request = PageRequest(offset: 0, limit: 1, search: "payroll")
+        let request = PageRequest(offset: 0, limit: 1, search: "payroll")
+        let one = try await client.saml.listServiceProviders(page: request)
+        XCTAssertEqual(one.total, 2)
+        XCTAssertEqual(one.count, 1, "one page, total apart")
+
+        // §27.4 rule 4's auto-paging form: walks to the empty page, the term on every request.
         var collected: [SamlServiceProvider] = []
-        while true {
-            let page = try await client.saml.listServiceProviders(page: request)
-            XCTAssertEqual(page.total, 2)
-            if page.isEmpty { break }
-            collected.append(contentsOf: page.items)
-            request = page.nextRequest
+        for try await provider in client.saml.listServiceProvidersAll(page: request) {
+            collected.append(provider)
         }
         XCTAssertEqual(collected.count, 2)
-        let walk = transport.requests.prefix(3)
-        XCTAssertEqual(walk.count, 3)
-        for sent in walk {
-            XCTAssertTrue(sent.query.contains("search=payroll"), "every page carries the search")
-        }
+        let walk = Array(transport.requests.dropFirst().prefix(3))
+        XCTAssertEqual(walk.map(\.query), [
+            "offset=0&limit=1&search=payroll",
+            "offset=1&limit=1&search=payroll",
+            "offset=2&limit=1&search=payroll",
+        ], "every page carries the search")
 
         let list: [SamlIdpCredential] = try await client.saml.listIdpCredentials()
         XCTAssertEqual(list.count, 2)

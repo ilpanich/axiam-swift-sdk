@@ -1524,8 +1524,8 @@ def emit_operation(namespace: str, opname: str, op: dict[str, Any]) -> list[str]
         out.extend(doc("", "    "))
         out.extend(doc(
             "Returns ONE page. `Page.total` is the server's count across every page and is "
-            "not `items.count`; call again with `page.next()` and stop when a page comes "
-            "back empty (§27.4 rule 4).", "    "))
+            f"not `items.count`. To walk every page, use `{method(opname + '_all')}(page:)` — "
+            "§27.4 rule 4's auto-paging form.", "    "))
     canonical = f"{namespace}.{opname}"
     if canonical in CALL_SITE_NOTES:
         out.extend(doc("", "    "))
@@ -1624,6 +1624,51 @@ def emit_operation(namespace: str, opname: str, op: dict[str, Any]) -> list[str]
         model = model_type(schema.lstrip("[]"))
         out.append(f"        return try ManagementCodec.decode({model}.self, from: data)")
 
+    out.append("    }")
+    out.append("")
+    if kind == "page":
+        out.extend(emit_auto_pager(namespace, opname, op, params, route))
+    return out
+
+
+def emit_auto_pager(
+    namespace: str, opname: str, op: dict[str, Any], params: list[dict[str, Any]], route: str
+) -> list[str]:
+    """§27.4 rule 4's auto-paging form: an `…All(page:)` twin of a paginated `list…`."""
+    model = model_type(op["response"]["schema"].lstrip("[]"))
+    out: list[str] = []
+    out.extend(doc(f"Every item of {route}, across every page — §27.4 rule 4's auto-paging "
+                   "form.", "    "))
+    out.extend(doc("", "    "))
+    out.extend(doc(
+        f"A `ManagementPager` over `{method(opname)}(page:)`: iterating fetches page after "
+        "page from `page`, carrying its `limit` and `search` on every request, until a page "
+        "comes back empty. Building it performs no I/O.", "    "))
+    out.extend(doc("", "    "))
+    for p in params:
+        text = ("The first page to fetch; its `limit` and `search` are kept for the whole "
+                "walk." if p["kind"] == "page" else p["text"])
+        out.extend(doc(f"- Parameter {p['name'].strip('`')}: {text}", "    "))
+    signature = []
+    for p in params:
+        default = f" = {p['default']}" if not p["required"] else ""
+        signature.append(f"{p['name']}: {p['type']}{default}")
+    joined = ", ".join(signature)
+    name = method(opname + "_all")
+    ret = f"ManagementPager<{model}>"
+    if len(f"    public func {name}({joined}) -> {ret} {{") <= 100:
+        out.append(f"    public func {name}({joined}) -> {ret} {{")
+    else:
+        out.append(f"    public func {name}(")
+        for i, arg in enumerate(signature):
+            out.append(f"        {arg}" + ("," if i < len(signature) - 1 else ""))
+        out.append(f"    ) -> {ret} {{")
+    args = ", ".join(
+        f"{p['name'].strip('`')}: " + ("request" if p["kind"] == "page" else p["name"])
+        for p in params)
+    out.append("        ManagementPager(start: page) { request in")
+    out.append(f"            try await self.{method(opname)}({args})")
+    out.append("        }")
     out.append("    }")
     out.append("")
     return out
