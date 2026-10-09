@@ -4,7 +4,7 @@
 
 import Foundation
 
-// CONTRACT.md §27 namespace handles — 162 operations across 24 of them.
+// CONTRACT.md §27 namespace handles — 190 operations across 28 of them.
 //
 // §27.2 rule 1: a handle is cheap and stateless. It holds the client and a scope of two
 // optional strings, acquiring one performs no I/O, and every accessor below builds a fresh one
@@ -3252,6 +3252,789 @@ public struct EmailConfigApi: Sendable {
 
 }
 
+/// A tenant's LDAP / Active Directory identity source (CONTRACT §30): the one configuration,
+/// the explicit act that links an existing local account to its directory entry, and a
+/// read-only view of the sync job. Signing in needs nothing new -- a directory account calls
+/// the same §1 `login`.
+public struct DirectoryApi: Sendable {
+    private let client: AxiamClient
+    private let scope: CallScope
+
+    init(client: AxiamClient, scope: CallScope) {
+        self.client = client
+        self.scope = scope
+    }
+
+    /// This namespace scoped to a different organization (§27.4 rule 3).
+    ///
+    /// Returns a NEW handle. A handle that repointed itself would mean an unrelated code path
+    /// re-scoping a shared object could send this one's next WRITE to somebody else's
+    /// organization.
+    public func inOrg(_ orgID: String) -> DirectoryApi {
+        DirectoryApi(client: client, scope: scope.withOrg(orgID))
+    }
+
+    /// This namespace scoped to a different tenant (§27.4 rule 3).
+    ///
+    /// Returns a NEW handle, for the same reason `inOrg(_:)` does.
+    public func forTenant(_ tenantID: String) -> DirectoryApi {
+        DirectoryApi(client: client, scope: scope.withTenant(tenantID))
+    }
+
+    /// `GET /api/v1/tenants/{tenant_id}/directory`
+    public func get() async throws -> DirectoryConfig {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "directory.get",
+            method: .get,
+            template: "/api/v1/tenants/{tenant_id}/directory",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(DirectoryConfig.self, from: data)
+    }
+
+    /// `PUT /api/v1/tenants/{tenant_id}/directory` — create or **replace**.
+    ///
+    /// `PUT /api/v1/tenants/{tenant_id}/directory`
+    ///
+    /// **Moving the connection requires the secret again** (§30.3 rule 2): a `set` that changes
+    /// `url`, `startTLS`, `bindDn` or `trustAnchorsPEM` without `bindSecret` is refused `400`
+    /// and changes nothing. The SDK holds no copy of the secret and cannot re-send one for you.
+    /// `bindSecret` is required while the tenant has no configuration; otherwise absent keeps
+    /// the stored secret. Every other optional member left `nil` is **reset to its default**.
+    /// An enabled directory and an effective `opaque_mode = required` never coexist (`409`);
+    /// without the deployment's directory key a write carrying a secret is `503`.
+    ///
+    /// - Parameter body: The request body.
+    public func set(body: SetDirectoryConfig) async throws -> DirectoryConfig {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "directory.set",
+            method: .put,
+            template: "/api/v1/tenants/{tenant_id}/directory",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(DirectoryConfig.self, from: data)
+    }
+
+    /// `PATCH /api/v1/tenants/{tenant_id}/directory` — a **sparse** update.
+    ///
+    /// `PATCH /api/v1/tenants/{tenant_id}/directory`
+    ///
+    /// **Moving the connection requires the secret again** (§30.3 rule 2): an `update` that
+    /// changes `url`, `startTLS`, `bindDn` or `trustAnchorsPEM` without `bindSecret` is refused
+    /// `400` and changes nothing; the SDK holds no copy of the secret to re-send. A member left
+    /// `nil` is not sent and stays as stored; `groupBaseDn` / `groupFilter` set to `.some(nil)`
+    /// are sent as `null` and clear the value. An enabled directory and an effective
+    /// `opaque_mode = required` never coexist (`409`).
+    ///
+    /// - Parameter body: The request body.
+    public func update(body: UpdateDirectoryConfig) async throws -> DirectoryConfig {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "directory.update",
+            method: .patch,
+            template: "/api/v1/tenants/{tenant_id}/directory",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(DirectoryConfig.self, from: data)
+    }
+
+    /// `DELETE /api/v1/tenants/{tenant_id}/directory`
+    ///
+    /// **Deleting stops the directory, and only that** (§30.3 rule 5): directory accounts can
+    /// no longer sign in with a password -- there is no fallback to a local hash -- and the
+    /// sync stops. Sessions, refresh tokens and passkeys those accounts already hold keep
+    /// working until they expire or the accounts are deactivated. There is no unlink: a linked
+    /// account stays a directory account.
+    public func delete() async throws {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "directory.delete",
+            method: .delete,
+            template: "/api/v1/tenants/{tenant_id}/directory",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
+        // server that started sending one does not silently change what this returns.
+        _ = data
+    }
+
+    /// `POST /api/v1/tenants/{tenant_id}/directory/links` — link a local account to its
+    /// directory entry (D-28).
+    ///
+    /// `POST /api/v1/tenants/{tenant_id}/directory/links`
+    ///
+    /// **Signs the account's owner out everywhere** (§30.3 rule 6): linking deletes the
+    /// account's WebAuthn credentials and federation links, revokes its `User` certificates,
+    /// all its sessions and its OAuth2 refresh tokens (TOTP is kept). The entry is found by the
+    /// account's own username; a repeat on an already-linked account answers `wasAlreadyLinked`
+    /// and repeats the revocations.
+    ///
+    /// - Parameter body: The request body.
+    public func linkAccount(body: LinkDirectoryAccount) async throws -> DirectoryLinkResult {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "directory.link_account",
+            method: .post,
+            template: "/api/v1/tenants/{tenant_id}/directory/links",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(DirectoryLinkResult.self, from: data)
+    }
+
+    /// `GET /api/v1/tenants/{tenant_id}/directory/sync-status`
+    public func getSyncStatus() async throws -> DirectorySyncStatus {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "directory.get_sync_status",
+            method: .get,
+            template: "/api/v1/tenants/{tenant_id}/directory/sync-status",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(DirectorySyncStatus.self, from: data)
+    }
+
+}
+
+/// A tenant's SAML 2.0 identity provider (CONTRACT §29): the registry of service providers, the
+/// import of an SP's metadata into a *draft* registration (never a write), and the lifecycle of
+/// the IdP signing credential. The protocol itself -- single sign-on, single logout, the IdP
+/// metadata document -- is browser and SP-to-IdP surface under /saml/v2/{tenant_id}, an SP's
+/// own SAML library speaks to it, and it is not in this registry.
+public struct SamlApi: Sendable {
+    private let client: AxiamClient
+    private let scope: CallScope
+
+    init(client: AxiamClient, scope: CallScope) {
+        self.client = client
+        self.scope = scope
+    }
+
+    /// This namespace scoped to a different organization (§27.4 rule 3).
+    ///
+    /// Returns a NEW handle. A handle that repointed itself would mean an unrelated code path
+    /// re-scoping a shared object could send this one's next WRITE to somebody else's
+    /// organization.
+    public func inOrg(_ orgID: String) -> SamlApi {
+        SamlApi(client: client, scope: scope.withOrg(orgID))
+    }
+
+    /// This namespace scoped to a different tenant (§27.4 rule 3).
+    ///
+    /// Returns a NEW handle, for the same reason `inOrg(_:)` does.
+    public func forTenant(_ tenantID: String) -> SamlApi {
+        SamlApi(client: client, scope: scope.withTenant(tenantID))
+    }
+
+    /// `GET /api/v1/tenants/{tenant_id}/saml/idp`
+    public func getIdp() async throws -> SamlIdpInfo {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "saml.get_idp",
+            method: .get,
+            template: "/api/v1/tenants/{tenant_id}/saml/idp",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(SamlIdpInfo.self, from: data)
+    }
+
+    /// `GET /api/v1/tenants/{tenant_id}/saml/service-providers`
+    ///
+    /// Returns ONE page. `Page.total` is the server's count across every page and is not
+    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
+    /// (§27.4 rule 4).
+    ///
+    /// - Parameter page: Which page to fetch; defaults to the first.
+    public func listServiceProviders(
+        page: PageRequest = PageRequest()
+    ) async throws -> Page<SamlServiceProvider> {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = page.queryPairs
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "saml.list_service_providers",
+            method: .get,
+            template: "/api/v1/tenants/{tenant_id}/saml/service-providers",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decodePage(SamlServiceProvider.self, from: data, request: page)
+    }
+
+    /// `POST /api/v1/tenants/{tenant_id}/saml/service-providers`
+    ///
+    /// `spSigningCertPEM` must be RSA (2048 bits or more) or ECDSA on P-256, P-384 or P-521; an
+    /// **ECDSA certificate verifies HTTP-POST requests only** -- the HTTP-Redirect binding is
+    /// RSA-only (§29.3 rule 2). `encryptAssertions: true` is refused while encryption is
+    /// unimplemented. `entityID` is unique per tenant (`409`) and immutable once created.
+    ///
+    /// - Parameter body: The request body.
+    public func createServiceProvider(
+        body: SamlServiceProviderInput
+    ) async throws -> SamlServiceProvider {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "saml.create_service_provider",
+            method: .post,
+            template: "/api/v1/tenants/{tenant_id}/saml/service-providers",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(SamlServiceProvider.self, from: data)
+    }
+
+    /// `GET /api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}`
+    ///
+    /// - Parameter spID: The `{sp_id}` path parameter.
+    public func getServiceProvider(spID: String) async throws -> SamlServiceProvider {
+        let pathParameters = ["sp_id": spID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "saml.get_service_provider",
+            method: .get,
+            template: "/api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(SamlServiceProvider.self, from: data)
+    }
+
+    /// `PUT /api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}` — a **replacement**:
+    /// every member the body omits takes its default, it is not kept. `entity_id` is immutable.
+    ///
+    /// `PUT /api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}`
+    ///
+    /// An omitted member takes its **default**, not its stored value: `enabled` and
+    /// `signResponses` default to `true`, `nameIDFormat` to `persistent`, the other flags to
+    /// `false`, certificates and `sloURL` / `sloBinding` to null, the lists to empty (§29.2).
+    /// Start from `getServiceProvider` -- `SamlServiceProviderInput(copying:)` carries every
+    /// member over. `entityID` is immutable: changing it is `400` -- register a new service
+    /// provider instead (§29.3 rule 3). An ECDSA `spSigningCertPEM` verifies HTTP-POST requests
+    /// only; HTTP-Redirect is RSA-only.
+    ///
+    /// - Parameter spID: The `{sp_id}` path parameter.
+    /// - Parameter body: The request body.
+    public func updateServiceProvider(
+        spID: String,
+        body: SamlServiceProviderInput
+    ) async throws -> SamlServiceProvider {
+        let pathParameters = ["sp_id": spID]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "saml.update_service_provider",
+            method: .put,
+            template: "/api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(SamlServiceProvider.self, from: data)
+    }
+
+    /// `DELETE /api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}`
+    ///
+    /// Ends no session: users already signed in to the SP stay signed in there until their SP
+    /// session ends (§29.3 rule 5).
+    ///
+    /// - Parameter spID: The `{sp_id}` path parameter.
+    public func deleteServiceProvider(spID: String) async throws {
+        let pathParameters = ["sp_id": spID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "saml.delete_service_provider",
+            method: .delete,
+            template: "/api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
+        // server that started sending one does not silently change what this returns.
+        _ = data
+    }
+
+    /// `POST /api/v1/tenants/{tenant_id}/saml/parse-sp-metadata`
+    ///
+    /// **Parses and stores nothing** (§29.3 rule 6): the result is a draft to review and pass
+    /// to `createServiceProvider`. Exactly one of `metadataXml` and `metadataURL` must be set
+    /// -- build the body with `ParseSamlSpMetadata.fromURL(_:)` or `.fromXML(_:)`; both or
+    /// neither is refused locally, before any request. The metadata's own signature is not
+    /// evaluated. `503` in a server built without SAML.
+    ///
+    /// - Parameter body: The request body.
+    public func parseSpMetadata(body: ParseSamlSpMetadata) async throws -> SamlSpMetadataDraft {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        // A local check, before any I/O (PRECHECKS).
+        try ManagementChecks.parseSpMetadataExactlyOne(body)
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "saml.parse_sp_metadata",
+            method: .post,
+            template: "/api/v1/tenants/{tenant_id}/saml/parse-sp-metadata",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(SamlSpMetadataDraft.self, from: data)
+    }
+
+    /// `GET /api/v1/tenants/{tenant_id}/saml/idp-credentials`
+    public func listIdpCredentials() async throws -> [SamlIdpCredential] {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "saml.list_idp_credentials",
+            method: .get,
+            template: "/api/v1/tenants/{tenant_id}/saml/idp-credentials",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode([SamlIdpCredential].self, from: data)
+    }
+
+    /// `POST /api/v1/tenants/{tenant_id}/saml/idp-credentials`
+    ///
+    /// Generates an RSA-4096 key on the server, which takes seconds; the key is never returned.
+    /// An occupied slot is `409` (§29.3 rule 7).
+    ///
+    /// - Parameter body: The request body.
+    public func issueIdpCredential(body: IssueSamlIdpCredential) async throws -> SamlIdpCredential {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "saml.issue_idp_credential",
+            method: .post,
+            template: "/api/v1/tenants/{tenant_id}/saml/idp-credentials",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(SamlIdpCredential.self, from: data)
+    }
+
+    /// `POST /api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/promote`
+    ///
+    /// `credentialID` must be the tenant's current `next` credential; in one transaction the
+    /// old `active` is retired -- its key destroyed -- and `next` becomes `active` (§29.3 rule
+    /// 7).
+    ///
+    /// - Parameter credentialID: The `{credential_id}` path parameter.
+    public func promoteIdpCredential(
+        credentialID: String
+    ) async throws -> SamlIdpCredentialPromotion {
+        let pathParameters = ["credential_id": credentialID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "saml.promote_idp_credential",
+            method: .post,
+            template: "/api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/promote",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(SamlIdpCredentialPromotion.self, from: data)
+    }
+
+    /// `POST /api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/retire`
+    ///
+    /// **Retiring the `active` credential with no successor stops SAML sign-on for the whole
+    /// tenant at once** (§29.3 rule 7) -- it is the incident response to a leaked key. The key
+    /// is destroyed. The safe rotation is: issue into `next`, wait until every SP has refreshed
+    /// the metadata, then promote.
+    ///
+    /// - Parameter credentialID: The `{credential_id}` path parameter.
+    public func retireIdpCredential(credentialID: String) async throws -> SamlIdpCredential {
+        let pathParameters = ["credential_id": credentialID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "saml.retire_idp_credential",
+            method: .post,
+            template: "/api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/retire",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(SamlIdpCredential.self, from: data)
+    }
+
+}
+
+/// A tenant's Shared Signals Framework streams (CONTRACT §32): which receiver -- an OAuth2
+/// client of the tenant -- receives which CAEP and RISC security events, as SETs pushed to its
+/// endpoint or polled. The receiver's own protocol (transmitter metadata, the SSF stream
+/// management API, polling) is not in this registry.
+public struct SsfApi: Sendable {
+    private let client: AxiamClient
+    private let scope: CallScope
+
+    init(client: AxiamClient, scope: CallScope) {
+        self.client = client
+        self.scope = scope
+    }
+
+    /// This namespace scoped to a different organization (§27.4 rule 3).
+    ///
+    /// Returns a NEW handle. A handle that repointed itself would mean an unrelated code path
+    /// re-scoping a shared object could send this one's next WRITE to somebody else's
+    /// organization.
+    public func inOrg(_ orgID: String) -> SsfApi {
+        SsfApi(client: client, scope: scope.withOrg(orgID))
+    }
+
+    /// This namespace scoped to a different tenant (§27.4 rule 3).
+    ///
+    /// Returns a NEW handle, for the same reason `inOrg(_:)` does.
+    public func forTenant(_ tenantID: String) -> SsfApi {
+        SsfApi(client: client, scope: scope.withTenant(tenantID))
+    }
+
+    /// `GET /api/v1/tenants/{tenant_id}/ssf/streams`
+    ///
+    /// Returns ONE page. `Page.total` is the server's count across every page and is not
+    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
+    /// (§27.4 rule 4).
+    ///
+    /// - Parameter page: Which page to fetch; defaults to the first.
+    public func listStreams(page: PageRequest = PageRequest()) async throws -> Page<SsfStream> {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = page.queryPairs
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "ssf.list_streams",
+            method: .get,
+            template: "/api/v1/tenants/{tenant_id}/ssf/streams",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decodePage(SsfStream.self, from: data, request: page)
+    }
+
+    /// `POST /api/v1/tenants/{tenant_id}/ssf/streams`
+    ///
+    /// - Parameter body: The request body.
+    public func createStream(body: SsfStreamInput) async throws -> SsfStream {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "ssf.create_stream",
+            method: .post,
+            template: "/api/v1/tenants/{tenant_id}/ssf/streams",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(SsfStream.self, from: data)
+    }
+
+    /// `GET /api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}`
+    ///
+    /// - Parameter streamID: The `{stream_id}` path parameter.
+    public func getStream(streamID: String) async throws -> SsfStream {
+        let pathParameters = ["stream_id": streamID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "ssf.get_stream",
+            method: .get,
+            template: "/api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(SsfStream.self, from: data)
+    }
+
+    /// `PUT /api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}` — a **replacement**: an
+    /// omitted optional member takes its default, except the header, which absent keeps.
+    ///
+    /// `PUT /api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}`
+    ///
+    /// An omitted optional member takes its default (§32.2) -- **except `authorizationHeader`,
+    /// which absent keeps the stored one** -- unless the update moves `endpointURL` to another
+    /// scheme, host or port while a header is stored: then it must carry `authorizationHeader`
+    /// again or `clearAuthorizationHeader: true`, else `400` (§32.3 rule 5). An update
+    /// overtaken by the receiver's own write is `409`: read the stream again.
+    /// `SsfStreamInput(copying:)` turns a read into this body.
+    ///
+    /// - Parameter streamID: The `{stream_id}` path parameter.
+    /// - Parameter body: The request body.
+    public func updateStream(streamID: String, body: SsfStreamInput) async throws -> SsfStream {
+        let pathParameters = ["stream_id": streamID]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "ssf.update_stream",
+            method: .put,
+            template: "/api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        return try ManagementCodec.decode(SsfStream.self, from: data)
+    }
+
+    /// `DELETE /api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}` — the stream and its
+    /// buffered events.
+    ///
+    /// `DELETE /api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}`
+    ///
+    /// - Parameter streamID: The `{stream_id}` path parameter.
+    public func deleteStream(streamID: String) async throws {
+        let pathParameters = ["stream_id": streamID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "ssf.delete_stream",
+            method: .delete,
+            template: "/api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: true)
+        // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
+        // server that started sending one does not silently change what this returns.
+        _ = data
+    }
+
+}
+
+/// A tenant's outbound SCIM targets (CONTRACT §31): the downstream SCIM 2.0 service providers
+/// AXIAM pushes the tenant's users and groups to, each with its delivery state. The credential
+/// AXIAM pushes with is write-only. Deleting a target does not deprovision anything downstream.
+public struct ScimTargetsApi: Sendable {
+    private let client: AxiamClient
+    private let scope: CallScope
+
+    init(client: AxiamClient, scope: CallScope) {
+        self.client = client
+        self.scope = scope
+    }
+
+    /// This namespace scoped to a different organization (§27.4 rule 3).
+    ///
+    /// Returns a NEW handle. A handle that repointed itself would mean an unrelated code path
+    /// re-scoping a shared object could send this one's next WRITE to somebody else's
+    /// organization.
+    public func inOrg(_ orgID: String) -> ScimTargetsApi {
+        ScimTargetsApi(client: client, scope: scope.withOrg(orgID))
+    }
+
+    /// This namespace scoped to a different tenant (§27.4 rule 3).
+    ///
+    /// Returns a NEW handle, for the same reason `inOrg(_:)` does.
+    public func forTenant(_ tenantID: String) -> ScimTargetsApi {
+        ScimTargetsApi(client: client, scope: scope.withTenant(tenantID))
+    }
+
+    /// `GET /api/v1/scim-targets`
+    ///
+    /// Returns ONE page. `Page.total` is the server's count across every page and is not
+    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
+    /// (§27.4 rule 4).
+    ///
+    /// - Parameter page: Which page to fetch; defaults to the first.
+    public func list(page: PageRequest = PageRequest()) async throws -> Page<ScimTargetResponse> {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = page.queryPairs
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "scim_targets.list",
+            method: .get,
+            template: "/api/v1/scim-targets",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decodePage(ScimTargetResponse.self, from: data, request: page)
+    }
+
+    /// `POST /api/v1/scim-targets`
+    ///
+    /// `credential` is required here (§31.3 rule 2). It is write-only: no response ever carries
+    /// it, and the SDK keeps no copy.
+    ///
+    /// - Parameter body: The request body.
+    public func create(body: ScimTargetInput) async throws -> ScimTargetResponse {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "scim_targets.create",
+            method: .post,
+            template: "/api/v1/scim-targets",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(ScimTargetResponse.self, from: data)
+    }
+
+    /// `GET /api/v1/scim-targets/{id}`
+    ///
+    /// - Parameter id: The `{id}` path parameter.
+    public func get(id: String) async throws -> ScimTargetResponse {
+        let pathParameters = ["id": id]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "scim_targets.get",
+            method: .get,
+            template: "/api/v1/scim-targets/{id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(ScimTargetResponse.self, from: data)
+    }
+
+    /// `PUT /api/v1/scim-targets/{id}`
+    ///
+    /// **The credential is bound to its URL** (§31.3 rule 2): absent `credential` keeps the
+    /// stored one -- except that changing `baseURL` of a bearer target, `auth.token_url` or
+    /// `baseURL` of a client-credentials target, or `auth.type`, without `credential` in the
+    /// same write is refused `400` and changes nothing. The SDK holds no credential to re-send.
+    /// Every other member left out takes its default (`ScimTargetInput(copying:)` carries them
+    /// over). An update overtaken by another administrator's write is `409` (§31.3 rule 4):
+    /// reload, then retry yourself.
+    ///
+    /// - Parameter id: The `{id}` path parameter.
+    /// - Parameter body: The request body.
+    public func update(id: String, body: ScimTargetInput) async throws -> ScimTargetResponse {
+        let pathParameters = ["id": id]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "scim_targets.update",
+            method: .put,
+            template: "/api/v1/scim-targets/{id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(ScimTargetResponse.self, from: data)
+    }
+
+    /// `DELETE /api/v1/scim-targets/{id}`
+    ///
+    /// **Deprovisions nothing downstream** (§31.3 rule 8): the users and groups AXIAM created
+    /// in the service provider stay there, and AXIAM no longer knows them. To remove them, set
+    /// `deprovision` to `delete`, let AXIAM push, and only then delete the target.
+    ///
+    /// - Parameter id: The `{id}` path parameter.
+    public func delete(id: String) async throws {
+        let pathParameters = ["id": id]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "scim_targets.delete",
+            method: .delete,
+            template: "/api/v1/scim-targets/{id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
+        // server that started sending one does not silently change what this returns.
+        _ = data
+    }
+
+    /// `POST /api/v1/scim-targets/{id}/reconcile`
+    ///
+    /// Starts a reconciliation in the background and answers `202`; its outcome is on the
+    /// target's `state` (§31.3 rule 7). `409` while a run holds the claim, within five minutes
+    /// of the last one, or for a disabled target.
+    ///
+    /// - Parameter id: The `{id}` path parameter.
+    public func reconcile(id: String) async throws -> ScimReconcileAccepted {
+        let pathParameters = ["id": id]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "scim_targets.reconcile",
+            method: .post,
+            template: "/api/v1/scim-targets/{id}/reconcile",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(ScimReconcileAccepted.self, from: data)
+    }
+
+}
+
 /// Effective settings, and the organization/tenant layers they resolve from.
 public struct SettingsApi: Sendable {
     private let client: AxiamClient
@@ -4254,6 +5037,40 @@ public struct ManagementApi: Sendable {
         EmailConfigApi(client: client, scope: scope)
     }
 
+    /// A tenant's LDAP / Active Directory identity source (CONTRACT §30): the one
+    /// configuration, the explicit act that links an existing local account to its directory
+    /// entry, and a read-only view of the sync job. Signing in needs nothing new -- a directory
+    /// account calls the same §1 `login`.
+    public var directory: DirectoryApi {
+        DirectoryApi(client: client, scope: scope)
+    }
+
+    /// A tenant's SAML 2.0 identity provider (CONTRACT §29): the registry of service providers,
+    /// the import of an SP's metadata into a *draft* registration (never a write), and the
+    /// lifecycle of the IdP signing credential. The protocol itself -- single sign-on, single
+    /// logout, the IdP metadata document -- is browser and SP-to-IdP surface under
+    /// /saml/v2/{tenant_id}, an SP's own SAML library speaks to it, and it is not in this
+    /// registry.
+    public var saml: SamlApi {
+        SamlApi(client: client, scope: scope)
+    }
+
+    /// A tenant's Shared Signals Framework streams (CONTRACT §32): which receiver -- an OAuth2
+    /// client of the tenant -- receives which CAEP and RISC security events, as SETs pushed to
+    /// its endpoint or polled. The receiver's own protocol (transmitter metadata, the SSF
+    /// stream management API, polling) is not in this registry.
+    public var ssf: SsfApi {
+        SsfApi(client: client, scope: scope)
+    }
+
+    /// A tenant's outbound SCIM targets (CONTRACT §31): the downstream SCIM 2.0 service
+    /// providers AXIAM pushes the tenant's users and groups to, each with its delivery state.
+    /// The credential AXIAM pushes with is write-only. Deleting a target does not deprovision
+    /// anything downstream.
+    public var scimTargets: ScimTargetsApi {
+        ScimTargetsApi(client: client, scope: scope)
+    }
+
     /// Effective settings, and the organization/tenant layers they resolve from.
     public var settings: SettingsApi {
         SettingsApi(client: client, scope: scope)
@@ -4398,6 +5215,40 @@ extension AxiamClient {
     /// tenant.
     public nonisolated var emailConfig: EmailConfigApi {
         EmailConfigApi(client: self, scope: CallScope())
+    }
+
+    /// A tenant's LDAP / Active Directory identity source (CONTRACT §30): the one
+    /// configuration, the explicit act that links an existing local account to its directory
+    /// entry, and a read-only view of the sync job. Signing in needs nothing new -- a directory
+    /// account calls the same §1 `login`.
+    public nonisolated var directory: DirectoryApi {
+        DirectoryApi(client: self, scope: CallScope())
+    }
+
+    /// A tenant's SAML 2.0 identity provider (CONTRACT §29): the registry of service providers,
+    /// the import of an SP's metadata into a *draft* registration (never a write), and the
+    /// lifecycle of the IdP signing credential. The protocol itself -- single sign-on, single
+    /// logout, the IdP metadata document -- is browser and SP-to-IdP surface under
+    /// /saml/v2/{tenant_id}, an SP's own SAML library speaks to it, and it is not in this
+    /// registry.
+    public nonisolated var saml: SamlApi {
+        SamlApi(client: self, scope: CallScope())
+    }
+
+    /// A tenant's Shared Signals Framework streams (CONTRACT §32): which receiver -- an OAuth2
+    /// client of the tenant -- receives which CAEP and RISC security events, as SETs pushed to
+    /// its endpoint or polled. The receiver's own protocol (transmitter metadata, the SSF
+    /// stream management API, polling) is not in this registry.
+    public nonisolated var ssf: SsfApi {
+        SsfApi(client: self, scope: CallScope())
+    }
+
+    /// A tenant's outbound SCIM targets (CONTRACT §31): the downstream SCIM 2.0 service
+    /// providers AXIAM pushes the tenant's users and groups to, each with its delivery state.
+    /// The credential AXIAM pushes with is write-only. Deleting a target does not deprovision
+    /// anything downstream.
+    public nonisolated var scimTargets: ScimTargetsApi {
+        ScimTargetsApi(client: self, scope: CallScope())
     }
 
     /// Effective settings, and the organization/tenant layers they resolve from.

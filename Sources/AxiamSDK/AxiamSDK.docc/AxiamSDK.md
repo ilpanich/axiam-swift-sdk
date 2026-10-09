@@ -81,3 +81,33 @@ consumption — the contract does not list AMQP for Swift.
 - ``AxiamWebhooks``
 - ``AxiamWebhookEvent``
 - ``AxiamWebhookError``
+
+### RFC 7592 client configuration (§28.12)
+
+- ``ClientRegistration``
+
+### SSF receiver (§32.7)
+
+- ``SsfReceiver``
+- ``SsfReceiverConfiguration``
+- ``SsfKeySource``
+- ``SsfReplayStore``
+- ``InMemorySsfReplayStore``
+- ``SecurityEvent``
+- ``SsfPollOptions``
+- ``SsfPollResult``
+- ``RefusedSet``
+- ``SetErr``
+- ``SetFailureReason``
+- ``SsfEventTypeURI``
+
+### CIBA (§33)
+
+- ``CibaInitiateRequest``
+- ``CibaInitiateResponse``
+- ``CibaUserHint``
+- ``CibaDelivery``
+- ``CibaRequestSigner``
+- ``CibaSigningAlgorithm``
+- ``CibaClock``
+- ``SystemCibaClock``

@@ -12,8 +12,9 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md 1.52 (the version vendored here) §1–§7, §9–§13, §14,
-> §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27 and §28 (including §6.1 mTLS —
+> **This SDK conforms to contract 1.58 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
+> §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and
+> §33, with §32.7 and §33.2 signed (including §6.1 mTLS —
 > now including rules 6–10, the mTLS device login `authenticateDevice()` — §5.2 rule 1's
 > acting tenant, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login
 > path — which needs `libaxiam_opaque_ffi` installed, see below — and §28's REST surface:
@@ -38,6 +39,17 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 > port; before contract 1.51 this manifest had no role bindings of any kind. The tier gap
 > itself is unchanged and stays a recorded decline: no `users` and no `scopes` manifest
 > entities (§7.2 of the dogfooding remediation plan; PHP, C and C++ are in the same tier).
+>
+> **Contract 1.53–1.58 (§28.12, §29–§33).** §28.12's RFC 7592 client configuration ships on
+> `AxiamClient`; the `saml` (§29), `directory` (§30), `scim_targets` (§31) and `ssf` (§32)
+> management namespaces are generated with their call-site notes, explicit-null members and
+> read-modify-write helpers. Two sections are **MAY** for Swift and ship anyway: §32.7's SSF
+> receiver helper (`SsfReceiver`) and §33's CIBA helpers (`cibaInitiate`, `cibaPoll`,
+> `cibaAwait`, `cibaHandlePing`), including the §33.2 signed request under **all three**
+> algorithms — PS256 (`_CryptoExtras`, already a dependency for DPoP), ES256 and EdDSA. No
+> carve-out: nothing in these sections is declined. (The §33.2 PS256 path is exercised by its
+> refusal test only; the suite's test target does not link `_CryptoExtras` to generate an RSA
+> key, while EdDSA and ES256 are round-tripped end to end.)
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -74,7 +86,11 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §24 WebAuthn / passkeys | ✅ implemented (contract 1.45) — the eight relying-party operations (register, authenticate, discoverable, and the setup-token pair added at 1.45 for forced first-login enrolment) and §24.6a's JSON bridge on **every** target, plus §24.6b's linked-API ceremony helpers on iOS 16+ and macOS 13+, including the setup-token composed helper. The Linux build keeps the RP layer and the bridge; `webauthnCeremonySupported` answers `false` there rather than throwing |
 | §25 account lifecycle & MFA enrolment | ✅ implemented (contract 1.45) — voluntary and forced TOTP enrolment, a passkey or security key as the first factor at forced enrolment (contract 1.45), email verification, and the password-reset triple |
 | §26 Pushed Authorization Requests (RFC 9126) | ✅ implemented (contract 1.28) — required for a FAPI 2.0 client, which cannot authorize any other way (§21.1) |
-| §27 management API | ✅ implemented — 162 operations across 24 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL. §27.6.1's three additions (contract 1.51) — `resources[].metadata`, resource-scoped role bindings with `inherit`, and `service_accounts` (with role bindings) — are implemented at the **flat-entity tier**: no `users`, no `scopes` (§27.10, unchanged tier gap) |
+| §27 management API | ✅ implemented — 190 operations across 28 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL. §27.6.1's three additions (contract 1.51) — `resources[].metadata`, resource-scoped role bindings with `inherit`, and `service_accounts` (with role bindings) — are implemented at the **flat-entity tier**: no `users`, no `scopes` (§27.10, unchanged tier gap) |
+| §28.12 RFC 7592 client configuration | ✅ implemented (contract 1.53) — `readClientRegistration` / `updateClientRegistration` / `deleteClientRegistration`, origin-pinned, bearer-only, no SDK session, writes never retried |
+| §29 `saml`, §30 `directory`, §31 `scim_targets`, §32 `ssf` | ✅ implemented (contracts 1.54–1.57) — generated namespaces plus explicit-null members, call-site notes, `ParseSamlSpMetadata.fromURL`/`.fromXML` and the `init(copying:)` read-modify-write helpers |
+| §32.7 SSF receiver helper | ✅ implemented (contract 1.56, MAY for Swift) — `SsfReceiver.verifySet` / `poll` |
+| §33 CIBA (poll and ping, signed form) | ✅ implemented (contract 1.58, MAY for Swift) — `cibaInitiate`, `cibaPoll`, `cibaAwait`, `cibaHandlePing`; §33.2 signed with PS256, ES256 or EdDSA. §21.3.1's seventh `mtls_endpoint_aliases` member is decoded and used |
 | §20 UMA 2.0 Protection API + ticket grant | ✅ implemented, and it landed *before* §12 rather than waiting for it: UMA carries its own discovery document (`/.well-known/uma2-configuration`), the Protection API is ordinary bearer-authenticated REST, and the ticket grant returns an opaque RPT with no `id_token` to validate. That §20 could ship alone is part of what showed the §12 deferral was cutting across the wrong seam — see contract §12.6 |
 
 ## Installation
@@ -1829,7 +1845,7 @@ including a transport skeleton: [`Examples/Reactor`](Examples/Reactor/main.swift
 
 ## Management API (§27)
 
-162 operations across 24 namespaces, reached through namespace handles that sit directly on
+190 operations across 28 namespaces, reached through namespace handles that sit directly on
 the client — the form §27.3's Swift row specifies (property, camelCase, `async`):
 
 ```swift
@@ -2093,6 +2109,158 @@ let report = try await client.manifest.apply(manifest)
   certificate from the tenant signing CA, bind it, mark the CA an mTLS trust anchor, then
   configure a second client with that certificate and let the device authorize as itself over
   §6.1 mTLS. This is the one place a §27.5 one-time secret has to be caught as it goes past.
+
+## RFC 7592 client configuration (§28.12)
+
+A client that registered itself through `POST /oauth2/register` received a
+`registration_client_uri` and a `registration_access_token`. With them it reads, replaces and
+deletes **its own** registration:
+
+```swift
+let token = Sensitive(storedRegistrationToken)          // from your encrypted store
+var registration = try await client.readClientRegistration(
+    registrationClientURI: storedURI, registrationAccessToken: token)
+
+registration.clientName = "Agent v2"                     // read, change, send it all back
+let updated = try await client.updateClientRegistration(
+    registrationClientURI: storedURI, registrationAccessToken: token, metadata: registration)
+// PERSIST THIS FIRST: the token you presented is now dead for every operation.
+try store(updated.registrationAccessToken!)
+
+try await client.deleteClientRegistration(
+    registrationClientURI: storedURI, registrationAccessToken: updated.registrationAccessToken!)
+```
+
+- The URI is used verbatim, and only at this client's configured origin (scheme, host, port);
+  anything else is refused locally, before a request, as a `ValidationError`.
+- The token travels as `Authorization: Bearer` only. None of this client's session — cookie,
+  CSRF token, device bearer — rides along, and a `401` never triggers the §9 refresh.
+- `metadata` is the **whole** registration: start from a read, which keeps every member the
+  SDK does not name in `ClientRegistration.extra` so the replacement round-trips them.
+- Update and delete are **never retried**; the read follows §16. A body with an `error` member
+  is an `AuthError` carrying `oauthError` (`invalid_token`, `invalid_client_metadata`, …).
+
+## Directory, SAML, SSF and SCIM targets (§29 – §32)
+
+Four management namespaces, generated like every §27 one. `{tenant_id}` defaults from the
+client's configured tenant for `directory`, `saml` and `ssf`.
+
+```swift
+// §30 directory — a sparse PATCH: nil is not sent, .some(nil) sends JSON null.
+_ = try await client.directory.update(body: UpdateDirectoryConfig(
+    enabled: false, groupFilter: .some(nil)))       // {"enabled": false, "group_filter": null}
+
+// Moving the connection (url, startTLS, bindDn, trustAnchorsPEM) needs the secret again —
+// the SDK holds no copy to re-send. bindSecret is Sensitive and is never logged.
+_ = try await client.directory.update(body: UpdateDirectoryConfig(
+    bindSecret: Sensitive(newSecret), url: "ldaps://dc2.corp.example"))
+
+// §29 saml — parse (stores nothing), review the draft, then create from it unchanged.
+let draft = try await client.saml.parseSpMetadata(
+    body: .fromURL("https://sp.example/metadata"))   // or .fromXML(document); never both
+let sp = try await client.saml.createServiceProvider(body: draft.serviceProvider)
+
+// Replacement updates: copy the read, change one member, send it back.
+var input = SamlServiceProviderInput(copying: sp)
+input.displayName = "Payroll (EU)"
+_ = try await client.saml.updateServiceProvider(spID: sp.id, body: input)
+
+// §31 scim_targets / §32 ssf — the write-only credential and push header are left absent by
+// init(copying:), which keeps the stored ones (unless the URL moves).
+let target = try await client.scimTargets.get(id: targetID)
+var targetInput = ScimTargetInput(copying: target)
+targetInput.enabled = false
+_ = try await client.scimTargets.update(id: targetID, body: targetInput)
+
+let created = try await client.scimTargets.create(body: ScimTargetInput(
+    auth: .oauth2ClientCredentials(tokenURL: "https://idp.example/token", clientID: "axiam"),
+    baseURL: "https://idp.example/scim/v2",
+    credential: Sensitive(clientSecret),
+    name: "Downstream",
+    scope: .groups([groupID])))
+
+var streamInput = SsfStreamInput(copying: try await client.ssf.getStream(streamID: streamID))
+streamInput.statusReason = "maintenance"
+_ = try await client.ssf.updateStream(streamID: streamID, body: streamInput)
+```
+
+Responses carry no secret (`DirectoryConfig`, `ScimTargetResponse`, `SsfStream` and
+`SamlIdpCredential` declare no member for one, so a decoder meeting one drops it). Every
+enum and the `ScimTargetAuth` / `ScimTargetScope` unions are open: an unknown value decodes,
+and an unknown `type` is refused locally on the way back out. Writes are never retried.
+
+## SSF receiver (§32.7)
+
+For the relying party that *receives* CAEP / RISC events:
+
+```swift
+let receiver = try SsfReceiver(client: client, configuration: SsfReceiverConfiguration(
+    issuer: "https://iam.example.com/t/\(tenantID)",
+    audience: "https://rp.example",
+    keySource: .jwksURI("https://iam.example.com/oauth2/jwks"),
+    accessTokenProvider: { try await client.loginClientCredentials(scope: "ssf.manage").accessToken }))
+
+// Push (RFC 8935): verify, then answer 202 — or 400 {"err": reason.pushErrorCode}.
+do {
+    let event = try await receiver.verifySet(body)
+    handle(event.eventType, event.subID)
+} catch let error as AxiamError {
+    if let reason = error.setFailureReason { reply(400, ["err": reason.pushErrorCode]) }
+    else { throw error }                               // a JWKS fetch failure: not a verdict
+}
+
+// Poll (RFC 8936): acknowledge what you PROCESSED, refuse the rest with setErrs.
+var ack: [String] = []
+var errs: [String: SetErr] = [:]
+let page = try await receiver.poll(streamID: streamID)
+for event in page.events { handle(event.eventType, event.subID); ack.append(event.jti) }
+for refused in page.refused { errs[refused.jti] = SetErr(reason: refused.reason) }
+_ = try await receiver.poll(streamID: streamID, options: SsfPollOptions(ack: ack, setErrs: errs))
+```
+
+A SET that verified is **recorded** (replay window: seven days, never less): one re-offered
+because it was not acknowledged reads as `replayed`. Nothing is acknowledged for you.
+
+## CIBA (§33)
+
+Authenticate a user on another device. The client always authenticates (`oidcClientSecret`,
+or the §6.1 certificate for a `tls_client_auth` client); `cibaInitiate` is **never retried**,
+and a success proves nothing about the user.
+
+```swift
+// Poll mode.
+let initiated = try await client.cibaInitiate(CibaInitiateRequest(
+    scope: "openid", hint: .loginHint("ada"), bindingMessage: "W4SCT"))
+do {
+    let tokens = try await client.cibaAwait(initiated)   // interval, slow_down, deadline handled
+    store(tokens)                                          // redeemed once: keep it now
+} catch let error as AxiamError where error.isAccessDenied {
+    // the user said no
+} catch let error as AxiamError where error.isExpiredToken {
+    // nobody answered in time
+}
+
+// Ping mode: keep the token you sent; in your notification endpoint —
+let notificationToken = Sensitive(randomToken())
+let pending = try await client.cibaInitiate(CibaInitiateRequest(
+    scope: "openid", hint: .loginHint("ada"),
+    delivery: .ping(clientNotificationToken: notificationToken)))
+// ... later, in the HTTP handler: answer 204 first, then poll once.
+let authReqID = try client.cibaHandlePing(
+    headers: requestHeaders, body: requestBody, expectedToken: notificationToken)
+let tokens = try await client.cibaPoll(authReqID: authReqID)
+// No ping after expires_in / 2? Fall back to `cibaAwait(pending)`.
+
+// Signed form (a client registered with backchannel_authentication_request_signing_alg).
+let signer = try CibaRequestSigner(
+    algorithm: .edDSA, privateKeyPEM: Sensitive(pem), keyID: "client-key-1")  // or .es256, .ps256
+_ = try await client.cibaInitiate(CibaInitiateRequest(
+    scope: "openid", hint: .loginHint("ada"), bindingMessage: "W4SCT", signer: signer))
+```
+
+`authReqID`, the notification token, the signing key and the signed `request` are
+`Sensitive`. `cibaHandlePing` is synchronous and performs no I/O; the token comparison is
+constant-time.
 
 ## Development
 
