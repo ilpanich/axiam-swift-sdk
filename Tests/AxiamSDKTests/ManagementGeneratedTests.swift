@@ -1770,7 +1770,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testSamlParseSpMetadataReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"encryption_certificate_fingerprint\": \"example\", \"service_provider\": {\"acs_urls\": [{\"binding\": null, \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": null}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}, \"signing_certificate_fingerprint\": \"example\", \"warnings\": [\"example\"]}")])
+            [(status: 200, body: "{\"encryption_certificate_fingerprint\": \"example\", \"service_provider\": {\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}, \"signing_certificate_fingerprint\": \"example\", \"warnings\": [\"example\"]}")])
         _ = try await client.saml.parseSpMetadata(body: Self.fixtureParseSamlSpMetadata)
 
         XCTAssertEqual(transport.count, 1)
@@ -4953,7 +4953,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSamlSpMetadataDraftRoundTripsWithoutLosingAField() throws {
-        let json = "{\"encryption_certificate_fingerprint\": \"example\", \"service_provider\": {\"acs_urls\": [{\"binding\": null, \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": null}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}, \"signing_certificate_fingerprint\": \"example\", \"warnings\": [\"example\"]}"
+        let json = "{\"encryption_certificate_fingerprint\": \"example\", \"service_provider\": {\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}, \"signing_certificate_fingerprint\": \"example\", \"warnings\": [\"example\"]}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -8845,7 +8845,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSamlSpMetadataDraftMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"encryption_certificate_fingerprint\": \"example\", \"service_provider\": {\"acs_urls\": [{\"binding\": null, \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": null}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}, \"signing_certificate_fingerprint\": \"example\", \"warnings\": [\"example\"]}"
+        let json = "{\"encryption_certificate_fingerprint\": \"example\", \"service_provider\": {\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}, \"signing_certificate_fingerprint\": \"example\", \"warnings\": [\"example\"]}"
         let decoded = try JSONDecoder().decode(SamlSpMetadataDraft.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -10212,7 +10212,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(ActorType.unknown, ActorType.serviceAccount)
         XCTAssertNotEqual(ActorType.unknown, ActorType.system)
         XCTAssertEqual(ActorType.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([ActorType.user])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([ActorType.user])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"User\"]")
     }
 
@@ -10241,7 +10243,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(AttestationMode.unknown, AttestationMode.indirect)
         XCTAssertNotEqual(AttestationMode.unknown, AttestationMode.directRequired)
         XCTAssertEqual(AttestationMode.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([AttestationMode.none])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([AttestationMode.none])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"none\"]")
     }
 
@@ -10282,7 +10286,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(AttributeSource.unknown, AttributeSource.groups)
         XCTAssertNotEqual(AttributeSource.unknown, AttributeSource.roles)
         XCTAssertEqual(AttributeSource.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([AttributeSource.username])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([AttributeSource.username])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"username\"]")
     }
 
@@ -10311,7 +10317,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(AuditOutcome.unknown, AuditOutcome.failure)
         XCTAssertNotEqual(AuditOutcome.unknown, AuditOutcome.denied)
         XCTAssertEqual(AuditOutcome.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([AuditOutcome.success])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([AuditOutcome.success])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Success\"]")
     }
 
@@ -10337,7 +10345,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(AuthnRequestParamsMode.unknown, AuthnRequestParamsMode.ignore)
         XCTAssertNotEqual(AuthnRequestParamsMode.unknown, AuthnRequestParamsMode.honour)
         XCTAssertEqual(AuthnRequestParamsMode.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([AuthnRequestParamsMode.ignore])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([AuthnRequestParamsMode.ignore])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"ignore\"]")
     }
 
@@ -10366,7 +10376,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(CertificateStatus.unknown, CertificateStatus.revoked)
         XCTAssertNotEqual(CertificateStatus.unknown, CertificateStatus.expired)
         XCTAssertEqual(CertificateStatus.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([CertificateStatus.active])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([CertificateStatus.active])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
@@ -10398,7 +10410,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(CertificateType.unknown, CertificateType.device)
         XCTAssertNotEqual(CertificateType.unknown, CertificateType.server)
         XCTAssertEqual(CertificateType.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([CertificateType.user])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([CertificateType.user])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"User\"]")
     }
 
@@ -10436,7 +10450,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(CertificationLevel.unknown, CertificationLevel.l3)
         XCTAssertNotEqual(CertificationLevel.unknown, CertificationLevel.l3Plus)
         XCTAssertEqual(CertificationLevel.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([CertificationLevel.l1])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([CertificationLevel.l1])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"L1\"]")
     }
 
@@ -10462,7 +10478,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(CibaDeliveryMode.unknown, CibaDeliveryMode.poll)
         XCTAssertNotEqual(CibaDeliveryMode.unknown, CibaDeliveryMode.ping)
         XCTAssertEqual(CibaDeliveryMode.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([CibaDeliveryMode.poll])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([CibaDeliveryMode.poll])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"poll\"]")
     }
 
@@ -10491,7 +10509,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(CibaRequestSigningAlg.unknown, CibaRequestSigningAlg.es256)
         XCTAssertNotEqual(CibaRequestSigningAlg.unknown, CibaRequestSigningAlg.edDSA)
         XCTAssertEqual(CibaRequestSigningAlg.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([CibaRequestSigningAlg.ps256])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([CibaRequestSigningAlg.ps256])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"PS256\"]")
     }
 
@@ -10529,7 +10549,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(ClientAuthMethod.unknown, ClientAuthMethod.privateKeyJWT)
         XCTAssertNotEqual(ClientAuthMethod.unknown, ClientAuthMethod.none)
         XCTAssertEqual(ClientAuthMethod.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([ClientAuthMethod.clientSecretPost])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([ClientAuthMethod.clientSecretPost])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"client_secret_post\"]")
     }
 
@@ -10555,7 +10577,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(ClientProfile.unknown, ClientProfile.standard)
         XCTAssertNotEqual(ClientProfile.unknown, ClientProfile.fapi2)
         XCTAssertEqual(ClientProfile.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([ClientProfile.standard])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([ClientProfile.standard])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"standard\"]")
     }
 
@@ -10581,7 +10605,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(DeprovisionPolicy.unknown, DeprovisionPolicy.deactivate)
         XCTAssertNotEqual(DeprovisionPolicy.unknown, DeprovisionPolicy.delete)
         XCTAssertEqual(DeprovisionPolicy.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([DeprovisionPolicy.deactivate])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([DeprovisionPolicy.deactivate])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"deactivate\"]")
     }
 
@@ -10607,7 +10633,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(DirectoryKind.unknown, DirectoryKind.openLdap)
         XCTAssertNotEqual(DirectoryKind.unknown, DirectoryKind.activeDirectory)
         XCTAssertEqual(DirectoryKind.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([DirectoryKind.openLdap])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([DirectoryKind.openLdap])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"open_ldap\"]")
     }
 
@@ -10633,7 +10661,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(FailurePolicy.unknown, FailurePolicy.failClosed)
         XCTAssertNotEqual(FailurePolicy.unknown, FailurePolicy.failOpen)
         XCTAssertEqual(FailurePolicy.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([FailurePolicy.failClosed])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([FailurePolicy.failClosed])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"fail_closed\"]")
     }
 
@@ -10659,7 +10689,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(KeyAlgorithm.unknown, KeyAlgorithm.rsa4096)
         XCTAssertNotEqual(KeyAlgorithm.unknown, KeyAlgorithm.ed25519)
         XCTAssertEqual(KeyAlgorithm.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([KeyAlgorithm.rsa4096])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([KeyAlgorithm.rsa4096])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Rsa4096\"]")
     }
 
@@ -10688,7 +10720,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(ManagedBy.unknown, ManagedBy.dcr)
         XCTAssertNotEqual(ManagedBy.unknown, ManagedBy.cimd)
         XCTAssertEqual(ManagedBy.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([ManagedBy.admin])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([ManagedBy.admin])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"admin\"]")
     }
 
@@ -10717,7 +10751,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(MfaMethodType.unknown, MfaMethodType.passkey)
         XCTAssertNotEqual(MfaMethodType.unknown, MfaMethodType.securityKey)
         XCTAssertEqual(MfaMethodType.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([MfaMethodType.totp])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([MfaMethodType.totp])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Totp\"]")
     }
 
@@ -10743,7 +10779,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(NameIdFormat.unknown, NameIdFormat.persistent)
         XCTAssertNotEqual(NameIdFormat.unknown, NameIdFormat.emailAddress)
         XCTAssertEqual(NameIdFormat.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([NameIdFormat.persistent])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([NameIdFormat.persistent])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"persistent\"]")
     }
 
@@ -10817,7 +10855,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.serviceAccountDeleted)
         XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.scimDeliveryFailed)
         XCTAssertEqual(NotificationEventType.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([NotificationEventType.loginFailure])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([NotificationEventType.loginFailure])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"login_failure\"]")
     }
 
@@ -10843,7 +10883,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(PermissionEffect.unknown, PermissionEffect.allow)
         XCTAssertNotEqual(PermissionEffect.unknown, PermissionEffect.deny)
         XCTAssertEqual(PermissionEffect.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([PermissionEffect.allow])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([PermissionEffect.allow])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"allow\"]")
     }
 
@@ -10869,7 +10911,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(PgpKeyAlgorithm.unknown, PgpKeyAlgorithm.rsa4096)
         XCTAssertNotEqual(PgpKeyAlgorithm.unknown, PgpKeyAlgorithm.ed25519)
         XCTAssertEqual(PgpKeyAlgorithm.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([PgpKeyAlgorithm.rsa4096])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([PgpKeyAlgorithm.rsa4096])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Rsa4096\"]")
     }
 
@@ -10895,7 +10939,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(PgpKeyPurpose.unknown, PgpKeyPurpose.auditSigning)
         XCTAssertNotEqual(PgpKeyPurpose.unknown, PgpKeyPurpose.export)
         XCTAssertEqual(PgpKeyPurpose.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([PgpKeyPurpose.auditSigning])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([PgpKeyPurpose.auditSigning])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"AuditSigning\"]")
     }
 
@@ -10921,7 +10967,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(PgpKeyStatus.unknown, PgpKeyStatus.active)
         XCTAssertNotEqual(PgpKeyStatus.unknown, PgpKeyStatus.revoked)
         XCTAssertEqual(PgpKeyStatus.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([PgpKeyStatus.active])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([PgpKeyStatus.active])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
@@ -10947,7 +10995,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(ReactorMode.unknown, ReactorMode.intercept)
         XCTAssertNotEqual(ReactorMode.unknown, ReactorMode.listen)
         XCTAssertEqual(ReactorMode.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([ReactorMode.intercept])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([ReactorMode.intercept])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"intercept\"]")
     }
 
@@ -10973,7 +11023,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SamlBinding.unknown, SamlBinding.httpPost)
         XCTAssertNotEqual(SamlBinding.unknown, SamlBinding.httpRedirect)
         XCTAssertEqual(SamlBinding.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([SamlBinding.httpPost])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([SamlBinding.httpPost])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"http_post\"]")
     }
 
@@ -11002,7 +11054,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SamlIdpCredentialStatus.unknown, SamlIdpCredentialStatus.next)
         XCTAssertNotEqual(SamlIdpCredentialStatus.unknown, SamlIdpCredentialStatus.retired)
         XCTAssertEqual(SamlIdpCredentialStatus.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([SamlIdpCredentialStatus.active])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([SamlIdpCredentialStatus.active])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"active\"]")
     }
 
@@ -11028,7 +11082,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SamlIdpSlot.unknown, SamlIdpSlot.active)
         XCTAssertNotEqual(SamlIdpSlot.unknown, SamlIdpSlot.next)
         XCTAssertEqual(SamlIdpSlot.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([SamlIdpSlot.active])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([SamlIdpSlot.active])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"active\"]")
     }
 
@@ -11057,7 +11113,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(ScimTokenStatus.unknown, ScimTokenStatus.expired)
         XCTAssertNotEqual(ScimTokenStatus.unknown, ScimTokenStatus.revoked)
         XCTAssertEqual(ScimTokenStatus.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([ScimTokenStatus.active])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([ScimTokenStatus.active])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"active\"]")
     }
 
@@ -11083,7 +11141,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SettingsScope.unknown, SettingsScope.org)
         XCTAssertNotEqual(SettingsScope.unknown, SettingsScope.tenant)
         XCTAssertEqual(SettingsScope.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([SettingsScope.org])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([SettingsScope.org])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Org\"]")
     }
 
@@ -11109,7 +11169,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SsfDeliveryMethod.unknown, SsfDeliveryMethod.push)
         XCTAssertNotEqual(SsfDeliveryMethod.unknown, SsfDeliveryMethod.poll)
         XCTAssertEqual(SsfDeliveryMethod.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([SsfDeliveryMethod.push])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([SsfDeliveryMethod.push])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"push\"]")
     }
 
@@ -11147,7 +11209,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.accountEnabled)
         XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.accountPurged)
         XCTAssertEqual(SsfEventType.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([SsfEventType.sessionRevoked])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([SsfEventType.sessionRevoked])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"]")
     }
 
@@ -11173,7 +11237,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SsfStatusActor.unknown, SsfStatusActor.admin)
         XCTAssertNotEqual(SsfStatusActor.unknown, SsfStatusActor.receiver)
         XCTAssertEqual(SsfStatusActor.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([SsfStatusActor.admin])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([SsfStatusActor.admin])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"admin\"]")
     }
 
@@ -11202,7 +11268,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SsfStreamStatus.unknown, SsfStreamStatus.paused)
         XCTAssertNotEqual(SsfStreamStatus.unknown, SsfStreamStatus.disabled)
         XCTAssertEqual(SsfStreamStatus.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([SsfStreamStatus.enabled])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([SsfStreamStatus.enabled])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"enabled\"]")
     }
 
@@ -11228,7 +11296,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SsfSubjectFormat.unknown, SsfSubjectFormat.issSub)
         XCTAssertNotEqual(SsfSubjectFormat.unknown, SsfSubjectFormat.email)
         XCTAssertEqual(SsfSubjectFormat.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([SsfSubjectFormat.issSub])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([SsfSubjectFormat.issSub])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"iss_sub\"]")
     }
 
@@ -11254,7 +11324,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(TenantKind.unknown, TenantKind.standard)
         XCTAssertNotEqual(TenantKind.unknown, TenantKind.organization)
         XCTAssertEqual(TenantKind.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([TenantKind.standard])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([TenantKind.standard])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"standard\"]")
     }
 
@@ -11280,7 +11352,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(TenantStatus.unknown, TenantStatus.active)
         XCTAssertNotEqual(TenantStatus.unknown, TenantStatus.suspended)
         XCTAssertEqual(TenantStatus.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([TenantStatus.active])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([TenantStatus.active])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
@@ -11306,7 +11380,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(UnknownAaguidAction.unknown, UnknownAaguidAction.allow)
         XCTAssertNotEqual(UnknownAaguidAction.unknown, UnknownAaguidAction.deny)
         XCTAssertEqual(UnknownAaguidAction.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([UnknownAaguidAction.allow])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([UnknownAaguidAction.allow])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"allow\"]")
     }
 
@@ -11332,7 +11408,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(UserNameSource.unknown, UserNameSource.username)
         XCTAssertNotEqual(UserNameSource.unknown, UserNameSource.email)
         XCTAssertEqual(UserNameSource.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([UserNameSource.username])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([UserNameSource.username])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"username\"]")
     }
 
@@ -11370,7 +11448,9 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(UserStatus.unknown, UserStatus.anonymized)
         XCTAssertNotEqual(UserStatus.unknown, UserStatus.deleted)
         XCTAssertEqual(UserStatus.unknown.rawValue, "")
-        let encoded = try JSONEncoder().encode([UserStatus.active])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([UserStatus.active])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 

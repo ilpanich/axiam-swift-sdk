@@ -966,11 +966,13 @@ def example_json(schema: Any, depth: int = 0) -> Any:
 
 def example_for(name: str, depth: int = 0) -> Any:
     """A plausible wire object for the named schema."""
-    if depth > 6:
-        return None
     schema = SCHEMAS.get(name) or {}
+    # An enum is a leaf: it cannot recurse, so the depth guard must not turn a required
+    # enum member of a deeply nested object into `null`.
     if isinstance(schema.get("enum"), list) and schema["enum"]:
         return schema["enum"][0]
+    if depth > 6:
+        return None
     union = discriminated(schema)
     if union:
         tag, arms = union
@@ -1832,7 +1834,11 @@ def emit_tests() -> str:
                        f"{rendered}.{enum_case(value)})")
         out.append(f'        XCTAssertEqual({rendered}.unknown.rawValue, "")')
         first = enum_case(values[0])
-        out.append(f'        let encoded = try JSONEncoder().encode([{rendered}.{first}])')
+        # Foundation escapes `/` by default; URI-valued enums (SsfEventType) would otherwise
+        # compare an escaped slash against `/`. The wire value is pinned, not the escaping.
+        out.append("        let encoder = JSONEncoder()")
+        out.append("        encoder.outputFormatting = [.withoutEscapingSlashes]")
+        out.append(f'        let encoded = try encoder.encode([{rendered}.{first}])')
         out.append(f'        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), '
                    f'"[\\"{values[0]}\\"]")')
         out.append("    }")
