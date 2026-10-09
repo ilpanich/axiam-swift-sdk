@@ -3919,7 +3919,10 @@ public struct ScimTargetsApi: Sendable {
     /// `POST /api/v1/scim-targets`
     ///
     /// `credential` is required here (§31.3 rule 2). It is write-only: no response ever carries
-    /// it, and the SDK keeps no copy.
+    /// it, and the SDK keeps no copy. **The credential is bound to its URL** (§31.3 rule 2): a
+    /// later `update` that changes `baseURL` of a bearer target, `auth.token_url` or `baseURL`
+    /// of a client-credentials target, or `auth.type`, must carry `credential` again or is
+    /// refused `400` -- the SDK holds none to re-send.
     ///
     /// - Parameter body: The request body.
     public func create(body: ScimTargetInput) async throws -> ScimTargetResponse {

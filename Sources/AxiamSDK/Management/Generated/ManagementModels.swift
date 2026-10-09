@@ -8753,7 +8753,8 @@ public struct SamlServiceProvider: Codable, Sendable {
     /// See [`SamlServiceProviderInput::sp_encryption_cert_pem`].
     public let spEncryptionCertPEM: String?
 
-    /// See [`SamlServiceProviderInput::sp_signing_cert_pem`].
+    /// See [`SamlServiceProviderInput::sp_signing_cert_pem`]. An **ECDSA certificate verifies
+    /// HTTP-POST requests only** -- the HTTP-Redirect binding is RSA-only (§29.3 rule 2).
     public let spSigningCertPEM: String?
 
     /// The owning tenant.
@@ -8925,7 +8926,9 @@ public struct SamlServiceProviderInput: Codable, Sendable {
     /// PEM certificate assertions are encrypted to. Required when `encrypt_assertions` is set.
     public var spEncryptionCertPEM: String?
 
-    /// PEM certificate the SP signs its `AuthnRequest`s with.
+    /// PEM certificate the SP signs its `AuthnRequest`s with. RSA (2048 bits or more) or ECDSA
+    /// on P-256, P-384 or P-521; an **ECDSA certificate verifies HTTP-POST requests only** --
+    /// the HTTP-Redirect binding is RSA-only (§29.3 rule 2).
     public var spSigningCertPEM: String?
 
     /// Refuse an `AuthnRequest` that is not signed by `sp_signing_cert_pem`. Requires that

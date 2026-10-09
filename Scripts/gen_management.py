@@ -89,6 +89,20 @@ EXPLICIT_NULL_FIELDS = {
     ("SamlIdpInfo", "next_credential_id"),
 }
 
+# Field documentation the contract makes an SDK state "where it documents the field"
+# (§29.3 rule 2), keyed by (schema, wire name) and appended to the field's own description.
+FIELD_NOTES: dict[tuple[str, str], str] = {
+    ("SamlServiceProviderInput", "sp_signing_cert_pem"): (
+        "RSA (2048 bits or more) or ECDSA on P-256, P-384 or P-521; an **ECDSA certificate "
+        "verifies HTTP-POST requests only** -- the HTTP-Redirect binding is RSA-only (§29.3 "
+        "rule 2)."
+    ),
+    ("SamlServiceProvider", "sp_signing_cert_pem"): (
+        "An **ECDSA certificate verifies HTTP-POST requests only** -- the HTTP-Redirect "
+        "binding is RSA-only (§29.3 rule 2)."
+    ),
+}
+
 # Call-site documentation the contract makes an SDK repeat (§29.3, §30.3, §31.3, §32.2),
 # keyed by the registry's namespace-qualified operation name. Generated rather than
 # hand-written because the methods are generated.
@@ -177,7 +191,10 @@ CALL_SITE_NOTES: dict[str, str] = {
     ),
     "scim_targets.create": (
         "`credential` is required here (§31.3 rule 2). It is write-only: no response ever "
-        "carries it, and the SDK keeps no copy."
+        "carries it, and the SDK keeps no copy. **The credential is bound to its URL** "
+        "(§31.3 rule 2): a later `update` that changes `baseURL` of a bearer target, "
+        "`auth.token_url` or `baseURL` of a client-credentials target, or `auth.type`, must "
+        "carry `credential` again or is refused `400` -- the SDK holds none to re-send."
     ),
     "scim_targets.update": (
         "**The credential is bound to its URL** (§31.3 rule 2): absent `credential` keeps "
@@ -1272,7 +1289,11 @@ def emit_models() -> str:
 
         binding = "var" if rendered in MUTABLE_MODELS else "let"
         for f in fields:
-            out.extend(doc(field_doc(f), "    "))
+            text = field_doc(f)
+            note = FIELD_NOTES.get((name, f["wire"]))
+            if note:
+                text = f"{text} {note}"
+            out.extend(doc(text, "    "))
             out.append(f"    public {binding} {f['name']}: {declared(f)}")
             out.append("")
 
