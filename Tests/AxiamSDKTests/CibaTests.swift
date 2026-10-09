@@ -1,5 +1,6 @@
 import XCTest
 import Crypto
+import _CryptoExtras
 @testable import AxiamSDK
 
 /// CIBA — CONTRACT.md §33.8's sixteen required tests (nine initiation and polling, four ping,
@@ -691,6 +692,33 @@ final class CibaTests: XCTestCase {
             rawRepresentation: try XCTUnwrap(Base64URL.decode(String(parts[2]))))
         XCTAssertTrue(ec.publicKey.isValidSignature(
             ecSignature, for: Data("\(parts[0]).\(parts[1])".utf8)))
+
+        // PS256 (R-31, Q8): signed end to end and verified with the caller's RSA public key —
+        // RSASSA-PSS, SHA-256 — not only refusal-tested. The key is generated here.
+        let rsa = try _RSA.Signing.PrivateKey(keySize: .bits2048)
+        let ps256 = try CibaRequestSigner(
+            algorithm: .ps256, privateKeyPEM: Sensitive(rsa.pemRepresentation), keyID: "rsa-1")
+        XCTAssertEqual(ps256.algorithm, .ps256)
+        var rsaRequest = Self.request()
+        rsaRequest.signer = ps256
+        _ = try await client.cibaInitiate(rsaRequest, configuration: Self.configuration())
+        let rsaJWS = try XCTUnwrap(transport.requests("/oauth2/bc-authorize").last?.form["request"])
+        let rsaParts = rsaJWS.split(separator: ".", omittingEmptySubsequences: false)
+        XCTAssertEqual(rsaParts.count, 3)
+        let rsaHeader = try Self.decodePart(rsaParts[0])
+        XCTAssertEqual(rsaHeader["alg"] as? String, "PS256")
+        XCTAssertEqual(rsaHeader["kid"] as? String, "rsa-1")
+        let rsaInput = Data("\(rsaParts[0]).\(rsaParts[1])".utf8)
+        let rsaSignature = _RSA.Signing.RSASignature(
+            rawRepresentation: try XCTUnwrap(Base64URL.decode(String(rsaParts[2]))))
+        XCTAssertTrue(
+            rsa.publicKey.isValidSignature(rsaSignature, for: rsaInput, padding: .PSS),
+            "a PSS signature under the caller's key")
+        XCTAssertFalse(
+            rsa.publicKey.isValidSignature(
+                rsaSignature, for: rsaInput, padding: .insecurePKCS1v1_5),
+            "PSS, not PKCS#1 v1.5")
+        XCTAssertEqual((try Self.decodePart(rsaParts[1]))["aud"] as? String, Self.issuer)
     }
 
     func testT15NoKeyOrAKeyForAnotherAlgorithmIsRefusedBeforeAnyRequest() async throws {
