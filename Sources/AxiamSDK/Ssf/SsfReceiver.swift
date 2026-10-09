@@ -122,15 +122,30 @@ public enum SsfKeySource: Sendable, Equatable {
 ///
 /// Pluggable so a receiver running several instances can share one store (§32.7).
 /// ``InMemorySsfReplayStore`` is the default.
+///
+/// **Fail closed** (CONTRACT.md §34.2 P4). A store that cannot answer — a shared store that
+/// is down, a timeout, a lost connection — must **throw**, never return `true`: `true` is an
+/// acceptance, and accepting a SET whose `jti` could not be checked lets a replay through.
+/// A thrown error is no verdict on the SET (§34.2 P3): ``SsfReceiver/verifySet(_:)`` raises
+/// it as a ``NetworkError`` with no ``AuthError/setFailureReason``, and
+/// ``SsfReceiver/poll(streamID:options:)`` neither returns nor records that SET, so the
+/// transmitter offers it again. A non-throwing implementation still conforms; it then
+/// promises that it can always answer.
 public protocol SsfReplayStore: Sendable {
     /// Record `jti` for `window` seconds and return `true`, or return `false` without
     /// recording when it is already held. **Must be atomic**: two concurrent calls with one
     /// `jti` must not both see `true`.
-    func checkAndRecord(jti: String, window: TimeInterval) async -> Bool
+    ///
+    /// - Throws: any error when the store cannot answer. Never return `true` instead.
+    func checkAndRecord(jti: String, window: TimeInterval) async throws -> Bool
 }
 
 /// The in-memory ``SsfReplayStore``: one process, lost on restart. An actor, so
-/// check-and-record is atomic by isolation.
+/// check-and-record is atomic by isolation. It always answers, so it never throws.
+///
+/// The window bounds it in **time**, not in count: every `jti` accepted within the window is
+/// held until it expires (CONTRACT.md §34.2 P4). A receiver that accepts more events than a
+/// process should hold for seven days supplies a shared, persistent store instead.
 public actor InMemorySsfReplayStore: SsfReplayStore {
     private var expiries: [String: Date] = [:]
     private let now: @Sendable () -> Date
@@ -216,7 +231,9 @@ public struct SecurityEvent: Sendable, Equatable {
 public struct RefusedSet: Sendable, Equatable {
     /// The key the transmitter returned the SET under.
     public let jti: String
-    /// Why it was refused. Pass `SetErr(reason:)` of it in the next poll's `setErrs`.
+    /// Why it was refused. Pass `SetErr(reason:)` of it in the next poll's `setErrs` —
+    /// except `replayed`, a SET this receiver accepted earlier: acknowledge that one in `ack`
+    /// (CONTRACT.md §34.2 P2).
     public let reason: SetFailureReason
 }
 
@@ -261,12 +278,33 @@ public struct SsfPollOptions: Sendable {
 
 /// What ``SsfReceiver/poll(streamID:options:)`` returns.
 public struct SsfPollResult: Sendable {
-    /// The SETs that verified.
+    /// The SETs that verified — each one recorded in the replay store.
     public let events: [SecurityEvent]
     /// Whether the transmitter holds more.
     public let moreAvailable: Bool
     /// The SETs that did not verify.
     public let refused: [RefusedSet]
+    /// The `jti`s (poll keys) of the SETs no verdict was reached on, because a failure that is
+    /// not a verdict — a key fetch, a replay store that could not answer — stopped the batch
+    /// (CONTRACT.md §34.2 P1, P3). None of them is recorded: neither acknowledge nor refuse
+    /// them, and the transmitter offers them again. Empty when every SET was judged.
+    public let unjudged: [String]
+    /// The failure that left ``unjudged`` SETs, or `nil` when there are none.
+    public let interruption: (any Error)?
+
+    init(
+        events: [SecurityEvent],
+        moreAvailable: Bool,
+        refused: [RefusedSet],
+        unjudged: [String] = [],
+        interruption: (any Error)? = nil
+    ) {
+        self.events = events
+        self.moreAvailable = moreAvailable
+        self.refused = refused
+        self.unjudged = unjudged
+        self.interruption = interruption
+    }
 }
 
 /// The SSF receiver helper (CONTRACT.md §32.7) — `verifySet` and `poll` over a receiver
@@ -353,7 +391,9 @@ public actor SsfReceiver {
     /// Acknowledge a polled SET once you have processed it.
     ///
     /// - Throws: ``AuthError`` with ``AuthError/setFailureReason`` set; or ``NetworkError``
-    ///   when the JWKS could not be fetched — which is not a verdict on the SET.
+    ///   when the JWKS could not be fetched or the replay store could not answer — neither is
+    ///   a verdict on the SET (CONTRACT.md §34.2 P3), and a push endpoint answers it with a
+    ///   `5xx`, never `400`.
     public func verifySet(_ set: String) async throws -> SecurityEvent {
         try await verify(set, expectedJTI: nil)
     }
@@ -453,8 +493,20 @@ public actor SsfReceiver {
             throw Self.refuse(.invalidRequest, "the poll key is not the SET's jti")
         }
 
-        // 9. Recorded only now, once 1–8 passed.
-        guard await replayStore.checkAndRecord(jti: jti, window: replayWindow) else {
+        // 9. Recorded only now, once 1–8 passed. A store that cannot answer fails closed:
+        // no acceptance and no verdict (§34.2 P3, P4).
+        let fresh: Bool
+        do {
+            fresh = try await replayStore.checkAndRecord(jti: jti, window: replayWindow)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw AxiamError.network(NetworkError(
+                "the SSF replay store could not answer, so the SET is not accepted "
+                    + "(CONTRACT.md §32.7 step 9)",
+                cause: error))
+        }
+        guard fresh else {
             throw Self.refuse(.replayed, "the jti was already accepted")
         }
 
@@ -481,8 +533,16 @@ public actor SsfReceiver {
     ///
     /// Retried per §16 on a transport failure, `408`, `429` or `5xx`; never on another `4xx`,
     /// which maps as the management surface maps it (`400` is a ``NetworkError`` with
-    /// ``NetworkError/isValidation`` set, `404` an ``AuthzError``…). A JWKS fetch failure
-    /// aborts the poll with that error rather than refusing SETs it could not judge.
+    /// ``NetworkError/isValidation`` set, `404` an ``AuthzError``…).
+    ///
+    /// **A failure that is not a verdict never costs an event** (CONTRACT.md §34.2 P1). A key
+    /// fetch that fails, or a replay store that cannot answer, stops the batch at that SET:
+    /// the SETs already verified are returned in ``SsfPollResult/events`` (they are recorded),
+    /// and that SET and every later one are listed in ``SsfPollResult/unjudged`` —
+    /// unrecorded, neither acknowledge nor refuse them, and the transmitter offers them again.
+    /// When no SET of the batch was accepted, nothing is recorded and the failure is thrown
+    /// instead. A SET refused `replayed` was accepted by this receiver earlier: acknowledge it
+    /// in `ack` rather than reporting it in `setErrs` (§34.2 P2).
     ///
     /// - Throws: a local ``AuthError`` when no access-token provider is configured.
     public func poll(
@@ -529,7 +589,8 @@ public actor SsfReceiver {
         var events: [SecurityEvent] = []
         var refused: [RefusedSet] = []
         if case .some(.object(let sets)) = reply["sets"] {
-            for jti in sets.keys.sorted() {
+            let keys = sets.keys.sorted()
+            for (index, jti) in keys.enumerated() {
                 guard case .some(.string(let set)) = sets[jti] else {
                     refused.append(RefusedSet(jti: jti, reason: .malformed))
                     continue
@@ -537,9 +598,15 @@ public actor SsfReceiver {
                 do {
                     let event = try await verify(set, expectedJTI: jti)
                     events.append(event)
-                } catch let error as AxiamError {
-                    guard let reason = error.setFailureReason else { throw error }
-                    refused.append(RefusedSet(jti: jti, reason: reason))
+                } catch let error as AxiamError where error.setFailureReason != nil {
+                    refused.append(RefusedSet(jti: jti, reason: error.setFailureReason!))
+                } catch {
+                    // §34.2 P1: no verdict on this SET. Nothing recorded yet → raise; else
+                    // return the accepted ones, and this SET and the rest unrecorded.
+                    guard !events.isEmpty else { throw error }
+                    return SsfPollResult(
+                        events: events, moreAvailable: moreAvailable, refused: refused,
+                        unjudged: Array(keys[index...]), interruption: error)
                 }
             }
         }

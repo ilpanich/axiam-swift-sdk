@@ -390,6 +390,105 @@ final class SsfReceiverTests: XCTestCase {
         XCTAssertTrue(second.isEmpty, "nothing acknowledged on the caller's behalf")
     }
 
+    /// §32.8 helper test 8's two-SET batch (contract 1.59, §34.2 P1; R-1, SW-2): the second SET
+    /// names an unknown `kid` while the refetch fails. Afterwards the first SET's `jti` is not in
+    /// the store, or the first SET is returned — never recorded and lost.
+    func testABatchWhoseSecondSetCannotBeJudgedLosesNeitherSet() async throws {
+        let key = SetKey.generate()
+        let stranger = SetKey.generate()
+        let stream = UUID().uuidString.lowercased()
+        // `poll` judges in key order: "1-…" before "2-…".
+        let firstJTI = "1-\(SecretKit.random())"
+        let secondJTI = "2-\(SecretKit.random())"
+        let first = Self.with(Self.claims(), "jti", firstJTI)
+        let second = Self.with(Self.claims(), "jti", secondJTI)
+
+        let transport = RoutedTransport()
+        // The cache is primed by the first SET; the unknown kid's one refetch then fails.
+        transport.route("GET", "/oauth2/jwks", [Self.jwksReply([key]), .empty(503)])
+        transport.route("POST", "/ssf/v1/poll/\(stream)", [
+            .json(200, object: [
+                "sets": [firstJTI: key.signSet(first), secondJTI: stranger.signSet(second)],
+                "moreAvailable": false,
+            ] as [String: Any]),
+        ])
+        let store = RecordingReplayStore()
+        let client = try await makeClient(transport)
+        var configuration = SsfReceiverConfiguration(
+            issuer: Self.issuer, audience: Self.audience, keySource: .jwksURI(Self.jwksURI))
+        configuration.accessTokenProvider = { Sensitive("cc-\(SecretKit.random())") }
+        configuration.replayStore = store
+        let receiver = try SsfReceiver(client: client, configuration: configuration)
+
+        var returned: [String] = []
+        do {
+            let result = try await receiver.poll(streamID: stream)
+            returned = result.events.map(\.jti)
+            // This SDK's form of P1: the judged SET is returned, the rest listed unrecorded.
+            XCTAssertEqual(returned, [firstJTI])
+            XCTAssertEqual(result.unjudged, [secondJTI])
+            XCTAssertNotNil(result.interruption)
+            XCTAssertFalse(
+                result.refused.map(\.jti).contains(secondJTI),
+                "a SET whose key could not be fetched is not refused: no verdict was reached")
+        } catch let error as AxiamError {
+            XCTAssertNil(error.setFailureReason, "a failed key fetch is no verdict")
+        }
+        let recorded = await store.recorded
+        XCTAssertTrue(
+            returned.contains(firstJTI) || !recorded.contains(firstJTI),
+            "the first SET was recorded and not returned: re-offered, it would read replayed")
+        XCTAssertFalse(recorded.contains(secondJTI), "the unjudged SET is not recorded")
+        XCTAssertFalse(returned.contains(secondJTI))
+    }
+
+    /// §32.7 step 9, §34.2 P3 – P4 (R-4, SW-4): a replay store that cannot answer fails
+    /// CLOSED. The store reports the failure by throwing; `verifySet` then raises a
+    /// `NetworkError` with no reason code — no verdict, no acceptance — and `poll` neither
+    /// returns nor records the SET (P1), so the transmitter offers it again.
+    func testAReplayStoreThatCannotAnswerRefusesAndRecordsNothing() async throws {
+        let key = SetKey.generate()
+        let stream = UUID().uuidString.lowercased()
+        let goodJTI = "1-\(SecretKit.random())"
+        let unanswerableJTI = "2-\(SecretKit.random())"
+        let store = FailingReplayStore(failingOn: [unanswerableJTI])
+
+        let transport = RoutedTransport()
+        transport.route("GET", "/oauth2/jwks", [Self.jwksReply([key])])
+        transport.route("POST", "/ssf/v1/poll/\(stream)", [
+            .json(200, object: [
+                "sets": [
+                    goodJTI: key.signSet(Self.with(Self.claims(), "jti", goodJTI)),
+                    unanswerableJTI: key.signSet(Self.with(Self.claims(), "jti", unanswerableJTI)),
+                ],
+                "moreAvailable": false,
+            ] as [String: Any]),
+        ])
+        let client = try await makeClient(transport)
+        var configuration = SsfReceiverConfiguration(
+            issuer: Self.issuer, audience: Self.audience, keySource: .jwksURI(Self.jwksURI))
+        configuration.accessTokenProvider = { Sensitive("cc-\(SecretKit.random())") }
+        configuration.replayStore = store
+        let receiver = try SsfReceiver(client: client, configuration: configuration)
+
+        do {
+            _ = try await receiver.verifySet(
+                key.signSet(Self.with(Self.claims(), "jti", unanswerableJTI)))
+            XCTFail("a store that cannot answer must not let the SET through")
+        } catch let error as AxiamError {
+            guard case .network = error else { return XCTFail("a store failure is a NetworkError") }
+            XCTAssertNil(error.setFailureReason, "not a verdict on the SET")
+        }
+
+        let result = try await receiver.poll(streamID: stream)
+        XCTAssertEqual(result.events.map(\.jti), [goodJTI])
+        XCTAssertTrue(result.refused.isEmpty, "no verdict was reached on the second SET")
+        XCTAssertEqual(result.unjudged, [unanswerableJTI])
+        XCTAssertNotNil(result.interruption)
+        let recorded = await store.recorded
+        XCTAssertEqual(recorded, [goodJTI])
+    }
+
     func testPollIsNotRetriedOn400() async throws {
         let transport = RoutedTransport()
         transport.route("POST", "/ssf/v1/poll/s-1", [.json(400, #"{"error": "push stream"}"#)])
@@ -478,6 +577,32 @@ final class SsfReceiverTests: XCTestCase {
         }
         XCTAssertEqual(SetFailureReason.replayed.rawValue, "replayed")
         XCTAssertEqual(SetFailureReason.invalidType.rawValue, "invalid_type")
+    }
+}
+
+/// A replay store that remembers what it recorded, for the assertions on what `poll` keeps.
+actor RecordingReplayStore: SsfReplayStore {
+    private(set) var recorded: Set<String> = []
+
+    func checkAndRecord(jti: String, window: TimeInterval) -> Bool {
+        recorded.insert(jti).inserted
+    }
+}
+
+/// A replay store that cannot answer for some `jti`s — a shared store that is down.
+actor FailingReplayStore: SsfReplayStore {
+    struct Unavailable: Error {}
+
+    private let failingOn: Set<String>
+    private(set) var recorded: Set<String> = []
+
+    init(failingOn: Set<String>) {
+        self.failingOn = failingOn
+    }
+
+    func checkAndRecord(jti: String, window: TimeInterval) throws -> Bool {
+        if failingOn.contains(jti) { throw Unavailable() }
+        return recorded.insert(jti).inserted
     }
 }
 
