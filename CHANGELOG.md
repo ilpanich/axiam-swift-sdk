@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — contract 1.58
+
+- **Re-vendored contract 1.58** (`CONTRACT.md`, `openapi.json`, `management-registry.json`)
+  and regenerated the §27 surface: **190 operations across 28 namespaces**, adding `directory`
+  (§30), `saml` (§29), `scim_targets` (§31) and `ssf` (§32). Generator: implicit
+  `{tenant_id}` for the three tenant-context namespaces, URI-valued enum cases named by their
+  last path segment (`SsfEventType.sessionRevoked`), open `ScimTargetAuth` / `ScimTargetScope`
+  (an unknown `type` decodes and is refused locally on the way out), explicit-null double
+  optionals (`UpdateDirectoryConfig.groupBaseDn` / `.groupFilter`,
+  `SamlIdpInfo.activeCredentialID` / `.nextCredentialID`), generated call-site notes, a
+  local `saml.parse_sp_metadata` precheck, and `var` members on the four replacement bodies.
+- **§28.12 RFC 7592 client configuration** — `readClientRegistration`,
+  `updateClientRegistration`, `deleteClientRegistration` and `ClientRegistration` (unknown
+  members kept in `extra`; token and secret `Sensitive`). Origin-pinned, bearer-only, no SDK
+  session, update and delete never retried.
+- **§29–§32 helpers** — `ParseSamlSpMetadata.fromURL` / `.fromXML`;
+  `ScimTargetAuth.bearer()` / `.oauth2ClientCredentials(...)`, `ScimTargetScope.allUsers()` /
+  `.groups(_:)`; `init(copying:)` read-modify-write initialisers for
+  `SamlServiceProviderInput`, `SetDirectoryConfig`, `ScimTargetInput` and `SsfStreamInput`.
+- **§32.7 SSF receiver helper** — `SsfReceiver.verifySet` / `poll`, `SetFailureReason`
+  (`AuthError.setFailureReason`), `SetErr`, `SsfReplayStore` / `InMemorySsfReplayStore`,
+  `SsfEventTypeURI`.
+- **§33 CIBA** — `cibaInitiate`, `cibaPoll`, `cibaAwait` (injectable `CibaClock`),
+  `cibaHandlePing`; the §33.2 signed form via `CibaRequestSigner` (PS256, ES256, EdDSA);
+  `AxiamError.isAccessDenied` / `.isExpiredToken` / `.oauthErrorCode`.
+- **§21.3.1** — `MtlsEndpointAliases.backchannelAuthenticationEndpoint` (the seventh alias)
+  and the four CIBA members of `OidcConfiguration`.
+
 ## [1.0.0-beta17] - 2026-09-25
 
 ### Added
