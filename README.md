@@ -12,7 +12,7 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to contract 1.58 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
+> **This SDK conforms to contract 1.59 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
 > §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and
 > §33, with §32.7 and §33.2 signed (including §6.1 mTLS —
 > now including rules 6–10, the mTLS device login `authenticateDevice()` — §5.2 rule 1's
@@ -47,9 +47,20 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 > receiver helper (`SsfReceiver`) and §33's CIBA helpers (`cibaInitiate`, `cibaPoll`,
 > `cibaAwait`, `cibaHandlePing`), including the §33.2 signed request under **all three**
 > algorithms — PS256 (`_CryptoExtras`, already a dependency for DPoP), ES256 and EdDSA. No
-> carve-out: nothing in these sections is declined. (The §33.2 PS256 path is exercised by its
-> refusal test only; the suite's test target does not link `_CryptoExtras` to generate an RSA
-> key, while EdDSA and ES256 are round-tripped end to end.)
+> carve-out: nothing in these sections is declined. All three algorithms are round-tripped end
+> to end by the suite (signed by the SDK, verified with the caller's public key).
+>
+> **Contract 1.59 (§34, the cross-SDK review of the 1.53–1.58 ports).** The statement above is
+> unchanged in its sections; what 1.59 changed is how they are met, and this port follows
+> its clarifications (§34.2) and fixes the rows of follow-up F-59-09 (§34.3): `Sensitive` is
+> `CustomReflectable`, so `dump` and `Mirror` print no secret (R-19); `SsfReceiver.poll` never
+> keeps a `jti` it does not return (P1 — the accepted SETs are returned and the rest listed in
+> `unjudged`, unrecorded) and the replay store reports failure by throwing, failing closed
+> (P4); `cibaAwait` ends on a failure after the `200` (P9) and a `5xx` on `cibaPoll` is
+> retried whatever its body (P8); `ScimTargetAuth` / `ScimTargetScope` keep only their
+> declared members (P12.1); SSF event types are open strings (`SsfEventType`, §32.2); every
+> paginated list has an auto-paging `…All(page:)` form (§27.4 rule 4); §21.3.1 vector A is
+> read from this `CONTRACT.md` by the suite.
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -86,11 +97,11 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §24 WebAuthn / passkeys | ✅ implemented (contract 1.45) — the eight relying-party operations (register, authenticate, discoverable, and the setup-token pair added at 1.45 for forced first-login enrolment) and §24.6a's JSON bridge on **every** target, plus §24.6b's linked-API ceremony helpers on iOS 16+ and macOS 13+, including the setup-token composed helper. The Linux build keeps the RP layer and the bridge; `webauthnCeremonySupported` answers `false` there rather than throwing |
 | §25 account lifecycle & MFA enrolment | ✅ implemented (contract 1.45) — voluntary and forced TOTP enrolment, a passkey or security key as the first factor at forced enrolment (contract 1.45), email verification, and the password-reset triple |
 | §26 Pushed Authorization Requests (RFC 9126) | ✅ implemented (contract 1.28) — required for a FAPI 2.0 client, which cannot authorize any other way (§21.1) |
-| §27 management API | ✅ implemented — 190 operations across 28 namespaces, generated from the vendored `management-registry.json`, plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL. §27.6.1's three additions (contract 1.51) — `resources[].metadata`, resource-scoped role bindings with `inherit`, and `service_accounts` (with role bindings) — are implemented at the **flat-entity tier**: no `users`, no `scopes` (§27.10, unchanged tier gap) |
+| §27 management API | ✅ implemented — 190 operations across 28 namespaces, generated from the vendored `management-registry.json` (every paginated list with its auto-paging `…All(page:)` form, contract 1.59), plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL. §27.6.1's three additions (contract 1.51) — `resources[].metadata`, resource-scoped role bindings with `inherit`, and `service_accounts` (with role bindings) — are implemented at the **flat-entity tier**: no `users`, no `scopes` (§27.10, unchanged tier gap) |
 | §28.12 RFC 7592 client configuration | ✅ implemented (contract 1.53) — `readClientRegistration` / `updateClientRegistration` / `deleteClientRegistration`, origin-pinned, bearer-only, no SDK session, writes never retried |
 | §29 `saml`, §30 `directory`, §31 `scim_targets`, §32 `ssf` | ✅ implemented (contracts 1.54–1.57) — generated namespaces plus explicit-null members, call-site notes, `ParseSamlSpMetadata.fromURL`/`.fromXML` and the `init(copying:)` read-modify-write helpers |
-| §32.7 SSF receiver helper | ✅ implemented (contract 1.56, MAY for Swift) — `SsfReceiver.verifySet` / `poll` |
-| §33 CIBA (poll and ping, signed form) | ✅ implemented (contract 1.58, MAY for Swift) — `cibaInitiate`, `cibaPoll`, `cibaAwait`, `cibaHandlePing`; §33.2 signed with PS256, ES256 or EdDSA. §21.3.1's seventh `mtls_endpoint_aliases` member is decoded and used |
+| §32.7 SSF receiver helper | ✅ implemented (contract 1.56, MAY for Swift) — `SsfReceiver.verifySet` / `poll`; at contract 1.59 `poll` returns what it judged and lists the rest in `unjudged` (§34.2 P1) and the replay store fails closed by throwing (P4) |
+| §33 CIBA (poll and ping, signed form) | ✅ implemented (contract 1.58, MAY for Swift) — `cibaInitiate`, `cibaPoll`, `cibaAwait`, `cibaHandlePing`; §33.2 signed with PS256, ES256 or EdDSA (all three round-tripped by the suite). §21.3.1's seventh `mtls_endpoint_aliases` member is decoded and used |
 | §20 UMA 2.0 Protection API + ticket grant | ✅ implemented, and it landed *before* §12 rather than waiting for it: UMA carries its own discovery document (`/.well-known/uma2-configuration`), the Protection API is ordinary bearer-authenticated REST, and the ticket grant returns an opaque RPT with no `id_token` to validate. That §20 could ship alone is part of what showed the §12 deferral was cutting across the wrong seam — see contract §12.6 |
 
 ## Installation
@@ -529,6 +540,15 @@ whose textual representation is always `"[SENSITIVE]"`:
 let s = Sensitive("super-secret")
 print(s)                 // [SENSITIVE]
 print("\(s)")            // [SENSITIVE]
+```
+
+`Sensitive` is also `CustomReflectable` with no children, so the reflection sinks — `dump(_:)`
+and `Mirror(reflecting:)`, which read stored properties rather than `description` — show the
+placeholder too, for a `Sensitive` on its own and for every struct that holds one:
+
+```swift
+dump(UpdateDirectoryConfig(bindSecret: Sensitive(secret)))   // … some: [SENSITIVE]
+Mirror(reflecting: Sensitive("super-secret")).children.isEmpty   // true
 ```
 
 There is no public getter for the wrapped value. Equality is **constant-time** over the wrapped
@@ -1891,6 +1911,14 @@ the first fifty of four hundred rows. Auto-paging stops on an **empty** page, ne
 — a server may return fewer rows than asked for and still have more:
 
 ```swift
+// The auto-paging form: every paginated `list…(page:)` has an `…All(page:)` twin, an
+// AsyncSequence of items that walks page after page until one comes back empty.
+for try await role in client.roles.listAll() {
+    process(role)
+}
+let everyProvider = try await client.saml.listServiceProvidersAll().collect()
+
+// The same walk by hand, one page at a time.
 var request = PageRequest()
 while true {
     let batch = try await client.roles.list(page: request)
@@ -1910,6 +1938,9 @@ a log line finds its row. `Page.total` then counts *matches*, not rows.
 
 ```swift
 let page = try await client.users.list(page: PageRequest(search: "ada"))
+for try await user in client.users.listAll(page: PageRequest(search: "ada")) {
+    process(user)                          // the term is on every request of the walk
+}
 
 var request = PageRequest(search: "ada")   // the term rides on the page request…
 while true {
@@ -1947,6 +1978,12 @@ case .some(.standard), .none: …
 case .some(.unknown): …    // a kind this SDK predates
 }
 ```
+
+One exception, by §32.2's own rule: **SSF event types are strings**, not an enum.
+`SsfEventType` is an open string type with the six URIs as named constants
+(`SsfEventType.sessionRevoked`, …): an unseen URI decodes **as itself** (`rawValue` kept,
+`isKnown == false`), so nothing the server sent is lost, and it is refused locally — before any
+request — if you try to send it back (contract 1.59, §34.2 P12.2).
 
 `Certificate.boundServiceAccountID` is a **projection**, not a property: the server resolves
 it for a whole page in one query, so `certificates.list()` populates it and
@@ -2187,7 +2224,10 @@ _ = try await client.ssf.updateStream(streamID: streamID, body: streamInput)
 Responses carry no secret (`DirectoryConfig`, `ScimTargetResponse`, `SsfStream` and
 `SamlIdpCredential` declare no member for one, so a decoder meeting one drops it). Every
 enum and the `ScimTargetAuth` / `ScimTargetScope` unions are open: an unknown value decodes,
-and an unknown `type` is refused locally on the way back out. Writes are never retried.
+and an unknown `type` is refused locally on the way back out. The two unions keep **only
+declared members** (contract 1.59, §34.2 P12.1): a known arm its own members, an unknown arm
+its `type` and nothing else, so a member the server should not have sent is neither surfaced
+nor echoed back by `init(copying:)`. Writes are never retried.
 
 ## SSF receiver (§32.7)
 
@@ -2214,12 +2254,34 @@ var ack: [String] = []
 var errs: [String: SetErr] = [:]
 let page = try await receiver.poll(streamID: streamID)
 for event in page.events { handle(event.eventType, event.subID); ack.append(event.jti) }
-for refused in page.refused { errs[refused.jti] = SetErr(reason: refused.reason) }
+for refused in page.refused {
+    if refused.reason == .replayed { ack.append(refused.jti) }   // accepted earlier (P2)
+    else { errs[refused.jti] = SetErr(reason: refused.reason) }
+}
+// page.unjudged: no verdict was reached (a key fetch or the replay store failed, see
+// page.interruption). Neither acknowledge nor refuse them: they are offered again.
 _ = try await receiver.poll(streamID: streamID, options: SsfPollOptions(ack: ack, setErrs: errs))
 ```
 
 A SET that verified is **recorded** (replay window: seven days, never less): one re-offered
-because it was not acknowledged reads as `replayed`. Nothing is acknowledged for you.
+because it was not acknowledged reads as `replayed` — acknowledge it rather than reporting it
+in `setErrs`, since this receiver did accept it (contract 1.59, §34.2 P2). Nothing is
+acknowledged for you.
+
+**`poll` never keeps a `jti` it does not return** (§34.2 P1, this SDK's form: return what was
+judged). A failure that is not a verdict — a JWKS or discovery fetch that fails, a replay store
+that cannot answer — stops the batch at that SET: the SETs already accepted are returned in
+`events`, that SET and every later one are listed in `unjudged`, unrecorded, with the failure
+in `interruption`. When nothing of the batch was accepted, the failure is thrown instead,
+having recorded nothing. For a push endpoint, such a failure is a `5xx`, never `400` (P3).
+
+**The replay store fails closed** (§34.2 P4). `SsfReplayStore.checkAndRecord` is `async
+throws`: a shared store that cannot answer must **throw**, never return `true`; `verifySet`
+then raises a `NetworkError` with no reason code and the SET is not accepted. The default
+`InMemorySsfReplayStore` always answers; it is bounded by the window in **time**, not in
+count — every `jti` accepted in the last seven days is held — and is lost on restart. A
+receiver with several instances, or more events than one process should hold, supplies a
+shared persistent store.
 
 ## CIBA (§33)
 
@@ -2257,6 +2319,13 @@ let signer = try CibaRequestSigner(
 _ = try await client.cibaInitiate(CibaInitiateRequest(
     scope: "openid", hint: .loginHint("ada"), bindingMessage: "W4SCT", signer: signer))
 ```
+
+`cibaAwait` treats a transport failure, `408`, `429` and any `5xx` — with or without an
+`error` member, AXIAM's own `500 {"error":"server_error"}` included — as transient, and a
+`4xx` without an `error` member as decisive (contract 1.59, §34.2 P8, P9). **Anything that
+fails after the `200`** — a body that does not decode, an ID token that does not validate, the
+key fetch validation needs — ends the loop with that failure: the request is already
+redeemed, so polling again could only earn `invalid_grant`. Start a new request.
 
 `authReqID`, the notification token, the signing key and the signed `request` are
 `Sensitive`. `cibaHandlePing` is synchronous and performs no I/O; the token comparison is
