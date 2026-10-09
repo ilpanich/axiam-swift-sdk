@@ -414,7 +414,10 @@ extension AxiamClient {
     /// `access_denied` and `expired_token` (terminal and distinct —
     /// ``AxiamError/isAccessDenied``, ``AxiamError/isExpiredToken``), `invalid_grant`. None is
     /// retried. A transport failure, `5xx`, `408` or bodiless `429` is retried per §16 within
-    /// the call; another `4xx` is not. Any `id_token` is validated per §12.4 (no nonce).
+    /// the call; another `4xx` is not. A `5xx` is a ``NetworkError`` carrying its status even
+    /// when its body has an `error` member — AXIAM's `500 {"error":"server_error"}` is a
+    /// transient failure, not an answer (CONTRACT.md §34.2 P8). Any `id_token` is validated
+    /// per §12.4 (no nonce).
     ///
     /// **Store the returned tokens before anything else**: a request is redeemed once, and a
     /// second `cibaPoll` for it is `invalid_grant` (§33.7 rule 7).
@@ -422,6 +425,27 @@ extension AxiamClient {
         authReqID: Sensitive<String>,
         tenantID: String? = nil,
         configuration: OidcConfiguration? = nil
+    ) async throws -> OidcTokenSet {
+        do {
+            return try await cibaPollOnce(
+                authReqID: authReqID, tenantID: tenantID, configuration: configuration)
+        } catch let failure as CibaRedeemedFailure {
+            throw failure.error
+        }
+    }
+
+    /// A failure after the token endpoint answered `2xx`: the redemption is spent, so the
+    /// ``cibaAwait(_:tenantID:configuration:clock:)`` loop must not poll again (§33.7 rule 7,
+    /// CONTRACT.md §34.2 P9).
+    struct CibaRedeemedFailure: Error {
+        let error: any Error
+    }
+
+    /// One `cibaPoll`, with a failure after the `2xx` wrapped in ``CibaRedeemedFailure``.
+    func cibaPollOnce(
+        authReqID: Sensitive<String>,
+        tenantID: String?,
+        configuration: OidcConfiguration?
     ) async throws -> OidcTokenSet {
         try ensureOpen()
         var form = try cibaClientAuthentication("cibaPoll")
@@ -443,11 +467,24 @@ extension AxiamClient {
             ],
             body: Data(Self.oidcFormEncode(form).utf8),
             retry: .section16UnlessOAuthError)
-        guard (200..<300).contains(response.status) else { throw oidcMapGrantError(response) }
+        guard (200..<300).contains(response.status) else {
+            // §34.2 P8: a 5xx is never the answer, whatever its body — it stays transient.
+            if response.status >= 500 {
+                throw AxiamError.network(NetworkError(
+                    "ciba_poll: HTTP \(response.status) from the token endpoint",
+                    statusCode: response.status))
+            }
+            throw oidcMapGrantError(response)
+        }
         // §33.7 rule 7: the 200 is consumed before anything else — and never re-requested: the
-        // server may already have redeemed the request.
-        let wire = try oidcDecode(TokenResponseWire.self, response.body, "CIBA token response")
-        return try await oidcTokenSet(wire, document: document, expectedNonce: nil)
+        // server may already have redeemed the request. Whatever fails from here on is
+        // terminal for the loop (§34.2 P9).
+        do {
+            let wire = try oidcDecode(TokenResponseWire.self, response.body, "CIBA token response")
+            return try await oidcTokenSet(wire, document: document, expectedNonce: nil)
+        } catch {
+            throw CibaRedeemedFailure(error: error)
+        }
     }
 
     /// Poll for `initiated`'s outcome until it is decided or expires (§33.1, §33.7). Surfaces
@@ -456,8 +493,14 @@ extension AxiamClient {
     /// - The first poll waits one `interval`; polling earlier only earns `slow_down`.
     /// - `slow_down` adds 5 s to the interval, cumulatively and permanently;
     ///   `authorization_pending` never lowers it.
-    /// - A transport failure, `5xx` or `429` that outlived §16 is not terminal: the loop waits
-    ///   the interval and polls again.
+    /// - A transport failure, `408`, `429` or `5xx` (with or without an `error` member) that
+    ///   outlived §16 is not terminal: the loop waits the interval and polls again. A `4xx`
+    ///   without an `error` member is decisive and ends the loop.
+    /// - **Anything that fails after a `2xx`** — a body that does not decode, an ID token that
+    ///   does not validate, the key fetch validation needs — ends the loop with that failure:
+    ///   the request is already redeemed, and polling again could only earn `invalid_grant`
+    ///   (§33.7 rule 7, CONTRACT.md §34.2 P9). The tokens of such a redemption are not
+    ///   returned; start a new request.
     /// - Polling stops at `receivedAt + expiresIn`, even if the server has not said
     ///   `expired_token`; the same `expired_token` outcome is then raised locally.
     ///
@@ -488,8 +531,11 @@ extension AxiamClient {
             }
             try await clock.sleep(seconds: interval)
             do {
-                return try await cibaPoll(
+                return try await cibaPollOnce(
                     authReqID: initiated.authReqID, tenantID: tenantID, configuration: document)
+            } catch let failure as CibaRedeemedFailure {
+                // §34.2 P9: after the 2xx, terminal — never another poll.
+                throw failure.error
             } catch let error as AxiamError {
                 switch Self.cibaStep(error) {
                 case .pending, .transient:

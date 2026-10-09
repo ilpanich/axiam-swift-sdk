@@ -382,6 +382,9 @@ final class CibaTests: XCTestCase {
 
     // MARK: - 8. Transient failure is not terminal
 
+    /// §33.8 test 8 as amended by contract 1.59 (§34.2 P8): the mid-loop `500` carries the
+    /// server's own `{"error":"server_error"}` body, and is retried — a `5xx` on `ciba_poll` is
+    /// never terminal, with or without an `error` member.
     func testT08A500AndA429MidLoopAreSurvived() async throws {
         let clock = TestCibaClock()
         let transport = RoutedTransport()
@@ -389,7 +392,7 @@ final class CibaTests: XCTestCase {
         let tokens = Self.tokens(transport)
         transport.route("POST", "/oauth2/token", [
             Self.oauthError(400, "authorization_pending"),
-            .empty(500),
+            Self.oauthError(500, "server_error"),
             Self.oauthError(429, "rate_limit_exceeded"),
             tokens,
         ])
@@ -402,6 +405,55 @@ final class CibaTests: XCTestCase {
         XCTAssertNotNil(set.idToken)
         XCTAssertNotNil(set.idClaims)
         XCTAssertEqual(transport.requests("/oauth2/token").count, 4)
+
+        // The same 500 to one `cibaPoll` is retried within the call (§16), not surfaced.
+        let single = RoutedTransport()
+        let retrying = try await makeClient(single)
+        let redeemed = Self.tokens(single)
+        single.route("POST", "/oauth2/token", [Self.oauthError(500, "server_error"), redeemed])
+        _ = try await retrying.cibaPoll(
+            authReqID: Sensitive(SecretKit.random()), configuration: Self.configuration())
+        XCTAssertEqual(single.requests("/oauth2/token").count, 2, "§16 retried the 500")
+    }
+
+    // MARK: - After the 200 (§33.7 rule 7, §34.2 P9; R-12, SW-3)
+
+    /// A failure after a `2xx` is terminal: the redemption is spent, and polling again could
+    /// only earn `invalid_grant`. A body that does not decode, and an ID token whose key fetch
+    /// fails, each end the loop after ONE token request.
+    func testAFailureAfterThe200EndsTheLoopWithoutAnotherPoll() async throws {
+        let undecodable = RoutedTransport.Reply.json(200, #"{"access_token": 42}"#)
+        let now = Date().timeIntervalSince1970
+        let unverifiable = RoutedTransport.Reply.json(200, object: [
+            "access_token": SecretKit.random(), "token_type": "Bearer", "expires_in": 900,
+            "id_token": Self.signer.makeJWT(claims: [
+                "iss": Self.issuer, "aud": Self.clientID, "sub": UUID().uuidString.lowercased(),
+                "iat": Int(now), "exp": Int(now) + 600,
+            ]),
+        ])
+        for (label, reply) in [("an undecodable body", undecodable), ("a JWKS outage", unverifiable)] {
+            let clock = TestCibaClock()
+            let transport = RoutedTransport()
+            transport.route("GET", "/oauth2/jwks", [.empty(503)])
+            transport.route("POST", "/oauth2/token", [
+                reply, Self.oauthError(400, "invalid_grant"),
+            ])
+            let client = try await makeClient(transport)
+            do {
+                _ = try await client.cibaAwait(
+                    Self.response(expiresIn: 600, interval: 5, at: clock.start),
+                    configuration: Self.configuration(),
+                    clock: clock)
+                XCTFail("\(label): the failure after the 200 must surface")
+            } catch let error as AxiamError {
+                XCTAssertNotEqual(
+                    error.oauthErrorCode, "invalid_grant",
+                    "\(label): the real failure, not the re-poll's invalid_grant")
+            }
+            XCTAssertEqual(
+                transport.requests("/oauth2/token").count, 1,
+                "\(label): the redemption is spent — no second poll")
+        }
     }
 
     func testABodiless429IsRetriedWithinOnePollAndANon408ClientErrorIsNot() async throws {

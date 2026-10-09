@@ -25,9 +25,11 @@ enum BareRetry: Sendable {
     /// §16 as written: a transport failure, `408`, `429` or `5xx` is retried within the
     /// budget; every other status is decisive.
     case section16
-    /// §16, except that a response carrying an OAuth2 `error` member is never retried — it is
+    /// §16, except that a `4xx` carrying an OAuth2 `error` member is never retried — it is
     /// the server's answer, not a transient failure (§33.3 rule 6, §33.7 rule 5: a `429`
     /// with `rate_limit_exceeded` is surfaced to the polling loop, a bodiless one is retried).
+    /// A `5xx` is retried with or without an `error` member: AXIAM answers an internal failure
+    /// `500 {"error":"server_error"}` (CONTRACT.md §34.2 P8).
     case section16UnlessOAuthError
 }
 
@@ -116,6 +118,7 @@ extension AxiamClient {
         case .section16UnlessOAuthError:
             guard Retry.shouldRetry(status: response?.status) else { return false }
             guard let response else { return true }
+            if response.status >= 500 { return true }
             return !Self.carriesOAuthError(response.body)
         }
     }
