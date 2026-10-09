@@ -17,6 +17,8 @@ final class RoutedTransport: HTTPTransport, @unchecked Sendable {
         let url: URL
         let headers: [(String, String)]
         let body: Data?
+        /// The transport's stamp (e.g. an injected clock's reading) when the request arrived.
+        let stamp: Int?
 
         var path: String { url.path }
 
@@ -95,6 +97,13 @@ final class RoutedTransport: HTTPTransport, @unchecked Sendable {
     private let lock = NSLock()
     private var routes: [Route] = []
     private var recorded: [Recorded] = []
+    private let stamper: (@Sendable () -> Int)?
+
+    /// - Parameter stamp: read once per request and kept on ``Recorded/stamp`` — an injected
+    ///   clock's reading, so a test can say WHEN each request was sent without sleeping.
+    init(stamp: (@Sendable () -> Int)? = nil) {
+        self.stamper = stamp
+    }
 
     /// Answer `method pathSuffix` (any method when `nil`) from `replies`, in order; the last
     /// repeats. A `nil` reply drops the connection. Later routes shadow earlier ones.
@@ -114,10 +123,11 @@ final class RoutedTransport: HTTPTransport, @unchecked Sendable {
     }
 
     func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval) async throws -> HTTPResponseData {
+        let stamp = stamper?()
         let reply = lock.locked { () -> Reply?? in
             recorded.append(Recorded(
                 method: spec.method.rawValue, url: spec.url, headers: spec.headers,
-                body: spec.body))
+                body: spec.body, stamp: stamp))
             guard let index = routes.firstIndex(where: {
                 ($0.method == nil || $0.method == spec.method.rawValue)
                     && spec.url.path.hasSuffix($0.pathSuffix)

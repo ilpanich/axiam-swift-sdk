@@ -10,7 +10,7 @@ import Foundation
 /// - a call going over mTLS prefers the alias;
 /// - a call NOT going over mTLS keeps the top-level entry;
 /// - an ABSENT member means "no separate mTLS host", never "unsupported";
-/// - only the six listed endpoints are ever aliased — not `authorization_endpoint`,
+/// - only the seven listed endpoints are ever aliased — not `authorization_endpoint`,
 ///   `end_session_endpoint` or `jwks_uri`;
 /// - `issuer` is not an endpoint, does not move, and still governs `iss` validation by exact
 ///   string.
@@ -27,8 +27,9 @@ final class MtlsEndpointAliasesTests: XCTestCase {
 
     // MARK: - Harness
 
-    /// The discovery document served by the conventional host, optionally carrying the six
-    /// aliases on `mtlsBase`. `partial` publishes only `token_endpoint`.
+    /// The discovery document served by the conventional host, optionally carrying the seven
+    /// aliases on `mtlsBase` (§21.3.1 vector A, amended in contract 1.58 with CIBA's
+    /// `backchannel_authentication_endpoint`). `partial` publishes only `token_endpoint`.
     private static func discoveryJSON(
         base: String,
         mtlsBase: String?,
@@ -44,6 +45,7 @@ final class MtlsEndpointAliasesTests: XCTestCase {
             "end_session_endpoint": "\(base)/oauth2/end_session",
             "device_authorization_endpoint": "\(base)/oauth2/device_authorization",
             "pushed_authorization_request_endpoint": "\(base)/oauth2/par",
+            "backchannel_authentication_endpoint": "\(base)/oauth2/bc-authorize",
         ]
         if let mtlsBase {
             document["mtls_endpoint_aliases"] = partial
@@ -55,6 +57,7 @@ final class MtlsEndpointAliasesTests: XCTestCase {
                     "introspection_endpoint": "\(mtlsBase)/oauth2/introspect",
                     "device_authorization_endpoint": "\(mtlsBase)/oauth2/device_authorization",
                     "pushed_authorization_request_endpoint": "\(mtlsBase)/oauth2/par",
+                    "backchannel_authentication_endpoint": "\(mtlsBase)/oauth2/bc-authorize",
                 ]
         }
         return document
@@ -78,6 +81,9 @@ final class MtlsEndpointAliasesTests: XCTestCase {
                 "expires_in": 60,
             ])
         }
+        if uri.contains("/oauth2/bc-authorize") {
+            return .json(200, ["auth_req_id": "auth-req-id-value", "expires_in": 120, "interval": 5])
+        }
         if uri.contains("/oauth2/introspect") { return .json(200, ["active": true]) }
         if uri.contains("/oauth2/revoke") { return .json(200, [:]) }
         return .json(200, [
@@ -90,7 +96,7 @@ final class MtlsEndpointAliasesTests: XCTestCase {
     /// A router that records which OAuth2 path it was asked for, under `label`.
     private static func oauth2Router() -> TestRouter {
         { request, state in
-            for path in ["token", "introspect", "revoke", "device_authorization", "par"]
+            for path in ["token", "introspect", "revoke", "device_authorization", "par", "bc-authorize"]
             where request.uri.contains("/oauth2/\(path)") {
                 state.increment(path)
                 return Self.oauth2Response(request.uri)
@@ -193,6 +199,56 @@ final class MtlsEndpointAliasesTests: XCTestCase {
         }
     }
 
+    /// CONTRACT.md §21.3.1 vector A, as amended in contract 1.58: the member carries SEVEN
+    /// aliases, and `backchannel_authentication_endpoint` sits at the top level too. Pure
+    /// decoding — no listener, no identity — so this pin runs everywhere.
+    func testVectorADecodesAllSevenAliasesAndTheTopLevelBackchannelEndpoint() throws {
+        let query = "?tenant_id=6f3e0a5c-1b2d-4e8f-9a7b-0c1d2e3f4a5b"
+        let root = "https://iam.example.test/oauth2"
+        let mtls = "https://mtls.iam.example.test/oauth2"
+        let vectorA: [String: Any] = [
+            "issuer": "https://iam.example.test",
+            "authorization_endpoint": "\(root)/authorize\(query)",
+            "token_endpoint": "\(root)/token\(query)",
+            "userinfo_endpoint": "\(root)/userinfo",
+            "jwks_uri": "\(root)/jwks",
+            "revocation_endpoint": "\(root)/revoke\(query)",
+            "introspection_endpoint": "\(root)/introspect\(query)",
+            "device_authorization_endpoint": "\(root)/device_authorization\(query)",
+            "pushed_authorization_request_endpoint": "\(root)/par\(query)",
+            "backchannel_authentication_endpoint": "\(root)/bc-authorize\(query)",
+            "end_session_endpoint": "\(root)/logout",
+            "mtls_endpoint_aliases": [
+                "token_endpoint": "\(mtls)/token\(query)",
+                "userinfo_endpoint": "\(mtls)/userinfo",
+                "revocation_endpoint": "\(mtls)/revoke\(query)",
+                "introspection_endpoint": "\(mtls)/introspect\(query)",
+                "device_authorization_endpoint": "\(mtls)/device_authorization\(query)",
+                "pushed_authorization_request_endpoint": "\(mtls)/par\(query)",
+                "backchannel_authentication_endpoint": "\(mtls)/bc-authorize\(query)",
+            ],
+        ]
+        let document = try JSONDecoder().decode(
+            OidcConfiguration.self, from: try JSONSerialization.data(withJSONObject: vectorA))
+
+        XCTAssertEqual(
+            document.backchannelAuthenticationEndpoint, "\(root)/bc-authorize\(query)")
+        let aliases = try XCTUnwrap(document.mtlsEndpointAliases)
+        let seven = [
+            aliases.tokenEndpoint, aliases.userinfoEndpoint, aliases.revocationEndpoint,
+            aliases.introspectionEndpoint, aliases.deviceAuthorizationEndpoint,
+            aliases.pushedAuthorizationRequestEndpoint, aliases.backchannelAuthenticationEndpoint,
+        ]
+        XCTAssertEqual(seven.compactMap { $0 }.count, 7, "all seven aliases decode")
+        for alias in seven {
+            XCTAssertTrue(alias?.hasPrefix(mtls) ?? false, "every alias is on the mTLS host")
+        }
+        XCTAssertEqual(
+            aliases.backchannelAuthenticationEndpoint, "\(mtls)/bc-authorize\(query)",
+            "the query component is kept intact")
+        XCTAssertEqual(document.issuer, "https://iam.example.test", "issuer never moves")
+    }
+
     // MARK: - A call over mTLS prefers the alias
 
     func testEveryAliasableEndpointGoesToTheAliasHost() async throws {
@@ -208,8 +264,12 @@ final class MtlsEndpointAliasesTests: XCTestCase {
                 request: request,
                 redirectURI: "https://app.example.com/cb",
                 configuration: document)
+            // The seventh alias (contract 1.58): CIBA's backchannel authentication endpoint.
+            _ = try await client.cibaInitiate(
+                CibaInitiateRequest(scope: "openid", hint: .loginHint("ada")),
+                configuration: document)
 
-            for path in ["token", "introspect", "revoke", "device_authorization", "par"] {
+            for path in ["token", "introspect", "revoke", "device_authorization", "par", "bc-authorize"] {
                 XCTAssertEqual(mtlsServer.state.count(path), 1, "\(path) must use its alias")
                 XCTAssertEqual(
                     conventional.state.count(path), 0,

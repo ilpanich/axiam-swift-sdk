@@ -11,4 +11,12 @@ enum Base64URL {
         }
         return Data(base64Encoded: s)
     }
+
+    /// Encode bytes as unpadded base64url (RFC 7515 §2).
+    static func encode(_ data: Data) -> String {
+        data.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
 }
