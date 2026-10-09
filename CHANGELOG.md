@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — contract 1.59
+
+Re-vendored `CONTRACT.md` at contract 1.59 (axiam `fe369eb`, §34: the cross-SDK review of the
+1.53 – 1.58 ports). `openapi.json`, `management-registry.json` and `proto/` are unchanged.
+The README states conformance to contract 1.59 with the same sections as before — §1–§7,
+§9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31,
+§32 and §33, with §32.7 and §33.2 signed (PS256, ES256 and EdDSA). This release fixes the rows
+of follow-up F-59-09 (ilpanich/axiam#584):
+
+- **R-19 (§7 rule 1) — `dump` and `Mirror` no longer print secrets.** `Sensitive` is
+  `CustomReflectable` with no children, so the reflection sinks show `[SENSITIVE]` for a
+  `Sensitive` and for every struct that holds one. The redaction tests now cover
+  `String(describing:)`, `String(reflecting:)`, interpolation, `print`, `debugPrint`, `dump`
+  and a `Mirror` walk.
+- **R-1 (§32.7, §34.2 P1) — `SsfReceiver.poll` never keeps a `jti` it does not return.** P1's
+  **second form**: what was judged is returned, and a failure that is not a verdict (a key
+  fetch, a replay store that cannot answer) leaves that SET and every later one of the batch
+  unrecorded and listed in the new `SsfPollResult.unjudged`, with the failure in
+  `.interruption`. When no SET of the batch was accepted, the failure is thrown, having
+  recorded nothing.
+- **R-4 (§32.7 step 9, §34.2 P4) — the replay store fails closed.** P4's **`throws` route**:
+  `SsfReplayStore.checkAndRecord` is now `async throws` (an existing non-throwing store still
+  conforms). A store that cannot answer throws; `verifySet` raises a `NetworkError` with no
+  reason code (P3). The protocol documents the rule, and `InMemorySsfReplayStore` documents
+  that it is bounded by the window in time, not in count (README too).
+- **R-12 (§33.7 rule 7, §34.2 P9) — `cibaAwait` ends on a failure after the `200`.** A body
+  that does not decode, an ID token that does not validate or its key fetch is terminal; the
+  loop no longer re-polls a redeemed request into `invalid_grant`.
+- **§33.8 test 8 (§34.2 P8) — a `5xx` on `cibaPoll` is retried whatever its body.** AXIAM's
+  `500 {"error":"server_error"}` was not retried and ended `cibaAwait`; a `5xx` is now retried
+  under §16 and surfaces as a `NetworkError` with its status, which the loop treats as
+  transient. The test's `500` carries that body. (P10's anchor is unchanged: the deadline is
+  anchored at the instant the initiate response was received — `CibaInitiateResponse.receivedAt`,
+  stamped by `cibaInitiate` from the wall clock; the loop's waits use the injected `CibaClock`.
+  §34.3 R-14 requires no change for this.)
+- **R-20 (§31.2, §34.2 P12.1) — `ScimTargetAuth` / `ScimTargetScope` keep only declared
+  members.** A known arm keeps its own members, an unknown arm its `type` alone
+  (`declaredMembers`, generated from the `oneOf`).
+- **R-22 (§32.2) — SSF event types are open strings.** `SsfEventType` is now a
+  `RawRepresentable` string struct with the six URIs as static constants, `allKnown` and
+  `isKnown`. An unseen URI decodes as itself and is refused locally on the way out (P12.2),
+  never sent as `""`. Source note: `.unknown` and `allCases` are gone (`allKnown` replaces the
+  latter) and `init(rawValue:)` no longer fails.
+- **R-29 (§31.3 rule 2, §29.3 rule 2) — call-site documentation.** `scimTargets.create` now
+  states that the credential is bound to its URL, and `spSigningCertPEM` (on
+  `SamlServiceProviderInput` and `SamlServiceProvider`) carries the ECDSA / HTTP-Redirect
+  note, both from the generator.
+- **R-30 (§27.4 rule 4) — an auto-paging form.** `ManagementPager<Item>`, an `AsyncSequence`,
+  and an `…All(page:)` twin on each of the 24 paginated operations (`roles.listAll()`,
+  `saml.listServiceProvidersAll()`, `ssf.listStreamsAll()`, …). §29.8 t5, §31.8 t4 and §32.8
+  t4 now use it.
+- **R-31 (§21.3.1, §33.8 t14) — tests.** Vector A is read from the vendored `CONTRACT.md`
+  rather than retyped, and the PS256 signed form is round-tripped (the test target links
+  `_CryptoExtras` to generate an RSA key at run time).
+
 ### Added — contract 1.58
 
 - **Re-vendored contract 1.58** (`CONTRACT.md`, `openapi.json`, `management-registry.json`)

@@ -92,7 +92,7 @@ final class SsfManagementTests: XCTestCase {
     func testThePushHeaderIsSentAndNeverRenderedOrDecoded() async throws {
         let header = Self.headerValue()
         let body = Self.input(header: header)
-        for rendering in [String(describing: body), String(reflecting: body), "\(body)"] {
+        for rendering in SecretKit.renderings(body) {
             XCTAssertFalse(SecretKit.leaks(rendering, header), "the header leaked")
         }
         let (client, transport) = try await ManagementFixture.signedIn([
@@ -103,7 +103,7 @@ final class SsfManagementTests: XCTestCase {
         let sent = try XCTUnwrap(transport.last?.jsonBody)
         XCTAssertEqual(sent["authorization_header"] as? String, header, "on the wire")
         let reencoded = String(decoding: try JSONEncoder().encode(created), as: UTF8.self)
-        for rendering in [String(describing: created), String(reflecting: created), reencoded] {
+        for rendering in SecretKit.renderings(created) + [reencoded] {
             XCTAssertFalse(SecretKit.leaks(rendering, header), "a response header was surfaced")
         }
         XCTAssertTrue(created.authorizationHeaderSet)
@@ -122,7 +122,8 @@ final class SsfManagementTests: XCTestCase {
         XCTAssertEqual(odd.deliveryMethod, .unknown)
         XCTAssertEqual(odd.subjectFormat, .unknown)
         XCTAssertEqual(odd.statusActor, .unknown)
-        XCTAssertEqual(odd.eventsAllowed, [.unknown])
+        XCTAssertEqual(odd.eventsAllowed.map(\.rawValue), ["https://example.test/event-type/new"])
+        XCTAssertFalse(odd.eventsAllowed[0].isKnown, "kept as itself, and known to be unknown")
 
         let inactive = try Self.decode(Self.streamObject([
             "transmitter_active": false,
@@ -136,6 +137,36 @@ final class SsfManagementTests: XCTestCase {
         XCTAssertEqual(active.eventsAllowed, [.sessionRevoked])
     }
 
+    /// §32.2 (R-22, SW-10): event types are strings with the six URIs as named constants. An
+    /// URI this SDK has never seen decodes AS ITSELF — not as a placeholder that loses it —
+    /// renders without failing, and is refused locally before it could be sent (§34.2 P12.2):
+    /// never as `""`, never left to the server.
+    func testAnUnseenEventTypeURIIsKeptAndNeverSent() async throws {
+        let unseen = "https://example.test/event-type/\(UUID().uuidString.lowercased())"
+        let odd = try Self.decode(Self.streamObject([
+            "events_allowed": [Self.revoked, unseen],
+            "events_requested": [unseen],
+            "events_delivered": [unseen],
+        ]))
+        XCTAssertEqual(odd.eventsAllowed.map(\.rawValue), [Self.revoked, unseen])
+        XCTAssertEqual(odd.eventsRequested.map(\.rawValue), [unseen])
+        XCTAssertEqual(odd.eventsDelivered.map(\.rawValue), [unseen])
+        XCTAssertEqual(odd.eventsAllowed.first, .sessionRevoked, "the constants still match")
+        XCTAssertTrue(String(describing: odd).contains(unseen), "rendering never fails")
+
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.json(Self.streamObject())),
+        ])
+        let before = transport.count
+        do {
+            _ = try await client.ssf.updateStream(streamID: odd.id, body: SsfStreamInput(copying: odd))
+            XCTFail("an event type this SDK does not know must not be sent")
+        } catch AxiamError.network(let error) {
+            XCTAssertTrue(error.isValidation, "refused locally, as a validation failure")
+        }
+        XCTAssertEqual(transport.count, before, "nothing was sent")
+    }
+
     // MARK: - 4. Pagination
 
     func testListStreamsPagesAndTheWalkCarriesSearch() async throws {
@@ -143,23 +174,26 @@ final class SsfManagementTests: XCTestCase {
         let page2 = Self.json(["items": [Self.streamObject()], "total": 2, "offset": 1, "limit": 1])
         let empty = Self.json(["items": [Any](), "total": 2, "offset": 2, "limit": 1])
         let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: page1),
             (status: 200, body: page1), (status: 200, body: page2), (status: 200, body: empty),
         ])
 
-        var request = PageRequest(offset: 0, limit: 1, search: "rp.example")
+        let request = PageRequest(offset: 0, limit: 1, search: "rp.example")
+        let first = try await client.ssf.listStreams(page: request)
+        XCTAssertEqual(first.total, 2)
+        XCTAssertEqual(first.count, 1)
+        // §27.4 rule 4's auto-paging form.
         var all: [SsfStream] = []
-        while true {
-            let page = try await client.ssf.listStreams(page: request)
-            XCTAssertEqual(page.total, 2)
-            if page.isEmpty { break }
-            all.append(contentsOf: page.items)
-            request = page.nextRequest
+        for try await stream in client.ssf.listStreamsAll(page: request) {
+            all.append(stream)
         }
         XCTAssertEqual(all.count, 2)
-        XCTAssertEqual(transport.count, 3)
-        for sent in transport.requests {
-            XCTAssertTrue(sent.query.contains("search=rp.example"), "every page carries the search")
-        }
+        XCTAssertEqual(transport.count, 4)
+        XCTAssertEqual(transport.requests.dropFirst().map(\.query), [
+            "offset=0&limit=1&search=rp.example",
+            "offset=1&limit=1&search=rp.example",
+            "offset=2&limit=1&search=rp.example",
+        ], "every page of the walk carries the search")
     }
 
     // MARK: - 5. No retry

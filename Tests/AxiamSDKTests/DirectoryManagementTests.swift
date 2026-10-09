@@ -65,10 +65,7 @@ final class DirectoryManagementTests: XCTestCase {
         let secret = Self.secret()
         let set = Self.setBody(bindSecret: secret)
         let update = UpdateDirectoryConfig(bindSecret: Sensitive(secret))
-        for rendering in [
-            String(describing: set), String(reflecting: set), "\(set)",
-            String(describing: update), String(reflecting: update), "\(update)",
-        ] {
+        for rendering in SecretKit.renderings(set) + SecretKit.renderings(update) {
             XCTAssertFalse(SecretKit.leaks(rendering, secret), "the bind secret leaked")
         }
 
@@ -79,7 +76,7 @@ final class DirectoryManagementTests: XCTestCase {
             _ = try await client.directory.set(body: set)
             XCTFail("a 400 must surface")
         } catch {
-            let rendering = "\(error) \(String(reflecting: error))"
+            let rendering = SecretKit.renderings(error).joined(separator: "\n")
             XCTAssertFalse(SecretKit.leaks(rendering, secret), "the bind secret leaked into an error")
         }
         let sent = try XCTUnwrap(transport.last?.jsonBody)
@@ -99,7 +96,7 @@ final class DirectoryManagementTests: XCTestCase {
         let config = try await client.directory.get()
         XCTAssertEqual(config.url, "ldaps://dc.corp.example")
         let reencoded = String(decoding: try JSONEncoder().encode(config), as: UTF8.self)
-        for rendering in [String(describing: config), String(reflecting: config), reencoded] {
+        for rendering in SecretKit.renderings(config) + [reencoded] {
             XCTAssertFalse(SecretKit.leaks(rendering, leaked), "a response secret was surfaced")
         }
         // ... and there is no accessor: `DirectoryConfig` declares no `bindSecret`, which

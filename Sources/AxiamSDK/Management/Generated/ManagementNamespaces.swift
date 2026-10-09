@@ -47,8 +47,8 @@ public struct OrganizationsApi: Sendable {
     /// `GET /api/v1/organizations`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<Organization> {
@@ -65,6 +65,21 @@ public struct OrganizationsApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(Organization.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/organizations`, across every page — §27.4 rule 4's
+    /// auto-paging form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(page: PageRequest = PageRequest()) -> ManagementPager<Organization> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `GET /api/v1/organizations/{org_id}`
@@ -134,8 +149,8 @@ public struct TenantsApi: Sendable {
     /// `GET /api/v1/organizations/{org_id}/tenants`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<Tenant> {
@@ -152,6 +167,21 @@ public struct TenantsApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(Tenant.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/organizations/{org_id}/tenants`, across every page — §27.4
+    /// rule 4's auto-paging form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(page: PageRequest = PageRequest()) -> ManagementPager<Tenant> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/organizations/{org_id}/tenants`
@@ -286,8 +316,8 @@ public struct UsersApi: Sendable {
     /// `GET /api/v1/users`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<UserResponse> {
@@ -304,6 +334,20 @@ public struct UsersApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(UserResponse.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/users`, across every page — §27.4 rule 4's auto-paging form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(page: PageRequest = PageRequest()) -> ManagementPager<UserResponse> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/users`
@@ -535,8 +579,8 @@ public struct GroupsApi: Sendable {
     /// `GET /api/v1/groups`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<Group> {
@@ -553,6 +597,20 @@ public struct GroupsApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(Group.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/groups`, across every page — §27.4 rule 4's auto-paging form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(page: PageRequest = PageRequest()) -> ManagementPager<Group> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/groups`
@@ -637,8 +695,8 @@ public struct GroupsApi: Sendable {
     /// `GET /api/v1/groups/{group_id}/members`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listMembersAll(page:)` — §27.4 rule 4's
+    /// auto-paging form.
     ///
     /// - Parameter groupID: The `{group_id}` path parameter.
     /// - Parameter page: Which page to fetch; defaults to the first.
@@ -659,6 +717,25 @@ public struct GroupsApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(UserResponse.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/groups/{group_id}/members`, across every page — §27.4 rule
+    /// 4's auto-paging form.
+    ///
+    /// A `ManagementPager` over `listMembers(page:)`: iterating fetches page after page from
+    /// `page`, carrying its `limit` and `search` on every request, until a page comes back
+    /// empty. Building it performs no I/O.
+    ///
+    /// - Parameter groupID: The `{group_id}` path parameter.
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listMembersAll(
+        groupID: String,
+        page: PageRequest = PageRequest()
+    ) -> ManagementPager<UserResponse> {
+        ManagementPager(start: page) { request in
+            try await self.listMembers(groupID: groupID, page: request)
+        }
     }
 
     /// `POST /api/v1/groups/{group_id}/members`
@@ -727,8 +804,8 @@ public struct GroupsApi: Sendable {
     /// `GET /api/v1/groups/{group_id}/service-accounts`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listServiceAccountsAll(page:)` — §27.4 rule 4's
+    /// auto-paging form.
     ///
     /// - Parameter groupID: The `{group_id}` path parameter.
     /// - Parameter page: Which page to fetch; defaults to the first.
@@ -749,6 +826,25 @@ public struct GroupsApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(ServiceAccountResponse.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/groups/{group_id}/service-accounts`, across every page —
+    /// §27.4 rule 4's auto-paging form.
+    ///
+    /// A `ManagementPager` over `listServiceAccounts(page:)`: iterating fetches page after page
+    /// from `page`, carrying its `limit` and `search` on every request, until a page comes back
+    /// empty. Building it performs no I/O.
+    ///
+    /// - Parameter groupID: The `{group_id}` path parameter.
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listServiceAccountsAll(
+        groupID: String,
+        page: PageRequest = PageRequest()
+    ) -> ManagementPager<ServiceAccountResponse> {
+        ManagementPager(start: page) { request in
+            try await self.listServiceAccounts(groupID: groupID, page: request)
+        }
     }
 
     /// `POST /api/v1/groups/{group_id}/service-accounts`
@@ -829,8 +925,8 @@ public struct RolesApi: Sendable {
     /// `GET /api/v1/roles`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<Role> {
@@ -847,6 +943,20 @@ public struct RolesApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(Role.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/roles`, across every page — §27.4 rule 4's auto-paging form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(page: PageRequest = PageRequest()) -> ManagementPager<Role> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/roles`
@@ -1238,8 +1348,8 @@ public struct PermissionsApi: Sendable {
     /// `GET /api/v1/permissions`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<Permission> {
@@ -1256,6 +1366,21 @@ public struct PermissionsApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(Permission.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/permissions`, across every page — §27.4 rule 4's auto-paging
+    /// form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(page: PageRequest = PageRequest()) -> ManagementPager<Permission> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/permissions`
@@ -1371,8 +1496,8 @@ public struct ResourcesApi: Sendable {
     /// `GET /api/v1/resources`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<Resource> {
@@ -1389,6 +1514,21 @@ public struct ResourcesApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(Resource.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/resources`, across every page — §27.4 rule 4's auto-paging
+    /// form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(page: PageRequest = PageRequest()) -> ManagementPager<Resource> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/resources`
@@ -1674,8 +1814,8 @@ public struct ServiceAccountsApi: Sendable {
     /// `GET /api/v1/service-accounts`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(
@@ -1694,6 +1834,23 @@ public struct ServiceAccountsApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(ServiceAccountResponse.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/service-accounts`, across every page — §27.4 rule 4's
+    /// auto-paging form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(
+        page: PageRequest = PageRequest()
+    ) -> ManagementPager<ServiceAccountResponse> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/service-accounts`
@@ -1900,8 +2057,8 @@ public struct CertificatesApi: Sendable {
     /// `GET /api/v1/certificates`.
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<Certificate> {
@@ -1918,6 +2075,21 @@ public struct CertificatesApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(Certificate.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/certificates`, across every page — §27.4 rule 4's auto-paging
+    /// form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(page: PageRequest = PageRequest()) -> ManagementPager<Certificate> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/certificates`
@@ -2034,8 +2206,8 @@ public struct CaCertificatesApi: Sendable {
     /// `GET /api/v1/organizations/{org_id}/ca-certificates`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<CaCertificate> {
@@ -2052,6 +2224,21 @@ public struct CaCertificatesApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(CaCertificate.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/organizations/{org_id}/ca-certificates`, across every page —
+    /// §27.4 rule 4's auto-paging form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(page: PageRequest = PageRequest()) -> ManagementPager<CaCertificate> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/organizations/{org_id}/ca-certificates`
@@ -2182,8 +2369,8 @@ public struct CaCertificatesApi: Sendable {
     /// `GET /api/v1/organizations/{org_id}/tenants/{tenant_id}/signing-cas`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listSigningCasAll(page:)` — §27.4 rule 4's
+    /// auto-paging form.
     ///
     /// - Parameter tenantID: The `{tenant_id}` path parameter.
     /// - Parameter page: Which page to fetch; defaults to the first.
@@ -2204,6 +2391,25 @@ public struct CaCertificatesApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(CaCertificate.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/organizations/{org_id}/tenants/{tenant_id}/signing-cas`,
+    /// across every page — §27.4 rule 4's auto-paging form.
+    ///
+    /// A `ManagementPager` over `listSigningCas(page:)`: iterating fetches page after page from
+    /// `page`, carrying its `limit` and `search` on every request, until a page comes back
+    /// empty. Building it performs no I/O.
+    ///
+    /// - Parameter tenantID: The `{tenant_id}` path parameter.
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listSigningCasAll(
+        tenantID: String,
+        page: PageRequest = PageRequest()
+    ) -> ManagementPager<CaCertificate> {
+        ManagementPager(start: page) { request in
+            try await self.listSigningCas(tenantID: tenantID, page: request)
+        }
     }
 
     /// `POST /api/v1/organizations/{org_id}/tenants/{tenant_id}/signing-cas`
@@ -2288,8 +2494,8 @@ public struct PgpKeysApi: Sendable {
     /// `GET /api/v1/pgp-keys`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<PgpKey> {
@@ -2306,6 +2512,21 @@ public struct PgpKeysApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(PgpKey.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/pgp-keys`, across every page — §27.4 rule 4's auto-paging
+    /// form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(page: PageRequest = PageRequest()) -> ManagementPager<PgpKey> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/pgp-keys`
@@ -2443,8 +2664,8 @@ public struct WebhooksApi: Sendable {
     /// `GET /api/v1/webhooks`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<WebhookResponse> {
@@ -2461,6 +2682,21 @@ public struct WebhooksApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(WebhookResponse.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/webhooks`, across every page — §27.4 rule 4's auto-paging
+    /// form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(page: PageRequest = PageRequest()) -> ManagementPager<WebhookResponse> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/webhooks`
@@ -2574,8 +2810,8 @@ public struct Oauth2ClientsApi: Sendable {
     /// `GET /api/v1/oauth2-clients`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<OAuth2ClientResponse> {
@@ -2592,6 +2828,23 @@ public struct Oauth2ClientsApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(OAuth2ClientResponse.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/oauth2-clients`, across every page — §27.4 rule 4's
+    /// auto-paging form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(
+        page: PageRequest = PageRequest()
+    ) -> ManagementPager<OAuth2ClientResponse> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/oauth2-clients`
@@ -2757,8 +3010,8 @@ public struct FederationApi: Sendable {
     /// `GET /api/v1/federation-configs`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listConfigsAll(page:)` — §27.4 rule 4's
+    /// auto-paging form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func listConfigs(
@@ -2777,6 +3030,23 @@ public struct FederationApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(FederationConfigResponse.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/federation-configs`, across every page — §27.4 rule 4's
+    /// auto-paging form.
+    ///
+    /// A `ManagementPager` over `listConfigs(page:)`: iterating fetches page after page from
+    /// `page`, carrying its `limit` and `search` on every request, until a page comes back
+    /// empty. Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listConfigsAll(
+        page: PageRequest = PageRequest()
+    ) -> ManagementPager<FederationConfigResponse> {
+        ManagementPager(start: page) { request in
+            try await self.listConfigs(page: request)
+        }
     }
 
     /// `POST /api/v1/federation-configs`
@@ -2972,8 +3242,8 @@ public struct NotificationRulesApi: Sendable {
     /// `GET /api/v1/notification-rules`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(
@@ -2992,6 +3262,23 @@ public struct NotificationRulesApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(NotificationRuleResponse.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/notification-rules`, across every page — §27.4 rule 4's
+    /// auto-paging form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(
+        page: PageRequest = PageRequest()
+    ) -> ManagementPager<NotificationRuleResponse> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/notification-rules`
@@ -3477,8 +3764,8 @@ public struct SamlApi: Sendable {
     /// `GET /api/v1/tenants/{tenant_id}/saml/service-providers`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listServiceProvidersAll(page:)` — §27.4 rule 4's
+    /// auto-paging form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func listServiceProviders(
@@ -3497,6 +3784,23 @@ public struct SamlApi: Sendable {
             scope: scope,
             implicitTenant: true)
         return try ManagementCodec.decodePage(SamlServiceProvider.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/tenants/{tenant_id}/saml/service-providers`, across every
+    /// page — §27.4 rule 4's auto-paging form.
+    ///
+    /// A `ManagementPager` over `listServiceProviders(page:)`: iterating fetches page after
+    /// page from `page`, carrying its `limit` and `search` on every request, until a page comes
+    /// back empty. Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listServiceProvidersAll(
+        page: PageRequest = PageRequest()
+    ) -> ManagementPager<SamlServiceProvider> {
+        ManagementPager(start: page) { request in
+            try await self.listServiceProviders(page: request)
+        }
     }
 
     /// `POST /api/v1/tenants/{tenant_id}/saml/service-providers`
@@ -3751,8 +4055,8 @@ public struct SsfApi: Sendable {
     /// `GET /api/v1/tenants/{tenant_id}/ssf/streams`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listStreamsAll(page:)` — §27.4 rule 4's
+    /// auto-paging form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func listStreams(page: PageRequest = PageRequest()) async throws -> Page<SsfStream> {
@@ -3769,6 +4073,21 @@ public struct SsfApi: Sendable {
             scope: scope,
             implicitTenant: true)
         return try ManagementCodec.decodePage(SsfStream.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/tenants/{tenant_id}/ssf/streams`, across every page — §27.4
+    /// rule 4's auto-paging form.
+    ///
+    /// A `ManagementPager` over `listStreams(page:)`: iterating fetches page after page from
+    /// `page`, carrying its `limit` and `search` on every request, until a page comes back
+    /// empty. Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listStreamsAll(page: PageRequest = PageRequest()) -> ManagementPager<SsfStream> {
+        ManagementPager(start: page) { request in
+            try await self.listStreams(page: request)
+        }
     }
 
     /// `POST /api/v1/tenants/{tenant_id}/ssf/streams`
@@ -3896,8 +4215,8 @@ public struct ScimTargetsApi: Sendable {
     /// `GET /api/v1/scim-targets`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<ScimTargetResponse> {
@@ -3916,10 +4235,28 @@ public struct ScimTargetsApi: Sendable {
         return try ManagementCodec.decodePage(ScimTargetResponse.self, from: data, request: page)
     }
 
+    /// Every item of `GET /api/v1/scim-targets`, across every page — §27.4 rule 4's auto-paging
+    /// form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(page: PageRequest = PageRequest()) -> ManagementPager<ScimTargetResponse> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
+    }
+
     /// `POST /api/v1/scim-targets`
     ///
     /// `credential` is required here (§31.3 rule 2). It is write-only: no response ever carries
-    /// it, and the SDK keeps no copy.
+    /// it, and the SDK keeps no copy. **The credential is bound to its URL** (§31.3 rule 2): a
+    /// later `update` that changes `baseURL` of a bearer target, `auth.token_url` or `baseURL`
+    /// of a client-credentials target, or `auth.type`, must carry `credential` again or is
+    /// refused `400` -- the SDK holds none to re-send.
     ///
     /// - Parameter body: The request body.
     public func create(body: ScimTargetInput) async throws -> ScimTargetResponse {
@@ -4312,8 +4649,8 @@ public struct ReactorsApi: Sendable {
     /// `GET /api/v1/reactors`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     public func list(page: PageRequest = PageRequest()) async throws -> Page<ReactorResponse> {
@@ -4330,6 +4667,21 @@ public struct ReactorsApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(ReactorResponse.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/reactors`, across every page — §27.4 rule 4's auto-paging
+    /// form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listAll(page: PageRequest = PageRequest()) -> ManagementPager<ReactorResponse> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request)
+        }
     }
 
     /// `POST /api/v1/reactors`
@@ -4543,8 +4895,8 @@ public struct AuditApi: Sendable {
     /// `GET /api/v1/audit-logs`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listAll(page:)` — §27.4 rule 4's auto-paging
+    /// form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     /// - Parameter actorID: The optional `actor_id` query parameter.
@@ -4595,11 +4947,40 @@ public struct AuditApi: Sendable {
         return try ManagementCodec.decodePage(AuditLogEntry.self, from: data, request: page)
     }
 
+    /// Every item of `GET /api/v1/audit-logs`, across every page — §27.4 rule 4's auto-paging
+    /// form.
+    ///
+    /// A `ManagementPager` over `list(page:)`: iterating fetches page after page from `page`,
+    /// carrying its `limit` and `search` on every request, until a page comes back empty.
+    /// Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    /// - Parameter actorID: The optional `actor_id` query parameter.
+    /// - Parameter action: The optional `action` query parameter.
+    /// - Parameter outcome: The optional `outcome` query parameter.
+    /// - Parameter resourceID: The optional `resource_id` query parameter.
+    /// - Parameter from: The optional `from` query parameter.
+    /// - Parameter to: The optional `to` query parameter.
+    public func listAll(
+        page: PageRequest = PageRequest(),
+        actorID: String? = nil,
+        action: String? = nil,
+        outcome: String? = nil,
+        resourceID: String? = nil,
+        from: String? = nil,
+        to: String? = nil
+    ) -> ManagementPager<AuditLogEntry> {
+        ManagementPager(start: page) { request in
+            try await self.list(page: request, actorID: actorID, action: action, outcome: outcome, resourceID: resourceID, from: from, to: to)
+        }
+    }
+
     /// `GET /api/v1/audit-logs/system`
     ///
     /// Returns ONE page. `Page.total` is the server's count across every page and is not
-    /// `items.count`; call again with `page.next()` and stop when a page comes back empty
-    /// (§27.4 rule 4).
+    /// `items.count`. To walk every page, use `listSystemAll(page:)` — §27.4 rule 4's
+    /// auto-paging form.
     ///
     /// - Parameter page: Which page to fetch; defaults to the first.
     /// - Parameter actorID: The optional `actor_id` query parameter.
@@ -4648,6 +5029,35 @@ public struct AuditApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decodePage(AuditLogEntry.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/audit-logs/system`, across every page — §27.4 rule 4's
+    /// auto-paging form.
+    ///
+    /// A `ManagementPager` over `listSystem(page:)`: iterating fetches page after page from
+    /// `page`, carrying its `limit` and `search` on every request, until a page comes back
+    /// empty. Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    /// - Parameter actorID: The optional `actor_id` query parameter.
+    /// - Parameter action: The optional `action` query parameter.
+    /// - Parameter outcome: The optional `outcome` query parameter.
+    /// - Parameter resourceID: The optional `resource_id` query parameter.
+    /// - Parameter from: The optional `from` query parameter.
+    /// - Parameter to: The optional `to` query parameter.
+    public func listSystemAll(
+        page: PageRequest = PageRequest(),
+        actorID: String? = nil,
+        action: String? = nil,
+        outcome: String? = nil,
+        resourceID: String? = nil,
+        from: String? = nil,
+        to: String? = nil
+    ) -> ManagementPager<AuditLogEntry> {
+        ManagementPager(start: page) { request in
+            try await self.listSystem(page: request, actorID: actorID, action: action, outcome: outcome, resourceID: resourceID, from: from, to: to)
+        }
     }
 
 }

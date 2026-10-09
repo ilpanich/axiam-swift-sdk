@@ -1,5 +1,6 @@
 import XCTest
 import Crypto
+import _CryptoExtras
 @testable import AxiamSDK
 
 /// CIBA — CONTRACT.md §33.8's sixteen required tests (nine initiation and polling, four ping,
@@ -115,12 +116,12 @@ final class CibaTests: XCTestCase {
 
         var request = Self.request()
         request.delivery = .ping(clientNotificationToken: Sensitive(notification))
-        for rendering in [String(describing: request), String(reflecting: request), "\(request)"] {
+        for rendering in SecretKit.renderings(request) {
             XCTAssertFalse(SecretKit.leaks(rendering, notification), "the notification token leaked")
         }
 
         let response = try await client.cibaInitiate(request, configuration: Self.configuration())
-        for rendering in [String(describing: response), String(reflecting: response), "\(response)"] {
+        for rendering in SecretKit.renderings(response) {
             XCTAssertFalse(SecretKit.leaks(rendering, authReqID), "the auth_req_id leaked")
         }
         XCTAssertEqual(response.authReqID.expose(), authReqID)
@@ -132,7 +133,7 @@ final class CibaTests: XCTestCase {
             _ = try await client.cibaInitiate(request, configuration: Self.configuration())
             XCTFail("an invalid_binding_message must surface")
         } catch {
-            let rendering = "\(error) \(String(reflecting: error))"
+            let rendering = SecretKit.renderings(error).joined(separator: "\n")
             XCTAssertFalse(SecretKit.leaks(rendering, notification), "the token leaked into an error")
             guard case AxiamError.auth(let auth) = error else {
                 return XCTFail("an OAuth2ErrorResponse is an OAuthProtocolError")
@@ -382,6 +383,9 @@ final class CibaTests: XCTestCase {
 
     // MARK: - 8. Transient failure is not terminal
 
+    /// §33.8 test 8 as amended by contract 1.59 (§34.2 P8): the mid-loop `500` carries the
+    /// server's own `{"error":"server_error"}` body, and is retried — a `5xx` on `ciba_poll` is
+    /// never terminal, with or without an `error` member.
     func testT08A500AndA429MidLoopAreSurvived() async throws {
         let clock = TestCibaClock()
         let transport = RoutedTransport()
@@ -389,7 +393,7 @@ final class CibaTests: XCTestCase {
         let tokens = Self.tokens(transport)
         transport.route("POST", "/oauth2/token", [
             Self.oauthError(400, "authorization_pending"),
-            .empty(500),
+            Self.oauthError(500, "server_error"),
             Self.oauthError(429, "rate_limit_exceeded"),
             tokens,
         ])
@@ -402,6 +406,55 @@ final class CibaTests: XCTestCase {
         XCTAssertNotNil(set.idToken)
         XCTAssertNotNil(set.idClaims)
         XCTAssertEqual(transport.requests("/oauth2/token").count, 4)
+
+        // The same 500 to one `cibaPoll` is retried within the call (§16), not surfaced.
+        let single = RoutedTransport()
+        let retrying = try await makeClient(single)
+        let redeemed = Self.tokens(single)
+        single.route("POST", "/oauth2/token", [Self.oauthError(500, "server_error"), redeemed])
+        _ = try await retrying.cibaPoll(
+            authReqID: Sensitive(SecretKit.random()), configuration: Self.configuration())
+        XCTAssertEqual(single.requests("/oauth2/token").count, 2, "§16 retried the 500")
+    }
+
+    // MARK: - After the 200 (§33.7 rule 7, §34.2 P9; R-12, SW-3)
+
+    /// A failure after a `2xx` is terminal: the redemption is spent, and polling again could
+    /// only earn `invalid_grant`. A body that does not decode, and an ID token whose key fetch
+    /// fails, each end the loop after ONE token request.
+    func testAFailureAfterThe200EndsTheLoopWithoutAnotherPoll() async throws {
+        let undecodable = RoutedTransport.Reply.json(200, #"{"access_token": 42}"#)
+        let now = Date().timeIntervalSince1970
+        let unverifiable = RoutedTransport.Reply.json(200, object: [
+            "access_token": SecretKit.random(), "token_type": "Bearer", "expires_in": 900,
+            "id_token": Self.signer.makeJWT(claims: [
+                "iss": Self.issuer, "aud": Self.clientID, "sub": UUID().uuidString.lowercased(),
+                "iat": Int(now), "exp": Int(now) + 600,
+            ]),
+        ])
+        for (label, reply) in [("an undecodable body", undecodable), ("a JWKS outage", unverifiable)] {
+            let clock = TestCibaClock()
+            let transport = RoutedTransport()
+            transport.route("GET", "/oauth2/jwks", [.empty(503)])
+            transport.route("POST", "/oauth2/token", [
+                reply, Self.oauthError(400, "invalid_grant"),
+            ])
+            let client = try await makeClient(transport)
+            do {
+                _ = try await client.cibaAwait(
+                    Self.response(expiresIn: 600, interval: 5, at: clock.start),
+                    configuration: Self.configuration(),
+                    clock: clock)
+                XCTFail("\(label): the failure after the 200 must surface")
+            } catch let error as AxiamError {
+                XCTAssertNotEqual(
+                    error.oauthErrorCode, "invalid_grant",
+                    "\(label): the real failure, not the re-poll's invalid_grant")
+            }
+            XCTAssertEqual(
+                transport.requests("/oauth2/token").count, 1,
+                "\(label): the redemption is spent — no second poll")
+        }
     }
 
     func testABodiless429IsRetriedWithinOnePollAndANon408ClientErrorIsNot() async throws {
@@ -460,7 +513,7 @@ final class CibaTests: XCTestCase {
                 body: Self.pingBody(["auth_req_id": id]),
                 expectedToken: Sensitive(token))
             XCTAssertEqual(got.expose(), id)
-            XCTAssertFalse(SecretKit.leaks("\(got) \(String(reflecting: got))", id), "the id leaked")
+            XCTAssertFalse(SecretKit.leaks(SecretKit.renderings(got).joined(separator: "\n"), id), "the id leaked")
         }
         // The header NAME is matched case-insensitively too.
         let lower = try client.cibaHandlePing(
@@ -496,7 +549,7 @@ final class CibaTests: XCTestCase {
                 XCTFail("case \(index) must be refused")
             } catch let error as AxiamError {
                 guard case .auth = error else { return XCTFail("case \(index): an AuthError") }
-                let rendering = "\(error) \(String(reflecting: error))"
+                let rendering = SecretKit.renderings(error).joined(separator: "\n")
                 XCTAssertFalse(SecretKit.leaks(rendering, token), "case \(index): the token leaked")
             }
         }
@@ -639,6 +692,33 @@ final class CibaTests: XCTestCase {
             rawRepresentation: try XCTUnwrap(Base64URL.decode(String(parts[2]))))
         XCTAssertTrue(ec.publicKey.isValidSignature(
             ecSignature, for: Data("\(parts[0]).\(parts[1])".utf8)))
+
+        // PS256 (R-31, Q8): signed end to end and verified with the caller's RSA public key —
+        // RSASSA-PSS, SHA-256 — not only refusal-tested. The key is generated here.
+        let rsa = try _RSA.Signing.PrivateKey(keySize: .bits2048)
+        let ps256 = try CibaRequestSigner(
+            algorithm: .ps256, privateKeyPEM: Sensitive(rsa.pemRepresentation), keyID: "rsa-1")
+        XCTAssertEqual(ps256.algorithm, .ps256)
+        var rsaRequest = Self.request()
+        rsaRequest.signer = ps256
+        _ = try await client.cibaInitiate(rsaRequest, configuration: Self.configuration())
+        let rsaJWS = try XCTUnwrap(transport.requests("/oauth2/bc-authorize").last?.form["request"])
+        let rsaParts = rsaJWS.split(separator: ".", omittingEmptySubsequences: false)
+        XCTAssertEqual(rsaParts.count, 3)
+        let rsaHeader = try Self.decodePart(rsaParts[0])
+        XCTAssertEqual(rsaHeader["alg"] as? String, "PS256")
+        XCTAssertEqual(rsaHeader["kid"] as? String, "rsa-1")
+        let rsaInput = Data("\(rsaParts[0]).\(rsaParts[1])".utf8)
+        let rsaSignature = _RSA.Signing.RSASignature(
+            rawRepresentation: try XCTUnwrap(Base64URL.decode(String(rsaParts[2]))))
+        XCTAssertTrue(
+            rsa.publicKey.isValidSignature(rsaSignature, for: rsaInput, padding: .PSS),
+            "a PSS signature under the caller's key")
+        XCTAssertFalse(
+            rsa.publicKey.isValidSignature(
+                rsaSignature, for: rsaInput, padding: .insecurePKCS1v1_5),
+            "PSS, not PKCS#1 v1.5")
+        XCTAssertEqual((try Self.decodePart(rsaParts[1]))["aud"] as? String, Self.issuer)
     }
 
     func testT15NoKeyOrAKeyForAnotherAlgorithmIsRefusedBeforeAnyRequest() async throws {
@@ -678,19 +758,21 @@ final class CibaTests: XCTestCase {
         var request = Self.request()
         request.signer = signer
 
-        var rendered: [String] = [
-            String(describing: signer), String(reflecting: signer), "\(signer)",
-            String(describing: request), String(reflecting: request),
-        ]
+        var rendered: [String] = SecretKit.renderings(signer) + SecretKit.renderings(request)
         do {
             _ = try await client.cibaInitiate(request, configuration: Self.configuration())
             XCTFail("expected the scripted 400")
         } catch {
-            rendered.append("\(error) \(String(reflecting: error))")
+            rendered.append(SecretKit.renderings(error).joined(separator: "\n"))
         }
         let jws = try XCTUnwrap(transport.requests("/oauth2/bc-authorize").first?.form["request"])
+        // The signer holds the 32-byte seed, not the PEM: `dump` and `Mirror` would print the
+        // seed's bytes, which the walk renders as hex.
+        let seed = try XCTUnwrap(CibaRequestSigner.ed25519Seed(fromPKCS8PEM: pem))
+        let seedHex = seed.map { String(format: "%02x", $0) }.joined()
         for rendering in rendered {
             XCTAssertFalse(SecretKit.leaks(rendering, keyLine), "the key material leaked")
+            XCTAssertFalse(SecretKit.leaks(rendering, seedHex), "the key seed leaked")
             XCTAssertFalse(SecretKit.leaks(rendering, jws), "the signed request leaked")
         }
     }

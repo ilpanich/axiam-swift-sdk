@@ -177,4 +177,45 @@ enum SecretKit {
         }
         return false
     }
+
+    /// Every way Swift renders a value without being asked to serialize it (§7 rule 1):
+    /// `String(describing:)`, `String(reflecting:)`, interpolation, `print`, `debugPrint`,
+    /// `dump`, and a walk of `Mirror(reflecting:)` down to every leaf.
+    ///
+    /// `dump` and `Mirror` do not go through `description`: they reflect stored properties,
+    /// so a wrapper that only overrides its descriptions is read straight through by both
+    /// (R-19, SW-1). The Mirror walk renders each leaf with `String(reflecting:)`, and a
+    /// `Data` or byte-array leaf as lower-case hex as well, so a reflected key or seed is
+    /// caught too.
+    static func renderings(_ value: Any) -> [String] {
+        var printed = ""
+        print(value, to: &printed)
+        var debugPrinted = ""
+        debugPrint(value, to: &debugPrinted)
+        var dumped = ""
+        dump(value, to: &dumped)
+        return [
+            String(describing: value), String(reflecting: value), "\(value)",
+            printed, debugPrinted, dumped, mirrorWalk(value),
+        ]
+    }
+
+    /// Every leaf `Mirror(reflecting:)` reaches from `value`, one per line.
+    static func mirrorWalk(_ value: Any, depth: Int = 0) -> String {
+        guard depth < 32 else { return "" }
+        let mirror = Mirror(reflecting: value)
+        var out = "\(mirror.subjectType)"
+        if let data = value as? Data { out += " " + data.map { String(format: "%02x", $0) }.joined() }
+        if let bytes = value as? [UInt8] {
+            out += " " + bytes.map { String(format: "%02x", $0) }.joined()
+        }
+        if mirror.children.isEmpty {
+            return out + " " + String(reflecting: value) + "\n"
+        }
+        out += "\n"
+        for child in mirror.children {
+            out += (child.label ?? "_") + ": " + mirrorWalk(child.value, depth: depth + 1)
+        }
+        return out
+    }
 }

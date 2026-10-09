@@ -9,7 +9,12 @@ import Foundation
 ///
 /// Deliberately NOT `Encodable`/`Codable`: serialising a `Sensitive` value must never
 /// emit the secret it protects.
-public struct Sensitive<T>: CustomStringConvertible, CustomDebugStringConvertible {
+///
+/// `CustomReflectable` with no children, so `dump(_:)` and `Mirror(reflecting:)` — which read
+/// stored properties rather than `description` — print the placeholder and nothing else, for
+/// a `Sensitive` on its own and for every struct that holds one (§7 rule 1; contract 1.59
+/// §34.3 R-19).
+public struct Sensitive<T>: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
     private let value: T
 
     public init(_ value: T) {
@@ -36,6 +41,9 @@ public struct Sensitive<T>: CustomStringConvertible, CustomDebugStringConvertibl
 
     public var description: String { "[SENSITIVE]" }
     public var debugDescription: String { "[SENSITIVE]" }
+
+    /// A mirror with no children: reflection sees the placeholder, never the wrapped value.
+    public var customMirror: Mirror { Mirror(self, children: [], displayStyle: .struct) }
 }
 
 extension Sensitive: Sendable where T: Sendable {}

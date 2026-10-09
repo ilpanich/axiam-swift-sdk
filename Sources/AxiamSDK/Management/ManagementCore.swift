@@ -127,6 +127,74 @@ extension Page: Sequence {
     public func makeIterator() -> Array<Item>.Iterator { items.makeIterator() }
 }
 
+// MARK: - Auto-paging (§27.4 rule 4)
+
+/// Every item of a paginated list, page after page — §27.4 rule 4's auto-paging form.
+///
+/// An `AsyncSequence`: `for try await role in client.roles.listAll() { … }`. Each generated
+/// `list…(page:)` operation has an `…All(page:)` twin returning one of these. Building it
+/// performs no I/O; iterating fetches one page at a time, starting at the given request and
+/// following ``Page/nextRequest`` — the same `limit` and the same `search` on **every**
+/// request, advanced by the requested limit — until a page comes back **empty** (a short page
+/// does not end the walk). An error on any page is thrown from the iteration; the items
+/// already yielded stay yielded.
+public struct ManagementPager<Item: Sendable>: AsyncSequence, Sendable {
+    public typealias Element = Item
+
+    private let start: PageRequest
+    private let fetch: @Sendable (PageRequest) async throws -> Page<Item>
+
+    init(start: PageRequest, fetch: @escaping @Sendable (PageRequest) async throws -> Page<Item>) {
+        self.start = start
+        self.fetch = fetch
+    }
+
+    public func makeAsyncIterator() -> AsyncIterator {
+        AsyncIterator(request: start, fetch: fetch)
+    }
+
+    /// Walks every page and returns every item, in order.
+    public func collect() async throws -> [Item] {
+        var all: [Item] = []
+        for try await item in self {
+            all.append(item)
+        }
+        return all
+    }
+
+    /// The iterator: one page buffered at a time.
+    public struct AsyncIterator: AsyncIteratorProtocol {
+        private var request: PageRequest?
+        private let fetch: @Sendable (PageRequest) async throws -> Page<Item>
+        private var buffer: [Item] = []
+        private var index = 0
+
+        init(request: PageRequest, fetch: @escaping @Sendable (PageRequest) async throws -> Page<Item>) {
+            self.request = request
+            self.fetch = fetch
+        }
+
+        public mutating func next() async throws -> Item? {
+            while index >= buffer.count {
+                guard let current = request else { return nil }
+                let page = try await fetch(current)
+                if page.isEmpty {
+                    request = nil
+                    buffer = []
+                    index = 0
+                    return nil
+                }
+                buffer = page.items
+                index = 0
+                request = page.nextRequest
+            }
+            let item = buffer[index]
+            index += 1
+            return item
+        }
+    }
+}
+
 // MARK: - Per-call scope (§27.4 rule 3)
 
 /// Overrides for the `{org_id}` / `{tenant_id}` a route substitutes.

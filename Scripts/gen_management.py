@@ -72,6 +72,13 @@ IMPLICIT_TENANT_NAMESPACES = {
 # understood.
 OPEN_UNIONS = {"ScimTargetAuth", "ScimTargetScope"}
 
+# String enums modelled as an open set of STRINGS rather than a Swift `enum`. CONTRACT.md
+# §32.2: "An SDK SHOULD model event types as strings with the six URIs as named constants" —
+# a closed `enum` with an `.unknown` carrier loses the URI it could not name (R-22, SW-10).
+# The value decodes as itself and renders as itself; one this SDK does not know is refused
+# locally on the way out (§34.2 P12.2), never sent as `""`.
+OPEN_STRING_ENUMS = {"SsfEventType"}
+
 # Members where an explicit `null` is a different value from an absent member (§27.4 rule 5,
 # "null is not absent"). §30.2 names exactly two on a REQUEST: on `UpdateDirectoryConfig`,
 # `null` clears the value and absence keeps it. §29.8 test 8 asks the same of a RESPONSE:
@@ -87,6 +94,20 @@ EXPLICIT_NULL_FIELDS = {
     ("UpdateDirectoryConfig", "group_filter"),
     ("SamlIdpInfo", "active_credential_id"),
     ("SamlIdpInfo", "next_credential_id"),
+}
+
+# Field documentation the contract makes an SDK state "where it documents the field"
+# (§29.3 rule 2), keyed by (schema, wire name) and appended to the field's own description.
+FIELD_NOTES: dict[tuple[str, str], str] = {
+    ("SamlServiceProviderInput", "sp_signing_cert_pem"): (
+        "RSA (2048 bits or more) or ECDSA on P-256, P-384 or P-521; an **ECDSA certificate "
+        "verifies HTTP-POST requests only** -- the HTTP-Redirect binding is RSA-only (§29.3 "
+        "rule 2)."
+    ),
+    ("SamlServiceProvider", "sp_signing_cert_pem"): (
+        "An **ECDSA certificate verifies HTTP-POST requests only** -- the HTTP-Redirect "
+        "binding is RSA-only (§29.3 rule 2)."
+    ),
 }
 
 # Call-site documentation the contract makes an SDK repeat (§29.3, §30.3, §31.3, §32.2),
@@ -177,7 +198,10 @@ CALL_SITE_NOTES: dict[str, str] = {
     ),
     "scim_targets.create": (
         "`credential` is required here (§31.3 rule 2). It is write-only: no response ever "
-        "carries it, and the SDK keeps no copy."
+        "carries it, and the SDK keeps no copy. **The credential is bound to its URL** "
+        "(§31.3 rule 2): a later `update` that changes `baseURL` of a bearer target, "
+        "`auth.token_url` or `baseURL` of a client-credentials target, or `auth.type`, must "
+        "carry `credential` again or is refused `400` -- the SDK holds none to re-send."
     ),
     "scim_targets.update": (
         "**The credential is bound to its URL** (§31.3 rule 2): absent `credential` keeps "
@@ -753,8 +777,14 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
              "description": f"The `{tag}` discriminator naming which variant this is."},
             {"wire": "", "name": "raw", "decl": "ManagementJSON", "kind": "union_raw",
              "ref": "", "required": True, "schema": {}, "secret": False,
-             "description": "The whole object as the server sent it, to read the "
-                            f"variant's own fields from once `{tag}` says which it is."},
+             "description": (
+                 f"The members the `{tag}` arm declares, as the server sent them, to read "
+                 f"the variant's own fields from once `{tag}` says which it is. Nothing "
+                 "else the server sent is kept, and an unknown arm keeps only the "
+                 f"`{tag}` (CONTRACT.md §34.2 P12.1)."
+                 if schema_name in OPEN_UNIONS else
+                 "The whole object as the server sent it, to read the "
+                 f"variant's own fields from once `{tag}` says which it is.")},
         ], schema.get("description"))
 
     props, required, description = flatten(schema_name)
@@ -1112,6 +1142,62 @@ def encode_expr(f: dict[str, Any]) -> list[str]:
     return [f"        try container.encodeIfPresent({name}, forKey: .{key})"]
 
 
+def emit_open_string_enum(rendered: str, cases: dict[str, str]) -> list[str]:
+    """An OPEN_STRING_ENUMS type: a `RawRepresentable` string with named constants."""
+    out: list[str] = []
+    out.extend(doc(""))
+    out.extend(doc(
+        "**Strings, with the known values as named constants** (CONTRACT.md §32.2). A value "
+        "this SDK's copy of the spec does not list decodes AS ITSELF — `rawValue` is the "
+        "server's string and `isKnown` is `false` — so nothing the server sent is lost, and "
+        "it renders like any other value. It is never sent: `encode(to:)` refuses it locally, "
+        "before any request, as a validation failure (§34.2 P12.2) — never as `\"\"`, never "
+        "left to the server to refuse."))
+    out.append(f"public struct {rendered}: RawRepresentable, Codable, Sendable, Hashable, "
+               "CustomStringConvertible {")
+    out.extend(doc("The value as the server spells it.", "    "))
+    out.append("    public let rawValue: String")
+    out.append("")
+    out.extend(doc("Any value, known or not. Never fails: the set is open.", "    "))
+    out.append("    public init(rawValue: String) {")
+    out.append("        self.rawValue = rawValue")
+    out.append("    }")
+    out.append("")
+    for case, value in cases.items():
+        out.append(f'    public static let {case} = {rendered}(rawValue: "{value}")')
+    out.append("")
+    out.extend(doc("Every value this SDK knows, in the spec's order.", "    "))
+    known = ", ".join(f".{case}" for case in cases)
+    out.append(f"    public static let allKnown: [{rendered}] = [{known}]")
+    out.append("")
+    out.extend(doc("Whether this is one of ``allKnown`` — `false` for a value decoded from a "
+                   "newer server, which cannot be written back.", "    "))
+    out.append("    public var isKnown: Bool { Self.allKnown.contains(self) }")
+    out.append("")
+    out.append("    public var description: String { rawValue }")
+    out.append("")
+    out.append("    public init(from decoder: any Decoder) throws {")
+    out.append("        self.rawValue = try decoder.singleValueContainer().decode(String.self)")
+    out.append("    }")
+    out.append("")
+    out.append("    public func encode(to encoder: any Encoder) throws {")
+    out.extend(comment(
+        "§32.2: an SDK MUST NOT send a value it does not know. Refused before a byte is "
+        "written, as a local validation failure (§34.2 P12.2).", "        "))
+    out.append("        guard isKnown else {")
+    out.append("            throw AxiamError.network(NetworkError(")
+    out.append(f'                "{rendered}: a value this SDK does not know is never sent "')
+    out.append('                    + "(CONTRACT.md §32.2)",')
+    out.append("                statusCode: 400, isValidation: true))")
+    out.append("        }")
+    out.append("        var container = encoder.singleValueContainer()")
+    out.append("        try container.encode(rawValue)")
+    out.append("    }")
+    out.append("}")
+    out.append("")
+    return out
+
+
 def emit_models() -> str:
     """One `struct` or `enum` per schema, with explicit `Codable`."""
     out = [BANNER, "import Foundation", ""]
@@ -1153,6 +1239,9 @@ def emit_models() -> str:
                 f"enum {rendered}: the spec declares a value rendering as case 'unknown', "
                 "which collides with the open-enum carrier this generator adds."
             )
+        if rendered in OPEN_STRING_ENUMS:
+            out.extend(emit_open_string_enum(rendered, cases))
+            continue
         out.extend(doc(""))
         out.extend(doc(
             "An **open** enum. A value this SDK's copy of the spec does not list decodes to "
@@ -1272,7 +1361,11 @@ def emit_models() -> str:
 
         binding = "var" if rendered in MUTABLE_MODELS else "let"
         for f in fields:
-            out.extend(doc(field_doc(f), "    "))
+            text = field_doc(f)
+            note = FIELD_NOTES.get((name, f["wire"]))
+            if note:
+                text = f"{text} {note}"
+            out.extend(doc(text, "    "))
             out.append(f"    public {binding} {f['name']}: {declared(f)}")
             out.append("")
 
@@ -1306,6 +1399,24 @@ def emit_models() -> str:
                 "newer server; such a value cannot be written back.", "    "))
             out.append(f"    public var isKnown: Bool {{ Self.knownTypes.contains({field(tag)}) }}")
             out.append("")
+            # §34.2 P12.1: only DECLARED members are kept from a response — a known arm keeps
+            # its own members, an unknown arm its discriminator and nothing else. Keeping the
+            # server's whole object would surface (and echo back on a read-modify-write) any
+            # member the server should not have sent, a secret included.
+            out.extend(doc(
+                f"The members each known arm declares, `{tag}` included. Decoding keeps these "
+                f"and drops the rest; an unknown `{tag}` keeps the discriminator alone "
+                "(CONTRACT.md §34.2 P12.1).", "    "))
+            out.append("    public static let declaredMembers: [String: Set<String>] = [")
+            for value, payload in arms:
+                members = {tag}
+                resolved = resolve_ref(payload) if isinstance(payload, dict) and "$ref" in payload \
+                    else payload
+                members.update((resolved or {}).get("properties") or {})
+                listed = ", ".join(f'"{m}"' for m in sorted(members))
+                out.append(f'        "{value}": [{listed}],')
+            out.append("    ]")
+            out.append("")
 
         # memberwise init — Swift synthesises one, but only `internal`, and a public struct
         # in a library that consumers cannot construct is a request body nobody can send.
@@ -1337,6 +1448,16 @@ def emit_models() -> str:
         if keyed:
             out.append("        let container = try decoder.container(keyedBy: CodingKeys.self)")
         for f in fields:
+            if open_union and f["kind"] == "union_raw":
+                tag_name = next(x["name"] for x in fields if x["kind"] != "union_raw")
+                tag_wire = next(x["wire"] for x in fields if x["kind"] != "union_raw")
+                out.append(f"        let declared = Self.declaredMembers[self.{tag_name}] ?? [\"{tag_wire}\"]")
+                out.append("        if case .object(let members) = try ManagementJSON(from: decoder) {")
+                out.append(f"            self.{f['name']} = .object(members.filter {{ declared.contains($0.key) }})")
+                out.append("        } else {")
+                out.append(f"            self.{f['name']} = .object([\"{tag_wire}\": .string(self.{tag_name})])")
+                out.append("        }")
+                continue
             out.extend(decode_expr(f))
         if not fields:
             out.append("        _ = decoder")
@@ -1345,10 +1466,15 @@ def emit_models() -> str:
 
         out.append("    public func encode(to encoder: any Encoder) throws {")
         if any(f["kind"] == "union_raw" for f in fields):
-            out.extend(comment(
-                "A union is forwarded EXACTLY as received. Re-encoding from the one member "
-                "this SDK models would drop every field belonging to the variant it does "
-                "not model — and the server round-trips those.", "        "))
+            if open_union:
+                out.extend(comment(
+                    "A known arm is forwarded with the members it declares, as received — "
+                    "decoding already dropped the rest (§34.2 P12.1).", "        "))
+            else:
+                out.extend(comment(
+                    "A union is forwarded EXACTLY as received. Re-encoding from the one member "
+                    "this SDK models would drop every field belonging to the variant it does "
+                    "not model — and the server round-trips those.", "        "))
             if open_union:
                 out.extend(comment(
                     "§31.2: an unknown `type` decodes, and MUST NOT be sent. Refused before "
@@ -1398,8 +1524,8 @@ def emit_operation(namespace: str, opname: str, op: dict[str, Any]) -> list[str]
         out.extend(doc("", "    "))
         out.extend(doc(
             "Returns ONE page. `Page.total` is the server's count across every page and is "
-            "not `items.count`; call again with `page.next()` and stop when a page comes "
-            "back empty (§27.4 rule 4).", "    "))
+            f"not `items.count`. To walk every page, use `{method(opname + '_all')}(page:)` — "
+            "§27.4 rule 4's auto-paging form.", "    "))
     canonical = f"{namespace}.{opname}"
     if canonical in CALL_SITE_NOTES:
         out.extend(doc("", "    "))
@@ -1498,6 +1624,51 @@ def emit_operation(namespace: str, opname: str, op: dict[str, Any]) -> list[str]
         model = model_type(schema.lstrip("[]"))
         out.append(f"        return try ManagementCodec.decode({model}.self, from: data)")
 
+    out.append("    }")
+    out.append("")
+    if kind == "page":
+        out.extend(emit_auto_pager(namespace, opname, op, params, route))
+    return out
+
+
+def emit_auto_pager(
+    namespace: str, opname: str, op: dict[str, Any], params: list[dict[str, Any]], route: str
+) -> list[str]:
+    """§27.4 rule 4's auto-paging form: an `…All(page:)` twin of a paginated `list…`."""
+    model = model_type(op["response"]["schema"].lstrip("[]"))
+    out: list[str] = []
+    out.extend(doc(f"Every item of {route}, across every page — §27.4 rule 4's auto-paging "
+                   "form.", "    "))
+    out.extend(doc("", "    "))
+    out.extend(doc(
+        f"A `ManagementPager` over `{method(opname)}(page:)`: iterating fetches page after "
+        "page from `page`, carrying its `limit` and `search` on every request, until a page "
+        "comes back empty. Building it performs no I/O.", "    "))
+    out.extend(doc("", "    "))
+    for p in params:
+        text = ("The first page to fetch; its `limit` and `search` are kept for the whole "
+                "walk." if p["kind"] == "page" else p["text"])
+        out.extend(doc(f"- Parameter {p['name'].strip('`')}: {text}", "    "))
+    signature = []
+    for p in params:
+        default = f" = {p['default']}" if not p["required"] else ""
+        signature.append(f"{p['name']}: {p['type']}{default}")
+    joined = ", ".join(signature)
+    name = method(opname + "_all")
+    ret = f"ManagementPager<{model}>"
+    if len(f"    public func {name}({joined}) -> {ret} {{") <= 100:
+        out.append(f"    public func {name}({joined}) -> {ret} {{")
+    else:
+        out.append(f"    public func {name}(")
+        for i, arg in enumerate(signature):
+            out.append(f"        {arg}" + ("," if i < len(signature) - 1 else ""))
+        out.append(f"    ) -> {ret} {{")
+    args = ", ".join(
+        f"{p['name'].strip('`')}: " + ("request" if p["kind"] == "page" else p["name"])
+        for p in params)
+    out.append("        ManagementPager(start: page) { request in")
+    out.append(f"            try await self.{method(opname)}({args})")
+    out.append("        }")
     out.append("    }")
     out.append("")
     return out
@@ -1806,6 +1977,34 @@ def emit_tests() -> str:
         if not values:
             continue
         enums += 1
+        if rendered in OPEN_STRING_ENUMS:
+            out.append(f"    func test{rendered}MapsEveryValueBothWays() throws {{")
+            out.append(f"        XCTAssertEqual({rendered}.allKnown.count, {len(values)})")
+            for value in values:
+                case = enum_case(value)
+                out.append(f'        XCTAssertEqual({rendered}.{case}.rawValue, "{value}")')
+                out.append(f'        XCTAssertEqual({rendered}(rawValue: "{value}"), '
+                           f"{rendered}.{case})")
+                out.append(f"        XCTAssertTrue({rendered}.{case}.isKnown)")
+            out.append("")
+            out.extend(comment(
+                "OPEN_STRING_ENUMS: an unrecognised value decodes AS ITSELF and is not "
+                "known; it is never sent (§32.2, §34.2 P12.2).", "        "))
+            out.append(f'        let stranger = try JSONDecoder().decode(')
+            out.append(f'            [{rendered}].self,')
+            out.append(f'            from: Data("[\\"__not_a_{snake(rendered)}__\\"]".utf8))')
+            out.append(f'        XCTAssertEqual(stranger.map(\\.rawValue), ["__not_a_{snake(rendered)}__"])')
+            out.append("        XCTAssertFalse(stranger[0].isKnown)")
+            out.append("        XCTAssertThrowsError(try JSONEncoder().encode(stranger))")
+            first = enum_case(values[0])
+            out.append("        let encoder = JSONEncoder()")
+            out.append("        encoder.outputFormatting = [.withoutEscapingSlashes]")
+            out.append(f'        let encoded = try encoder.encode([{rendered}.{first}])')
+            out.append(f'        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), '
+                       f'"[\\"{values[0]}\\"]")')
+            out.append("    }")
+            out.append("")
+            continue
         out.append(f"    func test{rendered}MapsEveryValueBothWays() throws {{")
         out.append(f"        XCTAssertEqual({rendered}.allCases.count, {len(values) + 1})")
         for value in values:

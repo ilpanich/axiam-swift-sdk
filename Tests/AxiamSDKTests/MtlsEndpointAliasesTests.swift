@@ -199,54 +199,63 @@ final class MtlsEndpointAliasesTests: XCTestCase {
         }
     }
 
-    /// CONTRACT.md §21.3.1 vector A, as amended in contract 1.58: the member carries SEVEN
-    /// aliases, and `backchannel_authentication_endpoint` sits at the top level too. Pure
-    /// decoding — no listener, no identity — so this pin runs everywhere.
+    /// CONTRACT.md §21.3.1 vector A, **read from the vendored `CONTRACT.md`** rather than
+    /// retyped (R-31, SW-17 / Q8): a re-vendored contract that amends the vector is then pinned
+    /// with no edit here. As amended in contract 1.58 the member carries SEVEN aliases, and
+    /// `backchannel_authentication_endpoint` sits at the top level too. Pure decoding — no
+    /// listener, no identity — so this pin runs everywhere.
     func testVectorADecodesAllSevenAliasesAndTheTopLevelBackchannelEndpoint() throws {
-        let query = "?tenant_id=6f3e0a5c-1b2d-4e8f-9a7b-0c1d2e3f4a5b"
-        let root = "https://iam.example.test/oauth2"
-        let mtls = "https://mtls.iam.example.test/oauth2"
-        let vectorA: [String: Any] = [
-            "issuer": "https://iam.example.test",
-            "authorization_endpoint": "\(root)/authorize\(query)",
-            "token_endpoint": "\(root)/token\(query)",
-            "userinfo_endpoint": "\(root)/userinfo",
-            "jwks_uri": "\(root)/jwks",
-            "revocation_endpoint": "\(root)/revoke\(query)",
-            "introspection_endpoint": "\(root)/introspect\(query)",
-            "device_authorization_endpoint": "\(root)/device_authorization\(query)",
-            "pushed_authorization_request_endpoint": "\(root)/par\(query)",
-            "backchannel_authentication_endpoint": "\(root)/bc-authorize\(query)",
-            "end_session_endpoint": "\(root)/logout",
-            "mtls_endpoint_aliases": [
-                "token_endpoint": "\(mtls)/token\(query)",
-                "userinfo_endpoint": "\(mtls)/userinfo",
-                "revocation_endpoint": "\(mtls)/revoke\(query)",
-                "introspection_endpoint": "\(mtls)/introspect\(query)",
-                "device_authorization_endpoint": "\(mtls)/device_authorization\(query)",
-                "pushed_authorization_request_endpoint": "\(mtls)/par\(query)",
-                "backchannel_authentication_endpoint": "\(mtls)/bc-authorize\(query)",
-            ],
-        ]
-        let document = try JSONDecoder().decode(
-            OidcConfiguration.self, from: try JSONSerialization.data(withJSONObject: vectorA))
+        let text = try Self.vectorAText()
+        let vector = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])
+        let published = try XCTUnwrap(vector["mtls_endpoint_aliases"] as? [String: String])
+        let document = try JSONDecoder().decode(OidcConfiguration.self, from: Data(text.utf8))
 
-        XCTAssertEqual(
-            document.backchannelAuthenticationEndpoint, "\(root)/bc-authorize\(query)")
+        // Every member the vector publishes is one this SDK decodes — an alias the vendored
+        // vector gains and the decoder ignores fails here — and each decodes verbatim.
         let aliases = try XCTUnwrap(document.mtlsEndpointAliases)
-        let seven = [
-            aliases.tokenEndpoint, aliases.userinfoEndpoint, aliases.revocationEndpoint,
-            aliases.introspectionEndpoint, aliases.deviceAuthorizationEndpoint,
-            aliases.pushedAuthorizationRequestEndpoint, aliases.backchannelAuthenticationEndpoint,
+        let decoded: [String: String?] = [
+            "token_endpoint": aliases.tokenEndpoint,
+            "userinfo_endpoint": aliases.userinfoEndpoint,
+            "revocation_endpoint": aliases.revocationEndpoint,
+            "introspection_endpoint": aliases.introspectionEndpoint,
+            "device_authorization_endpoint": aliases.deviceAuthorizationEndpoint,
+            "pushed_authorization_request_endpoint": aliases.pushedAuthorizationRequestEndpoint,
+            "backchannel_authentication_endpoint": aliases.backchannelAuthenticationEndpoint,
         ]
-        XCTAssertEqual(seven.compactMap { $0 }.count, 7, "all seven aliases decode")
-        for alias in seven {
-            XCTAssertTrue(alias?.hasPrefix(mtls) ?? false, "every alias is on the mTLS host")
+        XCTAssertEqual(published.count, 7, "the vendored vector carries seven aliases")
+        XCTAssertEqual(Set(published.keys), Set(decoded.keys), "every published alias is decoded")
+        for (member, value) in published {
+            XCTAssertEqual(decoded[member] ?? nil, value, "\(member) decodes verbatim, query intact")
+            XCTAssertTrue(
+                value.hasPrefix("https://mtls.iam.example.test/"), "\(member) is on the mTLS host")
         }
         XCTAssertEqual(
-            aliases.backchannelAuthenticationEndpoint, "\(mtls)/bc-authorize\(query)",
-            "the query component is kept intact")
-        XCTAssertEqual(document.issuer, "https://iam.example.test", "issuer never moves")
+            document.backchannelAuthenticationEndpoint,
+            vector["backchannel_authentication_endpoint"] as? String)
+        XCTAssertEqual(document.tokenEndpoint, vector["token_endpoint"] as? String)
+        XCTAssertEqual(document.issuer, vector["issuer"] as? String, "issuer never moves")
+        XCTAssertEqual(document.issuer, "https://iam.example.test")
+    }
+
+    /// The first JSON block after "**Vector A" in the vendored `CONTRACT.md` §21.3.1.
+    private static func vectorAText() throws -> String {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()  // AxiamSDKTests
+            .deletingLastPathComponent()  // Tests
+            .deletingLastPathComponent()  // repository root
+        let contract = try String(
+            contentsOf: root.appendingPathComponent("CONTRACT.md"), encoding: .utf8)
+        let section = try XCTUnwrap(
+            contract.range(of: "#### §21.3.1 Test vectors"), "§21.3.1 not in CONTRACT.md")
+        let heading = try XCTUnwrap(
+            contract.range(of: "**Vector A", range: section.upperBound..<contract.endIndex),
+            "vector A not in §21.3.1")
+        let open = try XCTUnwrap(
+            contract.range(of: "```json\n", range: heading.upperBound..<contract.endIndex))
+        let close = try XCTUnwrap(
+            contract.range(of: "\n```", range: open.upperBound..<contract.endIndex))
+        return String(contract[open.upperBound..<close.lowerBound])
     }
 
     // MARK: - A call over mTLS prefers the alias
