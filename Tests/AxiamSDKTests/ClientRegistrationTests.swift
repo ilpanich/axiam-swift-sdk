@@ -329,12 +329,7 @@ final class ClientRegistrationTests: XCTestCase {
         XCTAssertEqual(registration.registrationAccessToken?.expose(), token)
         XCTAssertEqual(registration.clientSecret?.expose(), secret)
 
-        for rendering in [
-            String(describing: registration),
-            String(reflecting: registration),
-            "\(registration)",
-            registration.debugDescription,
-        ] {
+        for rendering in SecretKit.renderings(registration) + [registration.debugDescription] {
             XCTAssertFalse(SecretKit.leaks(rendering, token), "the token leaked into a rendering")
             XCTAssertFalse(SecretKit.leaks(rendering, secret), "the secret leaked into a rendering")
         }
@@ -349,7 +344,7 @@ final class ClientRegistrationTests: XCTestCase {
                     registrationClientURI: uri, registrationAccessToken: Sensitive(token))
                 XCTFail("expected an error")
             } catch {
-                let rendering = "\(error) \(String(reflecting: error))"
+                let rendering = SecretKit.renderings(error).joined(separator: "\n")
                 XCTAssertFalse(SecretKit.leaks(rendering, token), "the token leaked into an error")
             }
         }

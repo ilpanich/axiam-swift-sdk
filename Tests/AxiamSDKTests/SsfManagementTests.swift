@@ -92,7 +92,7 @@ final class SsfManagementTests: XCTestCase {
     func testThePushHeaderIsSentAndNeverRenderedOrDecoded() async throws {
         let header = Self.headerValue()
         let body = Self.input(header: header)
-        for rendering in [String(describing: body), String(reflecting: body), "\(body)"] {
+        for rendering in SecretKit.renderings(body) {
             XCTAssertFalse(SecretKit.leaks(rendering, header), "the header leaked")
         }
         let (client, transport) = try await ManagementFixture.signedIn([
@@ -103,7 +103,7 @@ final class SsfManagementTests: XCTestCase {
         let sent = try XCTUnwrap(transport.last?.jsonBody)
         XCTAssertEqual(sent["authorization_header"] as? String, header, "on the wire")
         let reencoded = String(decoding: try JSONEncoder().encode(created), as: UTF8.self)
-        for rendering in [String(describing: created), String(reflecting: created), reencoded] {
+        for rendering in SecretKit.renderings(created) + [reencoded] {
             XCTAssertFalse(SecretKit.leaks(rendering, header), "a response header was surfaced")
         }
         XCTAssertTrue(created.authorizationHeaderSet)

@@ -59,7 +59,7 @@ final class ScimTargetsManagementTests: XCTestCase {
     func testTheCredentialIsOnTheWireAndInNoRendering() async throws {
         let credential = Self.credential()
         let body = Self.input(credential: credential)
-        for rendering in [String(describing: body), String(reflecting: body), "\(body)"] {
+        for rendering in SecretKit.renderings(body) {
             XCTAssertFalse(SecretKit.leaks(rendering, credential), "the credential leaked")
         }
 
@@ -70,7 +70,7 @@ final class ScimTargetsManagementTests: XCTestCase {
             _ = try await client.scimTargets.create(body: body)
             XCTFail("a 400 must surface")
         } catch {
-            let rendering = "\(error) \(String(reflecting: error))"
+            let rendering = SecretKit.renderings(error).joined(separator: "\n")
             XCTAssertFalse(SecretKit.leaks(rendering, credential), "the credential leaked into an error")
         }
         let sent = try XCTUnwrap(transport.last?.jsonBody)
@@ -91,7 +91,7 @@ final class ScimTargetsManagementTests: XCTestCase {
         let target = try await client.scimTargets.get(id: id)
         XCTAssertEqual(target.name, "Downstream")
         let reencoded = String(decoding: try JSONEncoder().encode(target), as: UTF8.self)
-        for rendering in [String(describing: target), String(reflecting: target), reencoded] {
+        for rendering in SecretKit.renderings(target) + [reencoded] {
             XCTAssertFalse(SecretKit.leaks(rendering, leaked), "a response credential was surfaced")
         }
         // `ScimTargetResponse` declares no credential member: naming one here would not

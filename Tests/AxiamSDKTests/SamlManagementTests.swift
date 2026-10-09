@@ -204,7 +204,7 @@ final class SamlManagementTests: XCTestCase {
 
         let credential = try await client.saml.retireIdpCredential(credentialID: id)
         let reencoded = String(decoding: try JSONEncoder().encode(credential), as: UTF8.self)
-        for rendering in [String(describing: credential), String(reflecting: credential), reencoded] {
+        for rendering in SecretKit.renderings(credential) + [reencoded] {
             XCTAssertFalse(SecretKit.leaks(rendering, leaked), "the leaked key value was surfaced")
             XCTAssertFalse(rendering.contains("private_key_pem"))
         }

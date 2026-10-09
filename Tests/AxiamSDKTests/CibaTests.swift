@@ -115,12 +115,12 @@ final class CibaTests: XCTestCase {
 
         var request = Self.request()
         request.delivery = .ping(clientNotificationToken: Sensitive(notification))
-        for rendering in [String(describing: request), String(reflecting: request), "\(request)"] {
+        for rendering in SecretKit.renderings(request) {
             XCTAssertFalse(SecretKit.leaks(rendering, notification), "the notification token leaked")
         }
 
         let response = try await client.cibaInitiate(request, configuration: Self.configuration())
-        for rendering in [String(describing: response), String(reflecting: response), "\(response)"] {
+        for rendering in SecretKit.renderings(response) {
             XCTAssertFalse(SecretKit.leaks(rendering, authReqID), "the auth_req_id leaked")
         }
         XCTAssertEqual(response.authReqID.expose(), authReqID)
@@ -132,7 +132,7 @@ final class CibaTests: XCTestCase {
             _ = try await client.cibaInitiate(request, configuration: Self.configuration())
             XCTFail("an invalid_binding_message must surface")
         } catch {
-            let rendering = "\(error) \(String(reflecting: error))"
+            let rendering = SecretKit.renderings(error).joined(separator: "\n")
             XCTAssertFalse(SecretKit.leaks(rendering, notification), "the token leaked into an error")
             guard case AxiamError.auth(let auth) = error else {
                 return XCTFail("an OAuth2ErrorResponse is an OAuthProtocolError")
@@ -460,7 +460,7 @@ final class CibaTests: XCTestCase {
                 body: Self.pingBody(["auth_req_id": id]),
                 expectedToken: Sensitive(token))
             XCTAssertEqual(got.expose(), id)
-            XCTAssertFalse(SecretKit.leaks("\(got) \(String(reflecting: got))", id), "the id leaked")
+            XCTAssertFalse(SecretKit.leaks(SecretKit.renderings(got).joined(separator: "\n"), id), "the id leaked")
         }
         // The header NAME is matched case-insensitively too.
         let lower = try client.cibaHandlePing(
@@ -496,7 +496,7 @@ final class CibaTests: XCTestCase {
                 XCTFail("case \(index) must be refused")
             } catch let error as AxiamError {
                 guard case .auth = error else { return XCTFail("case \(index): an AuthError") }
-                let rendering = "\(error) \(String(reflecting: error))"
+                let rendering = SecretKit.renderings(error).joined(separator: "\n")
                 XCTAssertFalse(SecretKit.leaks(rendering, token), "case \(index): the token leaked")
             }
         }
@@ -678,19 +678,21 @@ final class CibaTests: XCTestCase {
         var request = Self.request()
         request.signer = signer
 
-        var rendered: [String] = [
-            String(describing: signer), String(reflecting: signer), "\(signer)",
-            String(describing: request), String(reflecting: request),
-        ]
+        var rendered: [String] = SecretKit.renderings(signer) + SecretKit.renderings(request)
         do {
             _ = try await client.cibaInitiate(request, configuration: Self.configuration())
             XCTFail("expected the scripted 400")
         } catch {
-            rendered.append("\(error) \(String(reflecting: error))")
+            rendered.append(SecretKit.renderings(error).joined(separator: "\n"))
         }
         let jws = try XCTUnwrap(transport.requests("/oauth2/bc-authorize").first?.form["request"])
+        // The signer holds the 32-byte seed, not the PEM: `dump` and `Mirror` would print the
+        // seed's bytes, which the walk renders as hex.
+        let seed = try XCTUnwrap(CibaRequestSigner.ed25519Seed(fromPKCS8PEM: pem))
+        let seedHex = seed.map { String(format: "%02x", $0) }.joined()
         for rendering in rendered {
             XCTAssertFalse(SecretKit.leaks(rendering, keyLine), "the key material leaked")
+            XCTAssertFalse(SecretKit.leaks(rendering, seedHex), "the key seed leaked")
             XCTAssertFalse(SecretKit.leaks(rendering, jws), "the signed request leaked")
         }
     }

@@ -214,6 +214,41 @@ final class SensitiveTests: XCTestCase {
         XCTAssertFalse("\(secret)".contains("super-secret"))
     }
 
+    /// §7 rule 1 through Swift's reflection sinks (R-19, SW-1). `dump` and `Mirror` read
+    /// stored properties rather than `description`, so a `Sensitive` that only overrides its
+    /// descriptions prints its wrapped value there — and so does every struct holding one.
+    func testNoRenderingReflectsTheWrappedValue() {
+        let token = SecretKit.random()
+        let bytes = Data(SecretKit.random().utf8)
+        let bytesHex = bytes.map { String(format: "%02x", $0) }.joined()
+        let holders: [(String, Any)] = [
+            ("Sensitive<String>", Sensitive(token)),
+            ("Optional<Sensitive<String>>", Optional(Sensitive(token)) as Any),
+            ("[Sensitive<String>]", [Sensitive(token)]),
+            ("UpdateDirectoryConfig", UpdateDirectoryConfig(bindSecret: Sensitive(token))),
+            ("SsfStreamInput", SsfStreamInput(
+                audience: "https://rp.example.test",
+                authorizationHeader: Sensitive(token),
+                deliveryMethod: .poll,
+                eventsAllowed: [.sessionRevoked],
+                receiverClientID: "rp")),
+            ("CibaInitiateResponse", CibaInitiateResponse(
+                authReqID: Sensitive(token), expiresIn: 120, interval: 5, receivedAt: Date())),
+        ]
+        for (label, holder) in holders {
+            for rendering in SecretKit.renderings(holder) {
+                XCTAssertFalse(SecretKit.leaks(rendering, token), "\(label): the secret leaked")
+            }
+        }
+        for rendering in SecretKit.renderings(Sensitive(bytes)) {
+            XCTAssertFalse(SecretKit.leaks(rendering, bytesHex), "Sensitive<Data>: the bytes leaked")
+            XCTAssertFalse(SecretKit.leaks(rendering, String(decoding: bytes, as: UTF8.self)))
+        }
+        XCTAssertTrue(
+            Mirror(reflecting: Sensitive(token)).children.isEmpty,
+            "a Sensitive reflects no stored property")
+    }
+
     func testWrappedValueAccessibleInternally() {
         let secret = Sensitive(Data("key".utf8))
         XCTAssertEqual(secret.wrapped, Data("key".utf8))
