@@ -72,6 +72,13 @@ IMPLICIT_TENANT_NAMESPACES = {
 # understood.
 OPEN_UNIONS = {"ScimTargetAuth", "ScimTargetScope"}
 
+# String enums modelled as an open set of STRINGS rather than a Swift `enum`. CONTRACT.md
+# §32.2: "An SDK SHOULD model event types as strings with the six URIs as named constants" —
+# a closed `enum` with an `.unknown` carrier loses the URI it could not name (R-22, SW-10).
+# The value decodes as itself and renders as itself; one this SDK does not know is refused
+# locally on the way out (§34.2 P12.2), never sent as `""`.
+OPEN_STRING_ENUMS = {"SsfEventType"}
+
 # Members where an explicit `null` is a different value from an absent member (§27.4 rule 5,
 # "null is not absent"). §30.2 names exactly two on a REQUEST: on `UpdateDirectoryConfig`,
 # `null` clears the value and absence keeps it. §29.8 test 8 asks the same of a RESPONSE:
@@ -1135,6 +1142,62 @@ def encode_expr(f: dict[str, Any]) -> list[str]:
     return [f"        try container.encodeIfPresent({name}, forKey: .{key})"]
 
 
+def emit_open_string_enum(rendered: str, cases: dict[str, str]) -> list[str]:
+    """An OPEN_STRING_ENUMS type: a `RawRepresentable` string with named constants."""
+    out: list[str] = []
+    out.extend(doc(""))
+    out.extend(doc(
+        "**Strings, with the known values as named constants** (CONTRACT.md §32.2). A value "
+        "this SDK's copy of the spec does not list decodes AS ITSELF — `rawValue` is the "
+        "server's string and `isKnown` is `false` — so nothing the server sent is lost, and "
+        "it renders like any other value. It is never sent: `encode(to:)` refuses it locally, "
+        "before any request, as a validation failure (§34.2 P12.2) — never as `\"\"`, never "
+        "left to the server to refuse."))
+    out.append(f"public struct {rendered}: RawRepresentable, Codable, Sendable, Hashable, "
+               "CustomStringConvertible {")
+    out.extend(doc("The value as the server spells it.", "    "))
+    out.append("    public let rawValue: String")
+    out.append("")
+    out.extend(doc("Any value, known or not. Never fails: the set is open.", "    "))
+    out.append("    public init(rawValue: String) {")
+    out.append("        self.rawValue = rawValue")
+    out.append("    }")
+    out.append("")
+    for case, value in cases.items():
+        out.append(f'    public static let {case} = {rendered}(rawValue: "{value}")')
+    out.append("")
+    out.extend(doc("Every value this SDK knows, in the spec's order.", "    "))
+    known = ", ".join(f".{case}" for case in cases)
+    out.append(f"    public static let allKnown: [{rendered}] = [{known}]")
+    out.append("")
+    out.extend(doc("Whether this is one of ``allKnown`` — `false` for a value decoded from a "
+                   "newer server, which cannot be written back.", "    "))
+    out.append("    public var isKnown: Bool { Self.allKnown.contains(self) }")
+    out.append("")
+    out.append("    public var description: String { rawValue }")
+    out.append("")
+    out.append("    public init(from decoder: any Decoder) throws {")
+    out.append("        self.rawValue = try decoder.singleValueContainer().decode(String.self)")
+    out.append("    }")
+    out.append("")
+    out.append("    public func encode(to encoder: any Encoder) throws {")
+    out.extend(comment(
+        "§32.2: an SDK MUST NOT send a value it does not know. Refused before a byte is "
+        "written, as a local validation failure (§34.2 P12.2).", "        "))
+    out.append("        guard isKnown else {")
+    out.append("            throw AxiamError.network(NetworkError(")
+    out.append(f'                "{rendered}: a value this SDK does not know is never sent "')
+    out.append('                    + "(CONTRACT.md §32.2)",')
+    out.append("                statusCode: 400, isValidation: true))")
+    out.append("        }")
+    out.append("        var container = encoder.singleValueContainer()")
+    out.append("        try container.encode(rawValue)")
+    out.append("    }")
+    out.append("}")
+    out.append("")
+    return out
+
+
 def emit_models() -> str:
     """One `struct` or `enum` per schema, with explicit `Codable`."""
     out = [BANNER, "import Foundation", ""]
@@ -1176,6 +1239,9 @@ def emit_models() -> str:
                 f"enum {rendered}: the spec declares a value rendering as case 'unknown', "
                 "which collides with the open-enum carrier this generator adds."
             )
+        if rendered in OPEN_STRING_ENUMS:
+            out.extend(emit_open_string_enum(rendered, cases))
+            continue
         out.extend(doc(""))
         out.extend(doc(
             "An **open** enum. A value this SDK's copy of the spec does not list decodes to "
@@ -1866,6 +1932,34 @@ def emit_tests() -> str:
         if not values:
             continue
         enums += 1
+        if rendered in OPEN_STRING_ENUMS:
+            out.append(f"    func test{rendered}MapsEveryValueBothWays() throws {{")
+            out.append(f"        XCTAssertEqual({rendered}.allKnown.count, {len(values)})")
+            for value in values:
+                case = enum_case(value)
+                out.append(f'        XCTAssertEqual({rendered}.{case}.rawValue, "{value}")')
+                out.append(f'        XCTAssertEqual({rendered}(rawValue: "{value}"), '
+                           f"{rendered}.{case})")
+                out.append(f"        XCTAssertTrue({rendered}.{case}.isKnown)")
+            out.append("")
+            out.extend(comment(
+                "OPEN_STRING_ENUMS: an unrecognised value decodes AS ITSELF and is not "
+                "known; it is never sent (§32.2, §34.2 P12.2).", "        "))
+            out.append(f'        let stranger = try JSONDecoder().decode(')
+            out.append(f'            [{rendered}].self,')
+            out.append(f'            from: Data("[\\"__not_a_{snake(rendered)}__\\"]".utf8))')
+            out.append(f'        XCTAssertEqual(stranger.map(\\.rawValue), ["__not_a_{snake(rendered)}__"])')
+            out.append("        XCTAssertFalse(stranger[0].isKnown)")
+            out.append("        XCTAssertThrowsError(try JSONEncoder().encode(stranger))")
+            first = enum_case(values[0])
+            out.append("        let encoder = JSONEncoder()")
+            out.append("        encoder.outputFormatting = [.withoutEscapingSlashes]")
+            out.append(f'        let encoded = try encoder.encode([{rendered}.{first}])')
+            out.append(f'        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), '
+                       f'"[\\"{values[0]}\\"]")')
+            out.append("    }")
+            out.append("")
+            continue
         out.append(f"    func test{rendered}MapsEveryValueBothWays() throws {{")
         out.append(f"        XCTAssertEqual({rendered}.allCases.count, {len(values) + 1})")
         for value in values:

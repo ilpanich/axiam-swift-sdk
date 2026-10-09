@@ -11176,39 +11176,34 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSsfEventTypeMapsEveryValueBothWays() throws {
-        XCTAssertEqual(SsfEventType.allCases.count, 7)
+        XCTAssertEqual(SsfEventType.allKnown.count, 6)
         XCTAssertEqual(SsfEventType.sessionRevoked.rawValue, "https://schemas.openid.net/secevent/caep/event-type/session-revoked")
         XCTAssertEqual(SsfEventType(rawValue: "https://schemas.openid.net/secevent/caep/event-type/session-revoked"), SsfEventType.sessionRevoked)
+        XCTAssertTrue(SsfEventType.sessionRevoked.isKnown)
         XCTAssertEqual(SsfEventType.credentialChange.rawValue, "https://schemas.openid.net/secevent/caep/event-type/credential-change")
         XCTAssertEqual(SsfEventType(rawValue: "https://schemas.openid.net/secevent/caep/event-type/credential-change"), SsfEventType.credentialChange)
+        XCTAssertTrue(SsfEventType.credentialChange.isKnown)
         XCTAssertEqual(SsfEventType.assuranceLevelChange.rawValue, "https://schemas.openid.net/secevent/caep/event-type/assurance-level-change")
         XCTAssertEqual(SsfEventType(rawValue: "https://schemas.openid.net/secevent/caep/event-type/assurance-level-change"), SsfEventType.assuranceLevelChange)
+        XCTAssertTrue(SsfEventType.assuranceLevelChange.isKnown)
         XCTAssertEqual(SsfEventType.accountDisabled.rawValue, "https://schemas.openid.net/secevent/risc/event-type/account-disabled")
         XCTAssertEqual(SsfEventType(rawValue: "https://schemas.openid.net/secevent/risc/event-type/account-disabled"), SsfEventType.accountDisabled)
+        XCTAssertTrue(SsfEventType.accountDisabled.isKnown)
         XCTAssertEqual(SsfEventType.accountEnabled.rawValue, "https://schemas.openid.net/secevent/risc/event-type/account-enabled")
         XCTAssertEqual(SsfEventType(rawValue: "https://schemas.openid.net/secevent/risc/event-type/account-enabled"), SsfEventType.accountEnabled)
+        XCTAssertTrue(SsfEventType.accountEnabled.isKnown)
         XCTAssertEqual(SsfEventType.accountPurged.rawValue, "https://schemas.openid.net/secevent/risc/event-type/account-purged")
         XCTAssertEqual(SsfEventType(rawValue: "https://schemas.openid.net/secevent/risc/event-type/account-purged"), SsfEventType.accountPurged)
+        XCTAssertTrue(SsfEventType.accountPurged.isKnown)
 
-        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
-        // case happens to be first. Code that parses a raw string keeps its check.
-        XCTAssertNil(SsfEventType(rawValue: "__not_a_ssf_event_type__"))
-
-        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
-        // fail the whole response the value arrived in, so one field of one record would take
-        // down the page it was on. `.unknown` is a case of its own and is never one of the
-        // known ones.
+        // OPEN_STRING_ENUMS: an unrecognised value decodes AS ITSELF and is not known; it is
+        // never sent (§32.2, §34.2 P12.2).
         let stranger = try JSONDecoder().decode(
             [SsfEventType].self,
             from: Data("[\"__not_a_ssf_event_type__\"]".utf8))
-        XCTAssertEqual(stranger, [SsfEventType.unknown])
-        XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.sessionRevoked)
-        XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.credentialChange)
-        XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.assuranceLevelChange)
-        XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.accountDisabled)
-        XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.accountEnabled)
-        XCTAssertNotEqual(SsfEventType.unknown, SsfEventType.accountPurged)
-        XCTAssertEqual(SsfEventType.unknown.rawValue, "")
+        XCTAssertEqual(stranger.map(\.rawValue), ["__not_a_ssf_event_type__"])
+        XCTAssertFalse(stranger[0].isKnown)
+        XCTAssertThrowsError(try JSONEncoder().encode(stranger))
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([SsfEventType.sessionRevoked])

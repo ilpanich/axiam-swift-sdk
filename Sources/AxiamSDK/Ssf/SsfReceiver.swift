@@ -20,8 +20,9 @@ import Crypto
 /// The six event types AXIAM transmits, plus the two SSF stream events (§32.6).
 ///
 /// Event types are **open**: a SET whose type is not among these still verifies, and
-/// ``SecurityEvent/eventType`` carries it verbatim. The six AXIAM ones are also the generated
-/// `SsfEventType` enum's raw values, for the management namespace.
+/// ``SecurityEvent/eventType`` carries it verbatim. The six AXIAM ones are also the named
+/// constants of the generated `SsfEventType` (an open string type, §32.2), for the management
+/// namespace.
 public enum SsfEventTypeURI {
     /// CAEP session revoked.
     public static let sessionRevoked =

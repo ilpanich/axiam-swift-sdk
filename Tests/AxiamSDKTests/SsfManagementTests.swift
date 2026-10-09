@@ -122,7 +122,8 @@ final class SsfManagementTests: XCTestCase {
         XCTAssertEqual(odd.deliveryMethod, .unknown)
         XCTAssertEqual(odd.subjectFormat, .unknown)
         XCTAssertEqual(odd.statusActor, .unknown)
-        XCTAssertEqual(odd.eventsAllowed, [.unknown])
+        XCTAssertEqual(odd.eventsAllowed.map(\.rawValue), ["https://example.test/event-type/new"])
+        XCTAssertFalse(odd.eventsAllowed[0].isKnown, "kept as itself, and known to be unknown")
 
         let inactive = try Self.decode(Self.streamObject([
             "transmitter_active": false,
@@ -134,6 +135,36 @@ final class SsfManagementTests: XCTestCase {
         XCTAssertTrue(active.transmitterActive)
         XCTAssertNil(active.transmitterInactiveReason)
         XCTAssertEqual(active.eventsAllowed, [.sessionRevoked])
+    }
+
+    /// §32.2 (R-22, SW-10): event types are strings with the six URIs as named constants. An
+    /// URI this SDK has never seen decodes AS ITSELF — not as a placeholder that loses it —
+    /// renders without failing, and is refused locally before it could be sent (§34.2 P12.2):
+    /// never as `""`, never left to the server.
+    func testAnUnseenEventTypeURIIsKeptAndNeverSent() async throws {
+        let unseen = "https://example.test/event-type/\(UUID().uuidString.lowercased())"
+        let odd = try Self.decode(Self.streamObject([
+            "events_allowed": [Self.revoked, unseen],
+            "events_requested": [unseen],
+            "events_delivered": [unseen],
+        ]))
+        XCTAssertEqual(odd.eventsAllowed.map(\.rawValue), [Self.revoked, unseen])
+        XCTAssertEqual(odd.eventsRequested.map(\.rawValue), [unseen])
+        XCTAssertEqual(odd.eventsDelivered.map(\.rawValue), [unseen])
+        XCTAssertEqual(odd.eventsAllowed.first, .sessionRevoked, "the constants still match")
+        XCTAssertTrue(String(describing: odd).contains(unseen), "rendering never fails")
+
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.json(Self.streamObject())),
+        ])
+        let before = transport.count
+        do {
+            _ = try await client.ssf.updateStream(streamID: odd.id, body: SsfStreamInput(copying: odd))
+            XCTFail("an event type this SDK does not know must not be sent")
+        } catch AxiamError.network(let error) {
+            XCTAssertTrue(error.isValidation, "refused locally, as a validation failure")
+        }
+        XCTAssertEqual(transport.count, before, "nothing was sent")
     }
 
     // MARK: - 4. Pagination

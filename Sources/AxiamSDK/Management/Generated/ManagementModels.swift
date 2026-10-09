@@ -1055,35 +1055,51 @@ public enum SsfDeliveryMethod: String, Codable, Sendable, CaseIterable {
 /// The six event types AXIAM transmits (G-5). Stored and sent as their event-type URIs;
 /// [`Self::ALL`] is the canonical order every list AXIAM returns is sorted in.
 ///
-/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
-/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
-/// fails the WHOLE response, so one field of one record would take down the page it was on,
-/// including the records the caller did ask for.
-///
-/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
-/// be first turns a new server state into a wrong one, and on this surface these values gate
-/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
-public enum SsfEventType: String, Codable, Sendable, CaseIterable {
-    case sessionRevoked = "https://schemas.openid.net/secevent/caep/event-type/session-revoked"
-    case credentialChange = "https://schemas.openid.net/secevent/caep/event-type/credential-change"
-    case assuranceLevelChange = "https://schemas.openid.net/secevent/caep/event-type/assurance-level-change"
-    case accountDisabled = "https://schemas.openid.net/secevent/risc/event-type/account-disabled"
-    case accountEnabled = "https://schemas.openid.net/secevent/risc/event-type/account-enabled"
-    case accountPurged = "https://schemas.openid.net/secevent/risc/event-type/account-purged"
-    /// A value this SDK's copy of the spec does not list; see the type's summary.
-    case unknown = ""
+/// **Strings, with the known values as named constants** (CONTRACT.md §32.2). A value this
+/// SDK's copy of the spec does not list decodes AS ITSELF — `rawValue` is the server's string
+/// and `isKnown` is `false` — so nothing the server sent is lost, and it renders like any other
+/// value. It is never sent: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (§34.2 P12.2) — never as `""`, never left to the server to refuse.
+public struct SsfEventType: RawRepresentable, Codable, Sendable, Hashable, CustomStringConvertible {
+    /// The value as the server spells it.
+    public let rawValue: String
 
-    /// Decodes an unrecognised value to `.unknown` instead of throwing.
-    ///
-    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
-    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
-    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
-    /// lenient.
+    /// Any value, known or not. Never fails: the set is open.
+    public init(rawValue: String) {
+        self.rawValue = rawValue
+    }
+
+    public static let sessionRevoked = SsfEventType(rawValue: "https://schemas.openid.net/secevent/caep/event-type/session-revoked")
+    public static let credentialChange = SsfEventType(rawValue: "https://schemas.openid.net/secevent/caep/event-type/credential-change")
+    public static let assuranceLevelChange = SsfEventType(rawValue: "https://schemas.openid.net/secevent/caep/event-type/assurance-level-change")
+    public static let accountDisabled = SsfEventType(rawValue: "https://schemas.openid.net/secevent/risc/event-type/account-disabled")
+    public static let accountEnabled = SsfEventType(rawValue: "https://schemas.openid.net/secevent/risc/event-type/account-enabled")
+    public static let accountPurged = SsfEventType(rawValue: "https://schemas.openid.net/secevent/risc/event-type/account-purged")
+
+    /// Every value this SDK knows, in the spec's order.
+    public static let allKnown: [SsfEventType] = [.sessionRevoked, .credentialChange, .assuranceLevelChange, .accountDisabled, .accountEnabled, .accountPurged]
+
+    /// Whether this is one of ``allKnown`` — `false` for a value decoded from a newer server,
+    /// which cannot be written back.
+    public var isKnown: Bool { Self.allKnown.contains(self) }
+
+    public var description: String { rawValue }
+
     public init(from decoder: any Decoder) throws {
-        let raw = try decoder.singleValueContainer().decode(String.self)
-        self = SsfEventType(rawValue: raw) ?? .unknown
+        self.rawValue = try decoder.singleValueContainer().decode(String.self)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        // §32.2: an SDK MUST NOT send a value it does not know. Refused before a byte is
+        // written, as a local validation failure (§34.2 P12.2).
+        guard isKnown else {
+            throw AxiamError.network(NetworkError(
+                "SsfEventType: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §32.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 
