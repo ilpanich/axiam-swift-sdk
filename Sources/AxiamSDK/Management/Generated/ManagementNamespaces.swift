@@ -3091,6 +3091,15 @@ public struct FederationApi: Sendable {
 
     /// `PUT /api/v1/federation-configs/{id}`
     ///
+    /// A member left `nil` is not sent and stays as stored. The ten nullable strings --
+    /// `metadataURL`, `idpSigningCertPEM`, `idpMetadataSigningCertPEM`, `providerSlug`,
+    /// `authorizationEndpoint`, `tokenEndpoint`, `userinfoEndpoint`, `appleTeamID`,
+    /// `appleKeyID` and `buttonIcon` -- are `String??`: `.some(nil)` is sent as `null` and
+    /// clears the value (§27.15 note 8). An `OAuth2` configuration's three endpoints cannot be
+    /// cleared (`400`), and `appleTeamID` / `appleKeyID` clear only together.
+    /// `allowSha1Signatures` and `idpMetadataSigningCertPEM` apply to SAML configurations only
+    /// (`400` otherwise).
+    ///
     /// - Parameter id: The `{id}` path parameter.
     /// - Parameter body: The request body.
     public func updateConfig(
@@ -4302,7 +4311,9 @@ public struct ScimTargetsApi: Sendable {
     /// same write is refused `400` and changes nothing. The SDK holds no credential to re-send.
     /// Every other member left out takes its default (`ScimTargetInput(copying:)` carries them
     /// over). An update overtaken by another administrator's write is `409` (§31.3 rule 4):
-    /// reload, then retry yourself.
+    /// reload, then retry yourself. With `expectedUpdatedAt` set to the `updatedAt` you read --
+    /// `ScimTargetInput(copying:)` sets it -- a write made since your read is `409` too
+    /// (contract 1.60); `create` ignores it.
     ///
     /// - Parameter id: The `{id}` path parameter.
     /// - Parameter body: The request body.

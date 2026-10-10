@@ -80,7 +80,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureCreateFederationConfigRequest: CreateFederationConfigRequest = decodeFixture(
         CreateFederationConfigRequest.self,
-        "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}",
+        "{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_metadata_signing_cert_pem\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}",
         "CreateFederationConfigRequest")
 
     static let fixtureCreateGroupRequest: CreateGroupRequest = decodeFixture(
@@ -95,7 +95,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureCreateNotificationRuleRequest: CreateNotificationRuleRequest = decodeFixture(
         CreateNotificationRuleRequest.self,
-        "{\"description\": \"example\", \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"]}",
+        "{\"description\": \"example\", \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"], \"window_minutes\": 1}",
         "CreateNotificationRuleRequest")
 
     static let fixtureCreateOAuth2ClientRequest: CreateOAuth2ClientRequest = decodeFixture(
@@ -220,7 +220,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureScimTargetInput: ScimTargetInput = decodeFixture(
         ScimTargetInput.self,
-        "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"credential\": \"example\", \"deprovision\": \"deactivate\", \"enabled\": true, \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"user_name_from\": \"username\"}",
+        "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"credential\": \"example\", \"deprovision\": \"deactivate\", \"enabled\": true, \"expected_updated_at\": \"2026-08-26T00:00:00Z\", \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"user_name_from\": \"username\"}",
         "ScimTargetInput")
 
     static let fixtureSetDirectoryConfig: SetDirectoryConfig = decodeFixture(
@@ -275,7 +275,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureUpdateFederationConfigRequest: UpdateFederationConfigRequest = decodeFixture(
         UpdateFederationConfigRequest.self,
-        "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}",
+        "{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_metadata_signing_cert_pem\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}",
         "UpdateFederationConfigRequest")
 
     static let fixtureUpdateGroup: UpdateGroup = decodeFixture(
@@ -285,7 +285,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureUpdateNotificationRuleRequest: UpdateNotificationRuleRequest = decodeFixture(
         UpdateNotificationRuleRequest.self,
-        "{\"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"]}",
+        "{\"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"], \"window_minutes\": 1}",
         "UpdateNotificationRuleRequest")
 
     static let fixtureUpdateOAuth2ClientRequest: UpdateOAuth2ClientRequest = decodeFixture(
@@ -1430,7 +1430,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testFederationListConfigsReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"items\": [{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+            [(status: 200, body: "{\"items\": [{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"idp_metadata_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
         _ = try await client.federation.listConfigs()
 
         XCTAssertEqual(transport.count, 1)
@@ -1440,7 +1440,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testFederationCreateConfigReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}")])
+            [(status: 200, body: "{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"idp_metadata_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}")])
         _ = try await client.federation.createConfig(body: Self.fixtureCreateFederationConfigRequest)
 
         XCTAssertEqual(transport.count, 1)
@@ -1450,7 +1450,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testFederationGetConfigReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}")])
+            [(status: 200, body: "{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"idp_metadata_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}")])
         _ = try await client.federation.getConfig(id: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -1460,7 +1460,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testFederationUpdateConfigReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}")])
+            [(status: 200, body: "{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"idp_metadata_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}")])
         _ = try await client.federation.updateConfig(id: "11111111-1111-4111-8111-111111111111", body: Self.fixtureUpdateFederationConfigRequest)
 
         XCTAssertEqual(transport.count, 1)
@@ -1520,7 +1520,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testNotificationRulesListReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+            [(status: 200, body: "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"window_minutes\": 1}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
         _ = try await client.notificationRules.list()
 
         XCTAssertEqual(transport.count, 1)
@@ -1530,7 +1530,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testNotificationRulesCreateReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"window_minutes\": 1}")])
         _ = try await client.notificationRules.create(body: Self.fixtureCreateNotificationRuleRequest)
 
         XCTAssertEqual(transport.count, 1)
@@ -1540,7 +1540,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testNotificationRulesGetReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"window_minutes\": 1}")])
         _ = try await client.notificationRules.get(id: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -1550,7 +1550,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testNotificationRulesUpdateReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}")])
+            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"window_minutes\": 1}")])
         _ = try await client.notificationRules.update(id: "11111111-1111-4111-8111-111111111111", body: Self.fixtureUpdateNotificationRuleRequest)
 
         XCTAssertEqual(transport.count, 1)
@@ -2717,7 +2717,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCreateFederationConfigRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}"
+        let json = "{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_metadata_signing_cert_pem\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -2795,7 +2795,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCreateNotificationRuleRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"description\": \"example\", \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"]}"
+        let json = "{\"description\": \"example\", \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"], \"window_minutes\": 1}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -3445,7 +3445,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testFederationConfigResponseRoundTripsWithoutLosingAField() throws {
-        let json = "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}"
+        let json = "{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"idp_metadata_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -4017,7 +4017,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testNotificationRuleResponseRoundTripsWithoutLosingAField() throws {
-        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"window_minutes\": 1}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -5057,7 +5057,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testScimTargetInputRoundTripsWithoutLosingAField() throws {
-        let json = "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"credential\": \"example\", \"deprovision\": \"deactivate\", \"enabled\": true, \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"user_name_from\": \"username\"}"
+        let json = "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"credential\": \"example\", \"deprovision\": \"deactivate\", \"enabled\": true, \"expected_updated_at\": \"2026-08-26T00:00:00Z\", \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"user_name_from\": \"username\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -5733,7 +5733,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testUpdateFederationConfigRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}"
+        let json = "{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_metadata_signing_cert_pem\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -5785,7 +5785,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testUpdateNotificationRuleRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"]}"
+        let json = "{\"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"], \"window_minutes\": 1}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -6668,7 +6668,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCreateFederationConfigRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}"
+        let json = "{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_metadata_signing_cert_pem\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}"
         let decoded = try JSONDecoder().decode(CreateFederationConfigRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -6676,6 +6676,7 @@ final class ManagementGeneratedTests: XCTestCase {
         // decode-only test cannot see -- the JSON round trip above would pass, because it never
         // constructs one by hand.
         let rebuilt = CreateFederationConfigRequest(
+            allowSha1Signatures: decoded.allowSha1Signatures,
             allowTenantInheritance: decoded.allowTenantInheritance,
             allowedAlgorithms: decoded.allowedAlgorithms,
             allowedIssuerTenants: decoded.allowedIssuerTenants,
@@ -6686,6 +6687,7 @@ final class ManagementGeneratedTests: XCTestCase {
             buttonIcon: decoded.buttonIcon,
             clientID: decoded.clientID,
             clientSecret: decoded.clientSecret,
+            idpMetadataSigningCertPEM: decoded.idpMetadataSigningCertPEM,
             idpSigningCertPEM: decoded.idpSigningCertPEM,
             metadataURL: decoded.metadataURL,
             `protocol`: decoded.`protocol`,
@@ -6753,7 +6755,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCreateNotificationRuleRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"description\": \"example\", \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"]}"
+        let json = "{\"description\": \"example\", \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"], \"window_minutes\": 1}"
         let decoded = try JSONDecoder().decode(CreateNotificationRuleRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -6764,7 +6766,8 @@ final class ManagementGeneratedTests: XCTestCase {
             description: decoded.description,
             events: decoded.events,
             name: decoded.name,
-            recipientEmails: decoded.recipientEmails)
+            recipientEmails: decoded.recipientEmails,
+            windowMinutes: decoded.windowMinutes)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -7365,7 +7368,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testFederationConfigResponseMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}"
+        let json = "{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"idp_metadata_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}"
         let decoded = try JSONDecoder().decode(FederationConfigResponse.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7373,6 +7376,7 @@ final class ManagementGeneratedTests: XCTestCase {
         // decode-only test cannot see -- the JSON round trip above would pass, because it never
         // constructs one by hand.
         let rebuilt = FederationConfigResponse(
+            allowSha1Signatures: decoded.allowSha1Signatures,
             allowTenantInheritance: decoded.allowTenantInheritance,
             allowedAlgorithms: decoded.allowedAlgorithms,
             allowedIssuerTenants: decoded.allowedIssuerTenants,
@@ -7387,6 +7391,7 @@ final class ManagementGeneratedTests: XCTestCase {
             enabled: decoded.enabled,
             hasBundledMark: decoded.hasBundledMark,
             id: decoded.id,
+            idpMetadataSigningCertPEM: decoded.idpMetadataSigningCertPEM,
             metadataURL: decoded.metadataURL,
             mintsClientSecret: decoded.mintsClientSecret,
             pkceRequired: decoded.pkceRequired,
@@ -7914,7 +7919,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testNotificationRuleResponseMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}"
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"window_minutes\": 1}"
         let decoded = try JSONDecoder().decode(NotificationRuleResponse.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7930,7 +7935,8 @@ final class ManagementGeneratedTests: XCTestCase {
             name: decoded.name,
             recipientEmails: decoded.recipientEmails,
             tenantID: decoded.tenantID,
-            updatedAt: decoded.updatedAt)
+            updatedAt: decoded.updatedAt,
+            windowMinutes: decoded.windowMinutes)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -8935,7 +8941,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testScimTargetInputMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"credential\": \"example\", \"deprovision\": \"deactivate\", \"enabled\": true, \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"user_name_from\": \"username\"}"
+        let json = "{\"auth\": {\"type\": \"bearer\"}, \"base_url\": \"example\", \"credential\": \"example\", \"deprovision\": \"deactivate\", \"enabled\": true, \"expected_updated_at\": \"2026-08-26T00:00:00Z\", \"name\": \"example\", \"push_groups\": true, \"scope\": {\"type\": \"all_users\"}, \"user_name_from\": \"username\"}"
         let decoded = try JSONDecoder().decode(ScimTargetInput.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -8948,6 +8954,7 @@ final class ManagementGeneratedTests: XCTestCase {
             credential: decoded.credential,
             deprovision: decoded.deprovision,
             enabled: decoded.enabled,
+            expectedUpdatedAt: decoded.expectedUpdatedAt,
             name: decoded.name,
             pushGroups: decoded.pushGroups,
             scope: decoded.scope,
@@ -9703,7 +9710,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testUpdateFederationConfigRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}"
+        let json = "{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_metadata_signing_cert_pem\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}"
         let decoded = try JSONDecoder().decode(UpdateFederationConfigRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -9711,6 +9718,7 @@ final class ManagementGeneratedTests: XCTestCase {
         // decode-only test cannot see -- the JSON round trip above would pass, because it never
         // constructs one by hand.
         let rebuilt = UpdateFederationConfigRequest(
+            allowSha1Signatures: decoded.allowSha1Signatures,
             allowTenantInheritance: decoded.allowTenantInheritance,
             allowedAlgorithms: decoded.allowedAlgorithms,
             allowedIssuerTenants: decoded.allowedIssuerTenants,
@@ -9722,6 +9730,7 @@ final class ManagementGeneratedTests: XCTestCase {
             clientID: decoded.clientID,
             clientSecret: decoded.clientSecret,
             enabled: decoded.enabled,
+            idpMetadataSigningCertPEM: decoded.idpMetadataSigningCertPEM,
             idpSigningCertPEM: decoded.idpSigningCertPEM,
             metadataURL: decoded.metadataURL,
             provider: decoded.provider,
@@ -9764,7 +9773,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testUpdateNotificationRuleRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"]}"
+        let json = "{\"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"], \"window_minutes\": 1}"
         let decoded = try JSONDecoder().decode(UpdateNotificationRuleRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -9776,7 +9785,8 @@ final class ManagementGeneratedTests: XCTestCase {
             enabled: decoded.enabled,
             events: decoded.events,
             name: decoded.name,
-            recipientEmails: decoded.recipientEmails)
+            recipientEmails: decoded.recipientEmails,
+            windowMinutes: decoded.windowMinutes)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -10212,6 +10222,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(ActorType.unknown, ActorType.serviceAccount)
         XCTAssertNotEqual(ActorType.unknown, ActorType.system)
         XCTAssertEqual(ActorType.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([ActorType.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([ActorType.user])
@@ -10243,6 +10263,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(AttestationMode.unknown, AttestationMode.indirect)
         XCTAssertNotEqual(AttestationMode.unknown, AttestationMode.directRequired)
         XCTAssertEqual(AttestationMode.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([AttestationMode.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([AttestationMode.none])
@@ -10286,6 +10316,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(AttributeSource.unknown, AttributeSource.groups)
         XCTAssertNotEqual(AttributeSource.unknown, AttributeSource.roles)
         XCTAssertEqual(AttributeSource.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([AttributeSource.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([AttributeSource.username])
@@ -10317,6 +10357,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(AuditOutcome.unknown, AuditOutcome.failure)
         XCTAssertNotEqual(AuditOutcome.unknown, AuditOutcome.denied)
         XCTAssertEqual(AuditOutcome.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([AuditOutcome.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([AuditOutcome.success])
@@ -10345,6 +10395,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(AuthnRequestParamsMode.unknown, AuthnRequestParamsMode.ignore)
         XCTAssertNotEqual(AuthnRequestParamsMode.unknown, AuthnRequestParamsMode.honour)
         XCTAssertEqual(AuthnRequestParamsMode.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([AuthnRequestParamsMode.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([AuthnRequestParamsMode.ignore])
@@ -10376,6 +10436,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(CertificateStatus.unknown, CertificateStatus.revoked)
         XCTAssertNotEqual(CertificateStatus.unknown, CertificateStatus.expired)
         XCTAssertEqual(CertificateStatus.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([CertificateStatus.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([CertificateStatus.active])
@@ -10410,6 +10480,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(CertificateType.unknown, CertificateType.device)
         XCTAssertNotEqual(CertificateType.unknown, CertificateType.server)
         XCTAssertEqual(CertificateType.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([CertificateType.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([CertificateType.user])
@@ -10450,6 +10530,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(CertificationLevel.unknown, CertificationLevel.l3)
         XCTAssertNotEqual(CertificationLevel.unknown, CertificationLevel.l3Plus)
         XCTAssertEqual(CertificationLevel.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([CertificationLevel.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([CertificationLevel.l1])
@@ -10478,6 +10568,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(CibaDeliveryMode.unknown, CibaDeliveryMode.poll)
         XCTAssertNotEqual(CibaDeliveryMode.unknown, CibaDeliveryMode.ping)
         XCTAssertEqual(CibaDeliveryMode.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([CibaDeliveryMode.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([CibaDeliveryMode.poll])
@@ -10509,6 +10609,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(CibaRequestSigningAlg.unknown, CibaRequestSigningAlg.es256)
         XCTAssertNotEqual(CibaRequestSigningAlg.unknown, CibaRequestSigningAlg.edDSA)
         XCTAssertEqual(CibaRequestSigningAlg.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([CibaRequestSigningAlg.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([CibaRequestSigningAlg.ps256])
@@ -10549,6 +10659,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(ClientAuthMethod.unknown, ClientAuthMethod.privateKeyJWT)
         XCTAssertNotEqual(ClientAuthMethod.unknown, ClientAuthMethod.none)
         XCTAssertEqual(ClientAuthMethod.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([ClientAuthMethod.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([ClientAuthMethod.clientSecretPost])
@@ -10577,6 +10697,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(ClientProfile.unknown, ClientProfile.standard)
         XCTAssertNotEqual(ClientProfile.unknown, ClientProfile.fapi2)
         XCTAssertEqual(ClientProfile.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([ClientProfile.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([ClientProfile.standard])
@@ -10605,6 +10735,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(DeprovisionPolicy.unknown, DeprovisionPolicy.deactivate)
         XCTAssertNotEqual(DeprovisionPolicy.unknown, DeprovisionPolicy.delete)
         XCTAssertEqual(DeprovisionPolicy.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([DeprovisionPolicy.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([DeprovisionPolicy.deactivate])
@@ -10633,6 +10773,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(DirectoryKind.unknown, DirectoryKind.openLdap)
         XCTAssertNotEqual(DirectoryKind.unknown, DirectoryKind.activeDirectory)
         XCTAssertEqual(DirectoryKind.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([DirectoryKind.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([DirectoryKind.openLdap])
@@ -10661,6 +10811,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(FailurePolicy.unknown, FailurePolicy.failClosed)
         XCTAssertNotEqual(FailurePolicy.unknown, FailurePolicy.failOpen)
         XCTAssertEqual(FailurePolicy.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([FailurePolicy.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([FailurePolicy.failClosed])
@@ -10689,6 +10849,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(KeyAlgorithm.unknown, KeyAlgorithm.rsa4096)
         XCTAssertNotEqual(KeyAlgorithm.unknown, KeyAlgorithm.ed25519)
         XCTAssertEqual(KeyAlgorithm.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([KeyAlgorithm.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([KeyAlgorithm.rsa4096])
@@ -10720,6 +10890,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(ManagedBy.unknown, ManagedBy.dcr)
         XCTAssertNotEqual(ManagedBy.unknown, ManagedBy.cimd)
         XCTAssertEqual(ManagedBy.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([ManagedBy.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([ManagedBy.admin])
@@ -10751,6 +10931,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(MfaMethodType.unknown, MfaMethodType.passkey)
         XCTAssertNotEqual(MfaMethodType.unknown, MfaMethodType.securityKey)
         XCTAssertEqual(MfaMethodType.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([MfaMethodType.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([MfaMethodType.totp])
@@ -10779,6 +10969,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(NameIdFormat.unknown, NameIdFormat.persistent)
         XCTAssertNotEqual(NameIdFormat.unknown, NameIdFormat.emailAddress)
         XCTAssertEqual(NameIdFormat.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([NameIdFormat.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([NameIdFormat.persistent])
@@ -10855,6 +11055,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.serviceAccountDeleted)
         XCTAssertNotEqual(NotificationEventType.unknown, NotificationEventType.scimDeliveryFailed)
         XCTAssertEqual(NotificationEventType.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([NotificationEventType.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([NotificationEventType.loginFailure])
@@ -10883,6 +11093,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(PermissionEffect.unknown, PermissionEffect.allow)
         XCTAssertNotEqual(PermissionEffect.unknown, PermissionEffect.deny)
         XCTAssertEqual(PermissionEffect.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([PermissionEffect.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([PermissionEffect.allow])
@@ -10911,6 +11131,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(PgpKeyAlgorithm.unknown, PgpKeyAlgorithm.rsa4096)
         XCTAssertNotEqual(PgpKeyAlgorithm.unknown, PgpKeyAlgorithm.ed25519)
         XCTAssertEqual(PgpKeyAlgorithm.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([PgpKeyAlgorithm.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([PgpKeyAlgorithm.rsa4096])
@@ -10939,6 +11169,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(PgpKeyPurpose.unknown, PgpKeyPurpose.auditSigning)
         XCTAssertNotEqual(PgpKeyPurpose.unknown, PgpKeyPurpose.export)
         XCTAssertEqual(PgpKeyPurpose.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([PgpKeyPurpose.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([PgpKeyPurpose.auditSigning])
@@ -10967,6 +11207,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(PgpKeyStatus.unknown, PgpKeyStatus.active)
         XCTAssertNotEqual(PgpKeyStatus.unknown, PgpKeyStatus.revoked)
         XCTAssertEqual(PgpKeyStatus.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([PgpKeyStatus.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([PgpKeyStatus.active])
@@ -10995,6 +11245,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(ReactorMode.unknown, ReactorMode.intercept)
         XCTAssertNotEqual(ReactorMode.unknown, ReactorMode.listen)
         XCTAssertEqual(ReactorMode.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([ReactorMode.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([ReactorMode.intercept])
@@ -11023,6 +11283,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SamlBinding.unknown, SamlBinding.httpPost)
         XCTAssertNotEqual(SamlBinding.unknown, SamlBinding.httpRedirect)
         XCTAssertEqual(SamlBinding.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([SamlBinding.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([SamlBinding.httpPost])
@@ -11054,6 +11324,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SamlIdpCredentialStatus.unknown, SamlIdpCredentialStatus.next)
         XCTAssertNotEqual(SamlIdpCredentialStatus.unknown, SamlIdpCredentialStatus.retired)
         XCTAssertEqual(SamlIdpCredentialStatus.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([SamlIdpCredentialStatus.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([SamlIdpCredentialStatus.active])
@@ -11082,6 +11362,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SamlIdpSlot.unknown, SamlIdpSlot.active)
         XCTAssertNotEqual(SamlIdpSlot.unknown, SamlIdpSlot.next)
         XCTAssertEqual(SamlIdpSlot.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([SamlIdpSlot.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([SamlIdpSlot.active])
@@ -11113,6 +11403,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(ScimTokenStatus.unknown, ScimTokenStatus.expired)
         XCTAssertNotEqual(ScimTokenStatus.unknown, ScimTokenStatus.revoked)
         XCTAssertEqual(ScimTokenStatus.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([ScimTokenStatus.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([ScimTokenStatus.active])
@@ -11141,6 +11441,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SettingsScope.unknown, SettingsScope.org)
         XCTAssertNotEqual(SettingsScope.unknown, SettingsScope.tenant)
         XCTAssertEqual(SettingsScope.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([SettingsScope.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([SettingsScope.org])
@@ -11169,6 +11479,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SsfDeliveryMethod.unknown, SsfDeliveryMethod.push)
         XCTAssertNotEqual(SsfDeliveryMethod.unknown, SsfDeliveryMethod.poll)
         XCTAssertEqual(SsfDeliveryMethod.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([SsfDeliveryMethod.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([SsfDeliveryMethod.push])
@@ -11196,16 +11516,17 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(SsfEventType(rawValue: "https://schemas.openid.net/secevent/risc/event-type/account-purged"), SsfEventType.accountPurged)
         XCTAssertTrue(SsfEventType.accountPurged.isKnown)
 
-        // OPEN_STRING_ENUMS: an unrecognised value decodes AS ITSELF and is not known; it is
-        // never sent (§32.2, §34.2 P12.2).
+        // OPEN_STRING_ENUMS: an unrecognised value decodes AS ITSELF and is not known, and it
+        // is SENT as itself (contract 1.60 B4, §34.2 P12.2 (b)).
         let stranger = try JSONDecoder().decode(
             [SsfEventType].self,
             from: Data("[\"__not_a_ssf_event_type__\"]".utf8))
         XCTAssertEqual(stranger.map(\.rawValue), ["__not_a_ssf_event_type__"])
         XCTAssertFalse(stranger[0].isKnown)
-        XCTAssertThrowsError(try JSONEncoder().encode(stranger))
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
+        let unchanged = try encoder.encode(stranger)
+        XCTAssertEqual(String(decoding: unchanged, as: UTF8.self), "[\"__not_a_ssf_event_type__\"]")
         let encoded = try encoder.encode([SsfEventType.sessionRevoked])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"]")
     }
@@ -11232,6 +11553,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SsfStatusActor.unknown, SsfStatusActor.admin)
         XCTAssertNotEqual(SsfStatusActor.unknown, SsfStatusActor.receiver)
         XCTAssertEqual(SsfStatusActor.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([SsfStatusActor.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([SsfStatusActor.admin])
@@ -11263,6 +11594,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SsfStreamStatus.unknown, SsfStreamStatus.paused)
         XCTAssertNotEqual(SsfStreamStatus.unknown, SsfStreamStatus.disabled)
         XCTAssertEqual(SsfStreamStatus.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([SsfStreamStatus.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([SsfStreamStatus.enabled])
@@ -11291,6 +11632,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(SsfSubjectFormat.unknown, SsfSubjectFormat.issSub)
         XCTAssertNotEqual(SsfSubjectFormat.unknown, SsfSubjectFormat.email)
         XCTAssertEqual(SsfSubjectFormat.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([SsfSubjectFormat.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([SsfSubjectFormat.issSub])
@@ -11319,6 +11670,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(TenantKind.unknown, TenantKind.standard)
         XCTAssertNotEqual(TenantKind.unknown, TenantKind.organization)
         XCTAssertEqual(TenantKind.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([TenantKind.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([TenantKind.standard])
@@ -11347,6 +11708,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(TenantStatus.unknown, TenantStatus.active)
         XCTAssertNotEqual(TenantStatus.unknown, TenantStatus.suspended)
         XCTAssertEqual(TenantStatus.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([TenantStatus.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([TenantStatus.active])
@@ -11375,6 +11746,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(UnknownAaguidAction.unknown, UnknownAaguidAction.allow)
         XCTAssertNotEqual(UnknownAaguidAction.unknown, UnknownAaguidAction.deny)
         XCTAssertEqual(UnknownAaguidAction.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([UnknownAaguidAction.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([UnknownAaguidAction.allow])
@@ -11403,6 +11784,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(UserNameSource.unknown, UserNameSource.username)
         XCTAssertNotEqual(UserNameSource.unknown, UserNameSource.email)
         XCTAssertEqual(UserNameSource.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([UserNameSource.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([UserNameSource.username])
@@ -11443,6 +11834,16 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertNotEqual(UserStatus.unknown, UserStatus.anonymized)
         XCTAssertNotEqual(UserStatus.unknown, UserStatus.deleted)
         XCTAssertEqual(UserStatus.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([UserStatus.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([UserStatus.active])

@@ -164,6 +164,10 @@ extension ScimTargetInput {
     /// `credential` is left `nil` — absent keeps the stored one, unless the write moves its URL
     /// or changes `auth.type` (§31.3 rule 2). No response carries the credential, and this SDK
     /// holds none.
+    ///
+    /// `expectedUpdatedAt` is the read's `updatedAt` (contract 1.60, §31.3 rule 4): if another
+    /// administrator writes the target in between, the update is `409` and changes nothing —
+    /// reload, then retry. Set it to `nil` to replace whatever is stored.
     public init(copying target: ScimTargetResponse) {
         self.init(
             auth: target.auth,
@@ -171,6 +175,7 @@ extension ScimTargetInput {
             credential: nil,
             deprovision: target.deprovision,
             enabled: target.enabled,
+            expectedUpdatedAt: target.updatedAt,
             name: target.name,
             pushGroups: target.pushGroups,
             scope: target.scope,

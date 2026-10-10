@@ -89,6 +89,7 @@ final class EventRecorder: @unchecked Sendable {
             case .retry: return "retry"
             case .refresh: return "refresh"
             case .configClamped: return "clamped"
+            case .ssfUnjudged: return "ssf_unjudged"
             }
         }
     }

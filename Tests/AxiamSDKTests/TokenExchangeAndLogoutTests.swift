@@ -285,6 +285,41 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
         }
     }
 
+    /// §15.2 rule 9, §15.6 (contract 1.60): an `actor_token` the server answers with
+    /// `400 invalid_request` (`actor_token was not issued to the exchanging client`) surfaces
+    /// that error unchanged, with exactly one request and no rewriting — not retried, not
+    /// turned into an impersonation by dropping the actor token, and not repaired by
+    /// substituting a token of this SDK's own.
+    func testAnActorTokenNotIssuedToTheExchangingClientSurfacesUnchanged() async throws {
+        let description = "actor_token was not issued to the exchanging client"
+        let router = makeRouter(tokenStatus: 400, tokenBody: [
+            "error": "invalid_request",
+            "error_description": description,
+        ])
+        try await withServiceClient(router: router) { client, server in
+            do {
+                _ = try await client.tokenExchange(
+                    subjectToken: Sensitive("the-users-token"),
+                    subjectTokenType: AxiamClient.accessTokenType,
+                    actorToken: Sensitive("another-clients-token"))
+                XCTFail("expected invalid_request to surface")
+            } catch let error as AxiamError {
+                guard case let .auth(authError) = error else { return XCTFail("expected an AuthError") }
+                XCTAssertEqual(authError.oauthError, "invalid_request")
+                XCTAssertEqual(authError.oauthErrorDescription, description,
+                               "the server's description is surfaced as sent")
+            }
+
+            XCTAssertEqual(server.state.count("token"), 1, "exactly one request")
+            let requestBody = String(decoding:
+                try XCTUnwrap(server.state.requests(pathContaining: "/oauth2/token").last).body,
+                as: UTF8.self)
+            XCTAssertTrue(requestBody.contains("actor_token=another-clients-token"),
+                          "the request must be sent as written, actor token included")
+            XCTAssertFalse(requestBody.contains("actor_token=the-users-token"))
+        }
+    }
+
     func testARefusedSubjectTokenTypeIsNeverRetriedAsAnother() async throws {
         // A refresh token is a re-authentication credential and an ID token is an assertion to
         // a client about a login; neither is a bearer credential for an API, so both are

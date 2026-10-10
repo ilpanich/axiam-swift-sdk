@@ -174,6 +174,7 @@ final class ScimTargetsManagementTests: XCTestCase {
         let replaced = try XCTUnwrap(sent[1].jsonBody)
         XCTAssertNil(kept["credential"], "no credential key")
         XCTAssertEqual(replaced["credential"] as? String, credential)
+        XCTAssertNil(kept["expected_updated_at"], "unset, so absent from the body (contract 1.60)")
         // `name`, `baseURL`, `auth` and `scope` are non-optional initializer parameters: an
         // input without them does not compile.
 
@@ -198,6 +199,39 @@ final class ScimTargetsManagementTests: XCTestCase {
         XCTAssertEqual(Set(groups.keys), ["type", "group_ids"])
         XCTAssertEqual(groups["type"] as? String, "groups")
         XCTAssertEqual(groups["group_ids"] as? [String], [group])
+    }
+
+    /// §31.8 test 3's contract 1.60 assertion (§31.3 rule 4): `expected_updated_at`, when the
+    /// caller sets it, is sent on `update` exactly as given — the string, not re-formatted — and
+    /// the `409` of a write overtaken since that read surfaces as a `ConflictError`, sent once.
+    func testExpectedUpdatedAtIsSentAsGivenAndAnOvertakenWriteIsAConflict() async throws {
+        let id = UUID().uuidString.lowercased()
+        // Fractional seconds and an offset: a re-formatting encoder would not keep this spelling.
+        let readAt = "2026-10-05T02:00:00.123456+02:00"
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.json(Self.targetObject())),
+            (status: 409, body: #"{"error": "conflict", "message": "the SCIM target changed since it was read"}"#),
+        ])
+        var body = Self.input(credential: nil)
+        body.expectedUpdatedAt = readAt
+
+        _ = try await client.scimTargets.update(id: id, body: body)
+        let sent = try XCTUnwrap(transport.last?.jsonBody)
+        XCTAssertEqual(sent["expected_updated_at"] as? String, readAt, "passed through unchanged")
+
+        do {
+            _ = try await client.scimTargets.update(id: id, body: body)
+            XCTFail("expected a 409")
+        } catch AxiamError.authz(let error) {
+            XCTAssertEqual(error.managementFailure, .conflict)
+        }
+        XCTAssertEqual(transport.count, 2, "a 409 is not retried")
+
+        // The read-modify-write form sends the `updated_at` it read (§31.3 rule 4's SHOULD).
+        let target = try JSONDecoder().decode(
+            ScimTargetResponse.self,
+            from: Data(Self.json(Self.targetObject(["updated_at": readAt])).utf8))
+        XCTAssertEqual(ScimTargetInput(copying: target).expectedUpdatedAt, readAt)
     }
 
     // MARK: - 4. Open decoding and pagination
@@ -259,6 +293,29 @@ final class ScimTargetsManagementTests: XCTestCase {
         }
         XCTAssertEqual(transport.count, 4, "nothing was sent")
         XCTAssertThrowsError(try JSONEncoder().encode(all[0].auth))
+    }
+
+    /// Contract 1.60 A4 (R-22, §34.2 P12.2): `.unknown` is never sent. A read-modify-write of a
+    /// target carrying a `deprovision` or `user_name_from` this SDK does not know raises the
+    /// validation failure before any request — and never sends `""`.
+    func testATargetCarryingAnUnknownEnumValueIsRefusedBeforeAnyRequest() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.json(Self.targetObject())),
+        ])
+        let before = transport.count
+        for (member, value) in [("deprovision", "archive"), ("user_name_from", "employee_number")] {
+            let target = try JSONDecoder().decode(
+                ScimTargetResponse.self,
+                from: Data(Self.json(Self.targetObject([member: value])).utf8))
+            do {
+                _ = try await client.scimTargets.update(
+                    id: target.id, body: ScimTargetInput(copying: target))
+                XCTFail("\(member): an unknown value must not be sent")
+            } catch AxiamError.network(let error) {
+                XCTAssertTrue(error.isValidation, "\(member): refused locally, as a validation failure")
+            }
+            XCTAssertEqual(transport.count, before, "\(member): nothing was sent")
+        }
     }
 
     // MARK: - 5. No retry

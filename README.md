@@ -12,7 +12,7 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to contract 1.59 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
+> **This SDK conforms to contract 1.60 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
 > §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and
 > §33, with §32.7 and §33.2 signed (including §6.1 mTLS —
 > now including rules 6–10, the mTLS device login `authenticateDevice()` — §5.2 rule 1's
@@ -62,6 +62,25 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 > paginated list has an auto-paging `…All(page:)` form (§27.4 rule 4); §21.3.1 vector A is
 > read from this `CONTRACT.md` by the suite.
 >
+> **Contract 1.60 (§34.4, the 1.0.0 release).** The sections are unchanged; the port closes
+> every row §34.4 assigns to Swift. The generated `encode(to:)` of every open enum refuses
+> `.unknown` before any request (A4), and SSF event types are sent as the strings held (B4).
+> The §27 surface carries the release's additive members: `windowMinutes` on the notification
+> rules (§27.15 note 1, passed through and never clamped), `allowSha1Signatures` and
+> `idpMetadataSigningCertPEM` on the federation configuration (notes 6 and 7 — an older
+> server's response without `allow_sha1_signatures` reads `false`), the ten nullable members
+> of `UpdateFederationConfigRequest` typed `String??` so that `.some(nil)` clears and `nil`
+> leaves the value (note 8), and `expectedUpdatedAt` on `ScimTargetInput` (§31.3 rule 4),
+> which `ScimTargetInput(copying:)` fills from the read. `SsfReceiver`'s key cache expires
+> after five minutes and counts a failed fetch toward the once-a-minute limit (§34.2 P6), and
+> a `poll` that leaves SETs unjudged emits the §19.1 `ssfUnjudged` event. `oidcRefresh` takes
+> the `scope` of the refresh response, which a narrowed registration can shrink (§12.1), and
+> the discovery model decodes the four revocation and introspection members as optional
+> (§21.5).
+>
+> From 1.0.0 this SDK is stable and follows [Semantic Versioning](https://semver.org): a
+> breaking change to the public API needs a new major version.
+>
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
 > claim. **§16 and §18 are absent by that same rule, not by omission** — the
@@ -100,7 +119,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §27 management API | ✅ implemented — 190 operations across 28 namespaces, generated from the vendored `management-registry.json` (every paginated list with its auto-paging `…All(page:)` form, contract 1.59), plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL. §27.6.1's three additions (contract 1.51) — `resources[].metadata`, resource-scoped role bindings with `inherit`, and `service_accounts` (with role bindings) — are implemented at the **flat-entity tier**: no `users`, no `scopes` (§27.10, unchanged tier gap) |
 | §28.12 RFC 7592 client configuration | ✅ implemented (contract 1.53) — `readClientRegistration` / `updateClientRegistration` / `deleteClientRegistration`, origin-pinned, bearer-only, no SDK session, writes never retried |
 | §29 `saml`, §30 `directory`, §31 `scim_targets`, §32 `ssf` | ✅ implemented (contracts 1.54–1.57) — generated namespaces plus explicit-null members, call-site notes, `ParseSamlSpMetadata.fromURL`/`.fromXML` and the `init(copying:)` read-modify-write helpers |
-| §32.7 SSF receiver helper | ✅ implemented (contract 1.56, MAY for Swift) — `SsfReceiver.verifySet` / `poll`; at contract 1.59 `poll` returns what it judged and lists the rest in `unjudged` (§34.2 P1) and the replay store fails closed by throwing (P4) |
+| §32.7 SSF receiver helper | ✅ implemented (contract 1.56, MAY for Swift) — `SsfReceiver.verifySet` / `poll`; at contract 1.59 `poll` returns what it judged and lists the rest in `unjudged` (§34.2 P1) and the replay store fails closed by throwing (P4); at contract 1.60 the key cache expires after five minutes, a failed key fetch counts toward the once-a-minute limit (P6), and `poll` emits `ssfUnjudged` (§19.1) |
 | §33 CIBA (poll and ping, signed form) | ✅ implemented (contract 1.58, MAY for Swift) — `cibaInitiate`, `cibaPoll`, `cibaAwait`, `cibaHandlePing`; §33.2 signed with PS256, ES256 or EdDSA (all three round-tripped by the suite). §21.3.1's seventh `mtls_endpoint_aliases` member is decoded and used |
 | §20 UMA 2.0 Protection API + ticket grant | ✅ implemented, and it landed *before* §12 rather than waiting for it: UMA carries its own discovery document (`/.well-known/uma2-configuration`), the Protection API is ordinary bearer-authenticated REST, and the ticket grant returns an opaque RPT with no `id_token` to validate. That §20 could ship alone is part of what showed the §12 deferral was cutting across the wrong seam — see contract §12.6 |
 
@@ -853,8 +872,10 @@ let config = try AxiamConfig(
 > rather than applied in silence.
 
 `TelemetryEvent` is an `enum` with a closed case list and no dictionary payload, which is what
-makes "no event carries a token" checkable by reading one declaration. Events carry the *path
-template* (`/api/v1/authz/check`), never a URL with ids substituted in — a metric label with a
+makes "no event carries a token" checkable by reading one declaration. Contract 1.60 adds one
+case, `ssfUnjudged`, emitted only by the SSF receiver ([below](#ssf-receiver-327)); a `switch`
+over the events wants a `default` arm so that a future case is not a compile error. Events
+carry the *path template* (`/api/v1/authz/check`), never a URL with ids substituted in — a metric label with a
 UUID in it is a cardinality bomb — and a retried call emits one `requestStart`/`requestEnd` pair
 per **attempt**, so a caller can count real wire calls. The hook runs on the calling task and must
 not block; buffering is yours to choose.
@@ -919,6 +940,10 @@ The rules this surface exists to enforce:
 - **`revoke` is idempotent.** A `200` for a token this client never issued is success (RFC 7009);
   a `5xx` is still a `NetworkError`, because returning void does not make a server failure a
   success.
+- **A refresh may narrow the scope** (contract 1.60). The server intersects a grant's scopes
+  with the client's current registration at every refresh, so `oidcRefresh` can answer with a
+  narrower `scope` — and no ID token once `openid` is gone. `OidcTokenSet.scope` is always the
+  response's, never the original grant's.
 - **No `/oauth2/userinfo`.** A relying party's claims come from the validated ID token
   (`OidcTokenSet.idClaims`); §12.3 rule 5 keeps that endpoint out of the vocabulary.
 
@@ -1040,14 +1065,23 @@ RFC 8693 — a backend holding a user's token trades it for a **narrower** one b
 next service.
 
 ```swift
+// The actor token is this SAME client's own client_credentials token (§15.2 rule 9): the
+// server answers any token issued to another client with `invalid_request`.
+let actor = try await client.loginClientCredentials()
+
 let narrowed = try await client.tokenExchange(
     subjectToken: usersToken,
     subjectTokenType: AxiamClient.accessTokenType,  // required (§15.1), no default
-    actorToken: myServiceToken,       // present → delegation; absent → impersonation
+    actorToken: actor.accessToken,    // present → delegation; absent → impersonation
     scopes: ["orders:read"],
     audience: "inventory-service")
 print(narrowed.scope ?? "")           // what you were GRANTED, which may be narrower
 ```
+
+The SDK supplies no default actor token (§15.2 rule 1) and never reuses the client's session as
+one. An `actorToken` issued to another client, a console sign-in or a service account is
+answered `400 invalid_request` (`actor_token was not issued to the exchanging client`), and
+that surfaces unchanged — one request, no retry, never rewritten into an impersonation.
 
 An exchange only ever narrows, and this SDK does not hide the refusals:
 `unauthorized_client` surfaces verbatim (no retry, no rewriting the request into a delegation),
@@ -1966,10 +2000,13 @@ server would not have made is a silently different query the caller cannot see.
 to that enum's `.unknown` case rather than throwing. Throwing would fail the *whole*
 response, so one field of one record would take down the page it was on — including the
 records the caller did ask for. `.unknown` is never confused with a known case, and its raw
-value is the empty string, which no server value is: carrying an unrecognised value back into
-an update is refused by the server rather than written as a spelling it never used. The
-`init(rawValue:)` initializer stays strict, so code that parses a raw string keeps its check
-— only *decoding* is lenient. A `switch` over one of these enums needs an `.unknown` arm:
+value is the empty string, which no server value is, so `.unknown` is **never sent**: the
+generated `encode(to:)` of every one of these enums refuses it locally, before any request, as
+a `ValidationError`-category failure (`NetworkError` with `isValidation`) — a read-modify-write
+of an `SsfStream` or a `ScimTargetResponse` that carries a value this SDK does not know raises
+instead of writing `""` (contract 1.60, §34.2 P12.2). The `init(rawValue:)` initializer stays
+strict, so code that parses a raw string keeps its check — only *decoding* is lenient. A
+`switch` over one of these enums needs an `.unknown` arm:
 
 ```swift
 switch tenant.kind {
@@ -1982,8 +2019,10 @@ case .some(.unknown): …    // a kind this SDK predates
 One exception, by §32.2's own rule: **SSF event types are strings**, not an enum.
 `SsfEventType` is an open string type with the six URIs as named constants
 (`SsfEventType.sessionRevoked`, …): an unseen URI decodes **as itself** (`rawValue` kept,
-`isKnown == false`), so nothing the server sent is lost, and it is refused locally — before any
-request — if you try to send it back (contract 1.59, §34.2 P12.2).
+`isKnown == false`), so nothing the server sent is lost, and it is **sent as the string held**:
+read from the server, it goes back unchanged on `ssf.updateStream`, and the server judges one
+you typed. This SDK keeps no client-side list of URIs to refuse, because such a list goes
+stale (contract 1.60 B4, §34.2 P12.2 (b)).
 
 `Certificate.boundServiceAccountID` is a **projection**, not a property: the server resolves
 it for a whole page in one query, so `certificates.list()` populates it and
@@ -2203,7 +2242,9 @@ input.displayName = "Payroll (EU)"
 _ = try await client.saml.updateServiceProvider(spID: sp.id, body: input)
 
 // §31 scim_targets / §32 ssf — the write-only credential and push header are left absent by
-// init(copying:), which keeps the stored ones (unless the URL moves).
+// init(copying:), which keeps the stored ones (unless the URL moves). init(copying:) also sets
+// expectedUpdatedAt to the read's updatedAt (contract 1.60): if another administrator wrote
+// the target since, the update is a 409 ConflictError and changes nothing — reload, retry.
 let target = try await client.scimTargets.get(id: targetID)
 var targetInput = ScimTargetInput(copying: target)
 targetInput.enabled = false
@@ -2220,6 +2261,22 @@ var streamInput = SsfStreamInput(copying: try await client.ssf.getStream(streamI
 streamInput.statusReason = "maintenance"
 _ = try await client.ssf.updateStream(streamID: streamID, body: streamInput)
 ```
+
+The `federation` configuration's sparse update follows the same rule as `directory`
+(contract 1.60, §27.15 note 8): its ten nullable strings — `metadataURL`, `idpSigningCertPEM`,
+`idpMetadataSigningCertPEM`, `providerSlug`, the three OAuth2 endpoints, `appleTeamID`,
+`appleKeyID` and `buttonIcon` — are `String??`, so `nil` is not sent and leaves the value and
+`.some(nil)` sends `null` and clears it:
+
+```swift
+// Stop pinning the IdP's metadata signing certificate; nothing else changes.
+_ = try await client.federation.updateConfig(
+    id: configID, body: UpdateFederationConfigRequest(idpMetadataSigningCertPEM: .some(nil)))
+```
+
+`allowSha1Signatures` (SAML only; `false` unless set) and `idpMetadataSigningCertPEM` are sent
+only when you set them. `windowMinutes` on a notification rule is sent as given — the SDK does
+not clamp it to the server's 1 to 1440 — and omitted when unset (the server stores 15).
 
 Responses carry no secret (`DirectoryConfig`, `ScimTargetResponse`, `SsfStream` and
 `SamlIdpCredential` declare no member for one, so a decoder meeting one drops it). Every
@@ -2274,6 +2331,18 @@ that cannot answer — stops the batch at that SET: the SETs already accepted ar
 `events`, that SET and every later one are listed in `unjudged`, unrecorded, with the failure
 in `interruption`. When nothing of the batch was accepted, the failure is thrown instead,
 having recorded nothing. For a push endpoint, such a failure is a `5xx`, never `400` (P3).
+
+**The key cache expires, and a failed fetch is rate-limited** (contract 1.60, §34.2 P6). The
+JWKS is fetched on the first SET and used for `SsfReceiver.keyCacheLifetime` (five minutes);
+the next SET after that fetches it again, so a key the transmitter removed stops verifying. An
+unknown `kid` costs one refetch at most once a minute, and so does a **failed** fetch: within
+the minute after one, a SET makes no fetch and gets no verdict (`NetworkError`; in `poll`, it
+is unjudged). A successful fetch of an empty or expired cache is not counted.
+
+A `poll` that returns leaving SETs unjudged emits
+`TelemetryEvent.ssfUnjudged(operation:count:category:)` (§19.1) — the count and whether the key
+fetch or the replay store failed, never a `jti` — so an outage that only ever delays events is
+still visible.
 
 **The replay store fails closed** (§34.2 P4). `SsfReplayStore.checkAndRecord` is `async
 throws`: a shared store that cannot answer must **throw**, never return `true`; `verifySet`

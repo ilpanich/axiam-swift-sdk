@@ -320,8 +320,15 @@ public actor SsfReceiver {
     /// (§32.6). A shorter window would forget a `jti` the transmitter can still re-send.
     public static let minimumReplayWindow: TimeInterval = 7 * 24 * 60 * 60
 
-    /// Forced JWKS refetches (on an unknown `kid`) happen at most once per this many seconds.
+    /// The once-a-minute limit (CONTRACT.md §34.2 P6): an unknown-`kid` refetch, and any
+    /// fetch after a FAILED one, happen at most once per this many seconds. A successful fill
+    /// of an empty or expired cache is not counted.
     public static let forcedRefetchInterval: TimeInterval = 60
+
+    /// How long a successfully fetched key set is used (CONTRACT.md §34.2 P6: no later than 10
+    /// minutes). The next SET after it fetches the JWKS again, so a key the transmitter has
+    /// removed stops verifying.
+    public static let keyCacheLifetime: TimeInterval = 300
 
     private let client: AxiamClient
     private let issuer: String
@@ -334,7 +341,11 @@ public actor SsfReceiver {
 
     private var jwksURL: URL?
     private var keys: [Jwk]?
-    private var lastForcedRefetch: Date?
+    /// When ``keys`` was fetched; it expires ``keyCacheLifetime`` later.
+    private var keysFetchedAt: Date?
+    /// The last fetch the once-a-minute limit counts: every unknown-`kid` refetch, and every
+    /// failed fetch (§34.2 P6).
+    private var lastCountedFetch: Date?
 
     /// Build a receiver over `client`.
     ///
@@ -396,7 +407,19 @@ public actor SsfReceiver {
     ///   a verdict on the SET (CONTRACT.md §34.2 P3), and a push endpoint answers it with a
     ///   `5xx`, never `400`.
     public func verifySet(_ set: String) async throws -> SecurityEvent {
-        try await verify(set, expectedJTI: nil)
+        do {
+            return try await verify(set, expectedJTI: nil)
+        } catch let noVerdict as NoVerdict {
+            throw noVerdict.error
+        }
+    }
+
+    /// A failure that is not a verdict on the SET (§34.2 P1, P3), with the `ssf_unjudged`
+    /// category (§19.1) `poll` reports it under. Internal: ``verifySet(_:)`` throws the
+    /// ``NetworkError`` it carries.
+    private struct NoVerdict: Error {
+        let category: TelemetryEvent.SsfUnjudgedCategory
+        let error: any Error
     }
 
     private func verify(_ set: String, expectedJTI: String?) async throws -> SecurityEvent {
@@ -429,7 +452,15 @@ public actor SsfReceiver {
         guard let kid = header["kid"]?.stringValue, !kid.isEmpty else {
             throw Self.refuse(.invalidKey, "the header names no kid")
         }
-        guard let jwk = try await key(for: kid) else {
+        let found: Jwk?
+        do {
+            found = try await key(for: kid)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw NoVerdict(category: .keyFetch, error: error)
+        }
+        guard let jwk = found else {
             throw Self.refuse(.invalidKey, "no key for the kid in the JWKS")
         }
 
@@ -502,10 +533,10 @@ public actor SsfReceiver {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
-            throw AxiamError.network(NetworkError(
+            throw NoVerdict(category: .replayStore, error: AxiamError.network(NetworkError(
                 "the SSF replay store could not answer, so the SET is not accepted "
                     + "(CONTRACT.md §32.7 step 9)",
-                cause: error))
+                cause: error)))
         }
         guard fresh else {
             throw Self.refuse(.replayed, "the jti was already accepted")
@@ -543,7 +574,8 @@ public actor SsfReceiver {
     /// unrecorded, neither acknowledge nor refuse them, and the transmitter offers them again.
     /// When no SET of the batch was accepted, nothing is recorded and the failure is thrown
     /// instead. A SET refused `replayed` was accepted by this receiver earlier: acknowledge it
-    /// in `ack` rather than reporting it in `setErrs` (§34.2 P2).
+    /// in `ack` rather than reporting it in `setErrs` (§34.2 P2). A `poll` that returns leaving
+    /// SETs unjudged emits ``TelemetryEvent/ssfUnjudged(operation:count:category:)`` (§19.1).
     ///
     /// - Throws: a local ``AuthError`` when no access-token provider is configured.
     public func poll(
@@ -604,10 +636,19 @@ public actor SsfReceiver {
                 } catch {
                     // §34.2 P1: no verdict on this SET. Nothing recorded yet → raise; else
                     // return the accepted ones, and this SET and the rest unrecorded.
-                    guard !events.isEmpty else { throw error }
+                    let noVerdict = error as? NoVerdict
+                    let cause = noVerdict?.error ?? error
+                    guard !events.isEmpty else { throw cause }
+                    let unjudged = Array(keys[index...])
+                    if let noVerdict {
+                        // §19.1 `ssf_unjudged`: the count and the category, never a `jti`.
+                        await client.emitTelemetry(.ssfUnjudged(
+                            operation: "ssf.poll", count: unjudged.count,
+                            category: noVerdict.category))
+                    }
                     return SsfPollResult(
                         events: events, moreAvailable: moreAvailable, refused: refused,
-                        unjudged: Array(keys[index...]), interruption: error)
+                        unjudged: unjudged, interruption: cause)
                 }
             }
         }
@@ -616,22 +657,48 @@ public actor SsfReceiver {
 
     // MARK: - Keys
 
-    /// The JWKS key named `kid`: from the cache, or — on a miss — after ONE forced refetch,
-    /// at most once per ``forcedRefetchInterval``.
+    /// The JWKS key named `kid` (CONTRACT.md §34.2 P6): from the cache, or — on a miss — after
+    /// ONE forced refetch, at most once per ``forcedRefetchInterval``.
+    ///
+    /// The cache expires ``keyCacheLifetime`` after the fetch that filled it. Filling an empty
+    /// or expired cache is not "the refetch" and is not counted when it succeeds; a failed fill
+    /// is, so within the minute after one no fetch is made and the SET gets no verdict — a JWKS
+    /// outage is not one fetch per SET.
     private func key(for kid: String) async throws -> Jwk? {
+        let current = now()
+        if let fetchedAt = keysFetchedAt,
+           current.timeIntervalSince(fetchedAt) >= Self.keyCacheLifetime {
+            keys = nil
+            keysFetchedAt = nil
+        }
         if keys == nil {
-            keys = try await fetchKeys()
+            if let last = lastCountedFetch,
+               current.timeIntervalSince(last) < Self.forcedRefetchInterval {
+                throw AxiamError.network(NetworkError(
+                    "the SSF transmitter's JWKS fetch failed less than a minute ago; no fetch "
+                        + "was made and the SET is not judged (CONTRACT.md §34.2 P6)"))
+            }
+            do {
+                keys = try await fetchKeys()
+                keysFetchedAt = current
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                lastCountedFetch = current
+                throw error
+            }
         }
         if let found = keys?.first(where: { $0.kid == kid }) {
             return found
         }
-        let current = now()
-        if let last = lastForcedRefetch, current.timeIntervalSince(last) < Self.forcedRefetchInterval {
+        if let last = lastCountedFetch, current.timeIntervalSince(last) < Self.forcedRefetchInterval {
             return nil
         }
-        lastForcedRefetch = current
-        keys = try await fetchKeys()
-        return keys?.first(where: { $0.kid == kid })
+        lastCountedFetch = current
+        let refetched = try await fetchKeys()
+        keys = refetched
+        keysFetchedAt = current
+        return refetched.first(where: { $0.kid == kid })
     }
 
     private func fetchKeys() async throws -> [Jwk] {
@@ -726,6 +793,12 @@ public actor SsfReceiver {
 }
 
 extension AxiamClient {
+    /// Delivers a §19 event raised outside the client's own request path — the SSF receiver's
+    /// `ssf_unjudged`.
+    func emitTelemetry(_ event: TelemetryEvent) {
+        telemetry.emit(event)
+    }
+
     /// `{base URL}/ssf/v1/poll/{stream_id}`, the stream id path-escaped as one segment.
     nonisolated func ssfPollURL(streamID: String) throws -> URL {
         var unreserved = CharacterSet.alphanumerics

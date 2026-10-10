@@ -7,88 +7,155 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed — contract 1.59
+AXIAM Swift SDK 1.0.0 is the first stable release: from this version the public API follows
+Semantic Versioning, and a breaking change needs a new major version. The SDK is a REST client
+for Swift 5.9 and later on macOS 13+, iOS 16+ and Linux, built on AsyncHTTPClient and NIOSSL so
+that custom-CA trust and client-certificate mutual TLS work on every platform. It ships no gRPC
+or AMQP transport; §22 reactors run over a transport you supply. It conforms to **contract
+1.60** §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12,
+§29, §30, §31, §32 and §33, with §32.7 and §33.2 signed — including §6.1 mTLS and the mTLS
+device login, the §23 OPAQUE login path, the §27 management API (190 operations across 28
+namespaces, generated from the vendored `management-registry.json`), the §32.7 SSF receiver
+helper and the §33 CIBA helpers — and to the MUST-level §16 (retry) and §18 (shutdown), which
+the contract does not name. §1.1.1 / §10.3 `validate_token` / `introspect_token` are declined:
+both are gRPC-only. `CONTRACT.md`, `openapi.json` and `management-registry.json` are vendored
+from axiam `8df0e11`; `proto/` is unchanged.
 
-Re-vendored `CONTRACT.md` at contract 1.59 (axiam `fe369eb`, §34: the cross-SDK review of the
-1.53 – 1.58 ports). `openapi.json`, `management-registry.json` and `proto/` are unchanged.
-The README states conformance to contract 1.59 with the same sections as before — §1–§7,
-§9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31,
-§32 and §33, with §32.7 and §33.2 signed (PS256, ES256 and EdDSA). This release fixes the rows
-of follow-up F-59-09 (ilpanich/axiam#584):
+### Breaking changes
 
-- **R-19 (§7 rule 1) — `dump` and `Mirror` no longer print secrets.** `Sensitive` is
+Since `v1.0.0-beta17`:
+
+- **A value this SDK cannot name is never sent** (contract 1.60 A4, §34.2 P12.2, R-22). The
+  generated `encode(to:)` of every open management enum refuses `.unknown` locally — a
+  `NetworkError` with `isValidation`, before any request — where beta17 sent `""`. Decoding is
+  unchanged and still reads a value it does not know as `.unknown`. *Migration:* a
+  read-modify-write of a record that carries a value newer than this SDK now throws instead of
+  sending a blank; set the member to a known case before writing the record back, or catch the
+  validation error.
+- **Ten members of `UpdateFederationConfigRequest` are `String??`** (contract 1.60, §27.15
+  note 8): `metadataURL`, `idpSigningCertPEM`, `idpMetadataSigningCertPEM`, `providerSlug`,
+  `authorizationEndpoint`, `tokenEndpoint`, `userinfoEndpoint`, `appleTeamID`, `appleKeyID`
+  and `buttonIcon`. `nil` is not sent and leaves the stored value; `.some(nil)` is sent as
+  `null` and clears it. *Migration:* a literal or a non-optional `String` argument compiles and
+  behaves as before. **A `String?` variable does not**: Swift wraps a `nil` `String?` as
+  `.some(nil)`, which now clears the value. Pass `url.map { .some($0) }` to keep "unset means
+  unchanged", and read the properties as `String??`.
+- **`TelemetryEvent` has a new case, `ssfUnjudged(operation:count:category:)`** (§19.1,
+  contract 1.60). An exhaustive `switch` over `TelemetryEvent` with no `default` arm no longer
+  compiles. *Migration:* handle the case, or add `default:` so a future case is not a compile
+  error either.
+- **Two generated response initialisers take a new argument.** `FederationConfigResponse.init`
+  takes `allowSha1Signatures:` and `NotificationRuleResponse.init` takes `windowMinutes:`;
+  both members are always present on a 1.0.0 server. *Migration:* code that builds these
+  responses itself — usually a test fixture — passes the value.
+
+### Added
+
+- **Contract 1.60's §27 members.** `windowMinutes` on `CreateNotificationRuleRequest`,
+  `UpdateNotificationRuleRequest` and `NotificationRuleResponse` (§27.15 note 1): sent as given
+  and never clamped to the server's 1 to 1440, omitted when unset (the server then stores 15).
+  `allowSha1Signatures` and `idpMetadataSigningCertPEM` on the federation configuration's
+  create, update and response models (notes 6 and 7, SAML only): sent only when set; a response
+  from a server older than 1.0.0, which lacks `allow_sha1_signatures`, reads `false`.
+  `expectedUpdatedAt` on `ScimTargetInput` (§31.3 rule 4): sent exactly as given, and an update
+  overtaken by another administrator's write since that read is a `409` `ConflictError` that
+  changes nothing. `federation.updateConfig` documents the clearing rule at its call site.
+- **The §27 namespaces of contracts 1.53 – 1.58**: `directory` (§30), `saml` (§29),
+  `scim_targets` (§31) and `ssf` (§32) — `{tenant_id}` defaulting from the client's tenant for
+  `directory`, `saml` and `ssf` — with their call-site notes, explicit-null members
+  (`UpdateDirectoryConfig.groupBaseDn` / `.groupFilter`, `SamlIdpInfo.activeCredentialID` /
+  `.nextCredentialID`), `ParseSamlSpMetadata.fromURL` / `.fromXML` (both or neither is refused
+  locally), `ScimTargetAuth.bearer()` / `.oauth2ClientCredentials(...)`,
+  `ScimTargetScope.allUsers()` / `.groups(_:)`, and `init(copying:)` read-modify-write
+  initialisers for `SamlServiceProviderInput`, `SetDirectoryConfig`, `ScimTargetInput` and
+  `SsfStreamInput` (whose members are `var`). `ScimTargetInput(copying:)` sets
+  `expectedUpdatedAt` from the read. `ScimTargetAuth` and `ScimTargetScope` are open unions: an
+  unknown `type` decodes, and is refused locally on the way back out.
+- **An auto-paging form for every paginated list** (§27.4 rule 4): `ManagementPager<Item>`, an
+  `AsyncSequence`, and an `…All(page:)` twin on each of the 24 paginated operations
+  (`roles.listAll()`, `saml.listServiceProvidersAll()`, `ssf.listStreamsAll()`, …) that carries
+  the `search` term on every request.
+- **SSF event types as open strings** (§32.2): `SsfEventType` is a `RawRepresentable` string
+  with the six URIs as named constants, `allKnown` and `isKnown`. An event-type URI this SDK
+  does not list decodes as itself and is sent back unchanged on `ssf.updateStream`; a URI you
+  type is sent as typed and judged by the server (contract 1.60 B4 — the local refusal a 1.59
+  build of `main` carried is gone). `SsfEventTypeURI` holds the URIs as strings.
+- **§28.12 RFC 7592 client configuration**: `readClientRegistration`,
+  `updateClientRegistration` and `deleteClientRegistration`, with `ClientRegistration` keeping
+  unknown members in `extra` and its token and secret in `Sensitive`. Origin-pinned,
+  bearer-only, never carrying the SDK session; update and delete are never retried.
+- **§32.7 SSF receiver helper**: `SsfReceiver.verifySet` and `poll`, `SetFailureReason`
+  (`AuthError.setFailureReason`, with its RFC 8935 `pushErrorCode`), `SetErr`,
+  `SsfReplayStore` and `InMemorySsfReplayStore`. `poll` never keeps a `jti` it does not
+  return (§34.2 P1): the SETs it judged come back in `events` and `refused`, and when a key
+  fetch or the replay store fails, that SET and the rest of the batch are listed, unrecorded,
+  in `SsfPollResult.unjudged` with the failure in `.interruption` — or, when nothing was
+  accepted, the failure is thrown. Such a `poll` emits `TelemetryEvent.ssfUnjudged` with the
+  count and the category (`keyFetch` or `replayStore`) and no `jti` (§19.1, contract 1.60).
+  `SsfReceiver.keyCacheLifetime` (five minutes) bounds the key cache (§34.2 P6).
+- **§33 CIBA**: `cibaInitiate`, `cibaPoll`, `cibaAwait` (with an injectable `CibaClock`) and
+  `cibaHandlePing`, the §33.2 signed request via `CibaRequestSigner` under PS256, ES256 or
+  EdDSA, and `AxiamError.isAccessDenied` / `.isExpiredToken` / `.oauthErrorCode`. `cibaAwait`
+  retries a `5xx` on `cibaPoll` whatever its body (§34.2 P8) and ends on a failure after the
+  `200` — a body that does not decode, an ID token that does not validate — rather than
+  re-polling a redeemed request (P9). Its deadline is anchored at the instant the initiate
+  response arrived (`CibaInitiateResponse.receivedAt`).
+- **Discovery members.** `MtlsEndpointAliases.backchannelAuthenticationEndpoint` (the seventh
+  alias, §21.3.1) and the four CIBA members of `OidcConfiguration`; and, from contract 1.60
+  (§21.5), `revocationEndpointAuthMethodsSupported`,
+  `introspectionEndpointAuthMethodsSupported`,
+  `revocationEndpointAuthSigningAlgValuesSupported` and
+  `introspectionEndpointAuthSigningAlgValuesSupported` — all optional, so a document from a
+  server before 1.0.0 still decodes. They describe the deployment and never change how the SDK
+  authenticates.
+
+### Changed
+
+- **Contract artefacts re-vendored at contract 1.60** — `CONTRACT.md`, `openapi.json` and
+  `management-registry.json` byte for byte from axiam `8df0e11`, through contracts 1.58
+  (`21a9c22e`) and 1.59 (`fe369eb`); `proto/` is unchanged. The §27 surface is regenerated
+  from them with `Scripts/gen_management.py`, and the README states conformance at 1.60.
+- **`oidcRefresh` takes the response's `scope`** (contract 1.60, §12.1). The server now
+  narrows a grant to the client's current registration at every refresh, so the answer can
+  carry a narrower `scope` — and no ID token once `openid` is gone. `OidcTokenSet.scope` was
+  already the response's; this is now documented and tested.
+- **The token-exchange actor token** (§15.2 rule 9): the `tokenExchange` documentation, the
+  README and `Examples/TokenExchange` obtain it from the same client's
+  `loginClientCredentials()`. The server refuses one issued to another client with
+  `400 invalid_request`, which the SDK surfaces unchanged after exactly one request.
+- **Call-site documentation**: `scimTargets.create` and `.update` state that the credential is
+  bound to its URL (§31.3 rule 2) and how `expectedUpdatedAt` makes a write conditional;
+  `spSigningCertPEM` notes that an ECDSA certificate verifies HTTP-POST requests only (§29.3
+  rule 2).
+
+### Fixed
+
+- An open management enum's `.unknown` was encoded as `""` and reached the server as a value
+  nobody had chosen; it is now refused before the request (see Breaking changes).
+- The generated conformance suite resolves enum fixtures nested in arrays and objects, and
+  pins the wire value of each URI-valued enum case. The suite reads §21.3.1 vector A from the
+  vendored `CONTRACT.md` rather than a retyped copy, and round-trips the §33.2 PS256 signed
+  form with an RSA key generated at run time.
+
+### Security
+
+- **`dump` and `Mirror` no longer print secrets** (§7 rule 1, R-19). `Sensitive` is
   `CustomReflectable` with no children, so the reflection sinks show `[SENSITIVE]` for a
-  `Sensitive` and for every struct that holds one. The redaction tests now cover
+  `Sensitive` and for every struct that holds one; the redaction tests cover
   `String(describing:)`, `String(reflecting:)`, interpolation, `print`, `debugPrint`, `dump`
   and a `Mirror` walk.
-- **R-1 (§32.7, §34.2 P1) — `SsfReceiver.poll` never keeps a `jti` it does not return.** P1's
-  **second form**: what was judged is returned, and a failure that is not a verdict (a key
-  fetch, a replay store that cannot answer) leaves that SET and every later one of the batch
-  unrecorded and listed in the new `SsfPollResult.unjudged`, with the failure in
-  `.interruption`. When no SET of the batch was accepted, the failure is thrown, having
-  recorded nothing.
-- **R-4 (§32.7 step 9, §34.2 P4) — the replay store fails closed.** P4's **`throws` route**:
-  `SsfReplayStore.checkAndRecord` is now `async throws` (an existing non-throwing store still
-  conforms). A store that cannot answer throws; `verifySet` raises a `NetworkError` with no
-  reason code (P3). The protocol documents the rule, and `InMemorySsfReplayStore` documents
-  that it is bounded by the window in time, not in count (README too).
-- **R-12 (§33.7 rule 7, §34.2 P9) — `cibaAwait` ends on a failure after the `200`.** A body
-  that does not decode, an ID token that does not validate or its key fetch is terminal; the
-  loop no longer re-polls a redeemed request into `invalid_grant`.
-- **§33.8 test 8 (§34.2 P8) — a `5xx` on `cibaPoll` is retried whatever its body.** AXIAM's
-  `500 {"error":"server_error"}` was not retried and ended `cibaAwait`; a `5xx` is now retried
-  under §16 and surfaces as a `NetworkError` with its status, which the loop treats as
-  transient. The test's `500` carries that body. (P10's anchor is unchanged: the deadline is
-  anchored at the instant the initiate response was received — `CibaInitiateResponse.receivedAt`,
-  stamped by `cibaInitiate` from the wall clock; the loop's waits use the injected `CibaClock`.
-  §34.3 R-14 requires no change for this.)
-- **R-20 (§31.2, §34.2 P12.1) — `ScimTargetAuth` / `ScimTargetScope` keep only declared
-  members.** A known arm keeps its own members, an unknown arm its `type` alone
-  (`declaredMembers`, generated from the `oneOf`).
-- **R-22 (§32.2) — SSF event types are open strings.** `SsfEventType` is now a
-  `RawRepresentable` string struct with the six URIs as static constants, `allKnown` and
-  `isKnown`. An unseen URI decodes as itself and is refused locally on the way out (P12.2),
-  never sent as `""`. Source note: `.unknown` and `allCases` are gone (`allKnown` replaces the
-  latter) and `init(rawValue:)` no longer fails.
-- **R-29 (§31.3 rule 2, §29.3 rule 2) — call-site documentation.** `scimTargets.create` now
-  states that the credential is bound to its URL, and `spSigningCertPEM` (on
-  `SamlServiceProviderInput` and `SamlServiceProvider`) carries the ECDSA / HTTP-Redirect
-  note, both from the generator.
-- **R-30 (§27.4 rule 4) — an auto-paging form.** `ManagementPager<Item>`, an `AsyncSequence`,
-  and an `…All(page:)` twin on each of the 24 paginated operations (`roles.listAll()`,
-  `saml.listServiceProvidersAll()`, `ssf.listStreamsAll()`, …). §29.8 t5, §31.8 t4 and §32.8
-  t4 now use it.
-- **R-31 (§21.3.1, §33.8 t14) — tests.** Vector A is read from the vendored `CONTRACT.md`
-  rather than retyped, and the PS256 signed form is round-tripped (the test target links
-  `_CryptoExtras` to generate an RSA key at run time).
-
-### Added — contract 1.58
-
-- **Re-vendored contract 1.58** (`CONTRACT.md`, `openapi.json`, `management-registry.json`)
-  and regenerated the §27 surface: **190 operations across 28 namespaces**, adding `directory`
-  (§30), `saml` (§29), `scim_targets` (§31) and `ssf` (§32). Generator: implicit
-  `{tenant_id}` for the three tenant-context namespaces, URI-valued enum cases named by their
-  last path segment (`SsfEventType.sessionRevoked`), open `ScimTargetAuth` / `ScimTargetScope`
-  (an unknown `type` decodes and is refused locally on the way out), explicit-null double
-  optionals (`UpdateDirectoryConfig.groupBaseDn` / `.groupFilter`,
-  `SamlIdpInfo.activeCredentialID` / `.nextCredentialID`), generated call-site notes, a
-  local `saml.parse_sp_metadata` precheck, and `var` members on the four replacement bodies.
-- **§28.12 RFC 7592 client configuration** — `readClientRegistration`,
-  `updateClientRegistration`, `deleteClientRegistration` and `ClientRegistration` (unknown
-  members kept in `extra`; token and secret `Sensitive`). Origin-pinned, bearer-only, no SDK
-  session, update and delete never retried.
-- **§29–§32 helpers** — `ParseSamlSpMetadata.fromURL` / `.fromXML`;
-  `ScimTargetAuth.bearer()` / `.oauth2ClientCredentials(...)`, `ScimTargetScope.allUsers()` /
-  `.groups(_:)`; `init(copying:)` read-modify-write initialisers for
-  `SamlServiceProviderInput`, `SetDirectoryConfig`, `ScimTargetInput` and `SsfStreamInput`.
-- **§32.7 SSF receiver helper** — `SsfReceiver.verifySet` / `poll`, `SetFailureReason`
-  (`AuthError.setFailureReason`), `SetErr`, `SsfReplayStore` / `InMemorySsfReplayStore`,
-  `SsfEventTypeURI`.
-- **§33 CIBA** — `cibaInitiate`, `cibaPoll`, `cibaAwait` (injectable `CibaClock`),
-  `cibaHandlePing`; the §33.2 signed form via `CibaRequestSigner` (PS256, ES256, EdDSA);
-  `AxiamError.isAccessDenied` / `.isExpiredToken` / `.oauthErrorCode`.
-- **§21.3.1** — `MtlsEndpointAliases.backchannelAuthenticationEndpoint` (the seventh alias)
-  and the four CIBA members of `OidcConfiguration`.
+- **The SSF replay store fails closed** (§32.7 step 9, §34.2 P4). `SsfReplayStore.checkAndRecord`
+  is `async throws`: a store that cannot answer throws, and `verifySet` raises a `NetworkError`
+  with the store's error as its cause and no reason code — the SET is never accepted on a store
+  outage. `InMemorySsfReplayStore` is bounded by the seven-day window in time, not in count.
+- **The SSF key cache expires and a JWKS outage is rate-limited** (contract 1.60, §34.2 P6). A
+  key set is used for at most five minutes, so a key the transmitter removed stops verifying;
+  an unknown `kid` costs one refetch at most once a minute, and so does a failed fetch — a SET
+  inside the minute after one makes no request and gets no verdict.
+- **Open unions keep only declared members** (§31.2, §34.2 P12.1). A known `ScimTargetAuth` /
+  `ScimTargetScope` arm keeps its own members and an unknown arm its `type` alone, so a member
+  the server should not have sent — a secret included — is neither surfaced nor echoed back by
+  `ScimTargetInput(copying:)`.
 
 ## [1.0.0-beta17] - 2026-09-25
 

@@ -40,6 +40,14 @@ extension AxiamClient {
     ///     the difference: this SDK supplies no default actor token and never substitutes its
     ///     own session for one. Passing nothing here asks for impersonation, and the server
     ///     refuses unless this client holds that grant.
+    ///
+    ///     **The actor token must have been issued to this client** (§15.2 rule 9, contract
+    ///     1.60): obtain it with the same client's ``loginClientCredentials(scope:tenantID:configuration:)``
+    ///     grant and pass its ``OidcTokenSet/accessToken`` here — its `sub` is this client's
+    ///     `client_id`. A token issued to another client, a console sign-in or a service
+    ///     account is answered `400` `invalid_request` ("actor_token was not issued to the
+    ///     exchanging client"), which surfaces unchanged: not retried, not rewritten into an
+    ///     impersonation, and not repaired by substituting a token of this SDK's own.
     ///   - scopes: omit to inherit the subject's, bounded by this client's registration. The
     ///     response's ``ExchangedToken/scope`` is what was actually granted, which may be
     ///     narrower than what was asked for even on success (§15.2 rule 7) — read it.

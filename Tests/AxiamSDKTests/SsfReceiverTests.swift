@@ -337,6 +337,84 @@ final class SsfReceiverTests: XCTestCase {
         }
     }
 
+    /// `verifySet` raised no verdict: a ``NetworkError`` with no reason code (§34.2 P3).
+    private func assertNoVerdict(
+        _ receiver: SsfReceiver, _ set: String,
+        file: StaticString = #filePath, line: UInt = #line
+    ) async {
+        do {
+            _ = try await receiver.verifySet(set)
+            XCTFail("expected no verdict", file: file, line: line)
+        } catch let error as AxiamError {
+            guard case .network = error else {
+                return XCTFail("no verdict is a NetworkError", file: file, line: line)
+            }
+            XCTAssertNil(error.setFailureReason, "not a verdict on the SET", file: file, line: line)
+        } catch {
+            XCTFail("expected an AxiamError", file: file, line: line)
+        }
+    }
+
+    /// §34.2 P6 (contract 1.60): the key cache expires no later than ten minutes after the
+    /// fetch that filled it, and the next SET fetches again — so a key the transmitter removed
+    /// stops verifying. The refresh of an expired cache is not counted: the unknown `kid`
+    /// right after it is still refetched once.
+    func testTheKeyCacheExpiresWithinTenMinutes() async throws {
+        let retired = SetKey.generate()
+        let current = SetKey.generate()
+        let transport = RoutedTransport()
+        transport.route("GET", "/oauth2/jwks", [Self.jwksReply([retired]), Self.jwksReply([current])])
+        let clock = TestNow()
+        let receiver = try await makeReceiver(transport, now: { clock.now })
+        XCTAssertLessThanOrEqual(SsfReceiver.keyCacheLifetime, 600, "at most ten minutes")
+
+        _ = try await receiver.verifySet(retired.signSet(Self.claims()))
+        clock.advance(SsfReceiver.keyCacheLifetime - 1)
+        _ = try await receiver.verifySet(retired.signSet(Self.claims()))
+        XCTAssertEqual(transport.requests("/oauth2/jwks").count, 1, "still cached")
+
+        clock.advance(1)
+        let removed = await reason(receiver, retired.signSet(Self.claims()))
+        XCTAssertEqual(removed, .invalidKey, "a removed key stops verifying once the cache expires")
+        XCTAssertEqual(
+            transport.requests("/oauth2/jwks").count, 3,
+            "the refresh, then the unknown kid's one refetch")
+        _ = try await receiver.verifySet(current.signSet(Self.claims()))
+        XCTAssertEqual(transport.requests("/oauth2/jwks").count, 3)
+    }
+
+    /// §34.2 P6 (contract 1.60, C-5): a FAILED fill counts toward the once-a-minute limit. A
+    /// SET inside the minute after it makes no fetch and gets no verdict; a minute later the
+    /// next SET fetches again, and that successful fill is not counted — the unknown `kid`
+    /// right after it is refetched once.
+    func testAFailedFillCountsAndTheNextSetWithinTheMinuteMakesNoFetch() async throws {
+        let key = SetKey.generate()
+        let transport = RoutedTransport()
+        transport.route("GET", "/oauth2/jwks", [.empty(503)])
+        let clock = TestNow()
+        let receiver = try await makeReceiver(transport, now: { clock.now })
+
+        await assertNoVerdict(receiver, key.signSet(Self.claims()))
+        let afterFailure = transport.requests("/oauth2/jwks").count
+        XCTAssertGreaterThan(afterFailure, 0)
+
+        transport.route("GET", "/oauth2/jwks", [Self.jwksReply([key])])
+        clock.advance(59)
+        await assertNoVerdict(receiver, key.signSet(Self.claims()))
+        XCTAssertEqual(
+            transport.requests("/oauth2/jwks").count, afterFailure, "no fetch within the minute")
+
+        clock.advance(1)
+        _ = try await receiver.verifySet(key.signSet(Self.claims()))
+        XCTAssertEqual(transport.requests("/oauth2/jwks").count, afterFailure + 1)
+
+        let stranger = await reason(receiver, SetKey.generate().signSet(Self.claims()))
+        XCTAssertEqual(stranger, .invalidKey)
+        XCTAssertEqual(
+            transport.requests("/oauth2/jwks").count, afterFailure + 2,
+            "a successful fill is not the refetch")
+    }
+
     // MARK: - 8. poll
 
     func testPollPassesAckAndSetErrsThroughAndSortsTheAnswer() async throws {
@@ -442,10 +520,11 @@ final class SsfReceiverTests: XCTestCase {
         XCTAssertFalse(returned.contains(secondJTI))
     }
 
-    /// §32.7 step 9, §34.2 P3 – P4 (R-4, SW-4): a replay store that cannot answer fails
-    /// CLOSED. The store reports the failure by throwing; `verifySet` then raises a
-    /// `NetworkError` with no reason code — no verdict, no acceptance — and `poll` neither
-    /// returns nor records the SET (P1), so the transmitter offers it again.
+    /// §32.7 step 9, §32.8 helper test 6, §34.2 P3 – P4 (R-4, SW-4; contract 1.60 B1): a replay
+    /// store that cannot answer fails CLOSED. The store reports the failure by throwing;
+    /// `verifySet` then raises a `NetworkError` with no reason code — no verdict, no
+    /// acceptance — and `poll` neither returns nor records the SET (P1), so the transmitter
+    /// offers it again.
     func testAReplayStoreThatCannotAnswerRefusesAndRecordsNothing() async throws {
         let key = SetKey.generate()
         let stream = UUID().uuidString.lowercased()
@@ -476,7 +555,11 @@ final class SsfReceiverTests: XCTestCase {
                 key.signSet(Self.with(Self.claims(), "jti", unanswerableJTI)))
             XCTFail("a store that cannot answer must not let the SET through")
         } catch let error as AxiamError {
-            guard case .network = error else { return XCTFail("a store failure is a NetworkError") }
+            guard case .network(let network) = error else {
+                return XCTFail("a store failure is a NetworkError")
+            }
+            XCTAssertTrue(network.cause is FailingReplayStore.Unavailable,
+                          "the store's own error travels as the cause")
             XCTAssertNil(error.setFailureReason, "not a verdict on the SET")
         }
 
@@ -487,6 +570,73 @@ final class SsfReceiverTests: XCTestCase {
         XCTAssertNotNil(result.interruption)
         let recorded = await store.recorded
         XCTAssertEqual(recorded, [goodJTI])
+    }
+
+    /// §19.1 `ssf_unjudged` (contract 1.60, SHOULD; §34.4 C-4): a `poll` that returns leaving
+    /// SETs unjudged emits the operation, the number unjudged and the failure category —
+    /// `replay_store` or `key_fetch` — and never a `jti`.
+    func testAPollLeavingSetsUnjudgedEmitsSsfUnjudged() async throws {
+        let key = SetKey.generate()
+        let stranger = SetKey.generate()
+        let storeStream = UUID().uuidString.lowercased()
+        let keyStream = UUID().uuidString.lowercased()
+        let jtis = (1...3).map { "\($0)-\(SecretKit.random())" }
+        let signed = jtis.map { key.signSet(Self.with(Self.claims(), "jti", $0)) }
+
+        let transport = RoutedTransport()
+        transport.route("GET", "/oauth2/jwks", [Self.jwksReply([key])])
+        transport.route("POST", "/ssf/v1/poll/\(storeStream)", [
+            .json(200, object: [
+                "sets": [jtis[0]: signed[0], jtis[1]: signed[1], jtis[2]: signed[2]],
+                "moreAvailable": false,
+            ] as [String: Any]),
+        ])
+        transport.route("POST", "/ssf/v1/poll/\(keyStream)", [
+            .json(200, object: [
+                "sets": [
+                    jtis[0]: key.signSet(Self.with(Self.claims(), "jti", jtis[0])),
+                    jtis[1]: stranger.signSet(Self.with(Self.claims(), "jti", jtis[1])),
+                ],
+                "moreAvailable": false,
+            ] as [String: Any]),
+        ])
+        let recorder = EventRecorder()
+        let config = try AxiamConfig(
+            baseURL: URL(string: Self.base)!,
+            tenantID: UUID().uuidString.lowercased(),
+            retryEnabled: true,
+            telemetryHook: recorder.hook)
+        let client = AxiamClient(config: config, transport: transport)
+        await client._setRetryTestSeams(jitter: { 0 }, sleep: { _ in })
+
+        // The replay store cannot answer for the second SET: it and the third are unjudged.
+        var configuration = SsfReceiverConfiguration(
+            issuer: Self.issuer, audience: Self.audience, keySource: .jwksURI(Self.jwksURI))
+        configuration.accessTokenProvider = { Sensitive("cc-\(SecretKit.random())") }
+        configuration.replayStore = FailingReplayStore(failingOn: [jtis[1]])
+        let storeReceiver = try SsfReceiver(client: client, configuration: configuration)
+        let first = try await storeReceiver.poll(streamID: storeStream)
+        XCTAssertEqual(first.unjudged, [jtis[1], jtis[2]])
+
+        // The second SET names an unknown kid whose one refetch fails: one SET unjudged.
+        transport.route("GET", "/oauth2/jwks", [Self.jwksReply([key]), .empty(503)])
+        configuration.replayStore = InMemorySsfReplayStore()
+        let keyReceiver = try SsfReceiver(client: client, configuration: configuration)
+        let second = try await keyReceiver.poll(streamID: keyStream)
+        XCTAssertEqual(second.unjudged, [jtis[1]])
+
+        let unjudged = recorder.events.filter {
+            if case .ssfUnjudged = $0 { return true } else { return false }
+        }
+        XCTAssertEqual(unjudged, [
+            .ssfUnjudged(operation: "ssf.poll", count: 2, category: .replayStore),
+            .ssfUnjudged(operation: "ssf.poll", count: 1, category: .keyFetch),
+        ])
+        for event in recorder.events {
+            for jti in jtis {
+                XCTAssertFalse(String(describing: event).contains(jti), "no jti in an event")
+            }
+        }
     }
 
     func testPollIsNotRetriedOn400() async throws {

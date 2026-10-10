@@ -36,10 +36,17 @@ do {
     // it selects IMPERSONATION — "this service, as that user". They are different operations
     // with different risk, and §15.2 rule 1 forbids papering over the difference: this SDK
     // supplies no default actor token and never substitutes its own session for one.
+    //
+    // The actor token must have been issued to THIS client (§15.2 rule 9): it is the same
+    // client's own client_credentials token, whose `sub` is its client_id. A token issued to
+    // another client, a console sign-in or a service account is answered `invalid_request`
+    // ("actor_token was not issued to the exchanging client"). The caller obtains and passes it;
+    // the SDK supplies none.
+    let actor = try await client.loginClientCredentials()
     let exchanged = try await client.tokenExchange(
         subjectToken: subjectToken,
         subjectTokenType: AxiamClient.accessTokenType,
-        actorToken: Sensitive(env("AXIAM_ACTOR_TOKEN", default: "the-services-own-token")),
+        actorToken: actor.accessToken,
         scopes: ["orders:read"],
         audience: env("AXIAM_AUDIENCE", default: "inventory-service"))
 
@@ -66,6 +73,11 @@ do {
             // NOT a hint to retry with fewer scopes (§15.2 rule 3): the server refuses rather
             // than silently narrowing precisely so you find out here.
             print("the subject does not hold those scopes. Ask for fewer, deliberately.")
+        case "invalid_request":
+            // Among other things: an actor token that was not issued to THIS client (§15.2
+            // rule 9). Surfaced unchanged -- never retried, never rewritten into an
+            // impersonation; obtain the actor token from this client's client_credentials grant.
+            print("the request was refused: \(authError.oauthErrorDescription ?? "no description")")
         case "invalid_grant":
             // Covers a cross-tenant subject token too, and this SDK does not try to tell which
             // (§15.3): the server collapses them because the distinction is a tenant-
