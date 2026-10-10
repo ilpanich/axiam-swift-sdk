@@ -69,6 +69,13 @@ final class Metrics: @unchecked Sendable {
             FileHandle.standardError.write(
                 Data("WARN: \(setting)=\(requested) was clamped to \(effective) (\(contractReference))\n".utf8))
 
+        // §19.1 `ssf_unjudged` — an SSF receiver's poll left SETs without a verdict because
+        // the JWKS or the replay store failed. The transmitter re-offers them, so nothing is
+        // lost, but a steady rate means a dependency is down.
+        case let .ssfUnjudged(operation, count, category):
+            FileHandle.standardError.write(
+                Data("WARN: \(operation) left \(count) SET(s) unjudged (\(category.rawValue))\n".utf8))
+
         case .requestStart:
             break
         }

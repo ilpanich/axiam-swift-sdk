@@ -322,6 +322,55 @@ final class OidcTests: XCTestCase {
         }
     }
 
+    /// §12.1, contract 1.60: a refresh may narrow `scope` — the server intersects the grant's
+    /// scopes with the client's registration at every refresh. The token set's scope is the
+    /// refresh RESPONSE's, never the original grant's; with `openid` gone there is no ID token.
+    func testRefreshTakesTheScopeOfTheResponseNotOfTheOriginalGrant() async throws {
+        let router = makeRouter(tokenBody: { _ in
+            [
+                "access_token": "the-access-token",
+                "token_type": "Bearer",
+                "expires_in": 900,
+                "scope": "profile",
+                "refresh_token": "the-next-refresh-token",
+            ]
+        })
+        try await withOidcClient(router: router) { client, _ in
+            let tokens = try await client.oidcRefresh(refreshToken: Sensitive("the-refresh-token"))
+            XCTAssertEqual(tokens.scope, "profile", "the narrowed scope, as the server answered it")
+            XCTAssertNil(tokens.idToken)
+            XCTAssertNil(tokens.idClaims)
+        }
+    }
+
+    /// §21.5 / §12.1, contract 1.60: the four revocation and introspection discovery members
+    /// decode when present and are optional — a document from a server before 1.0.0, which
+    /// omits all four, still decodes.
+    func testTheFourRevocationAndIntrospectionDiscoveryMembersAreOptional() throws {
+        var document = Self.discoveryJSON(base: "https://iam.example.test")
+        let bare = try JSONDecoder().decode(
+            OidcConfiguration.self, from: JSONSerialization.data(withJSONObject: document))
+        XCTAssertNil(bare.revocationEndpointAuthMethodsSupported)
+        XCTAssertNil(bare.introspectionEndpointAuthMethodsSupported)
+        XCTAssertNil(bare.revocationEndpointAuthSigningAlgValuesSupported)
+        XCTAssertNil(bare.introspectionEndpointAuthSigningAlgValuesSupported)
+
+        document["revocation_endpoint_auth_methods_supported"] =
+            ["client_secret_post", "private_key_jwt", "none"]
+        document["introspection_endpoint_auth_methods_supported"] =
+            ["client_secret_post", "private_key_jwt"]
+        document["revocation_endpoint_auth_signing_alg_values_supported"] = ["PS256", "ES256", "EdDSA"]
+        document["introspection_endpoint_auth_signing_alg_values_supported"] = ["PS256", "ES256", "EdDSA"]
+        let full = try JSONDecoder().decode(
+            OidcConfiguration.self, from: JSONSerialization.data(withJSONObject: document))
+        XCTAssertEqual(
+            full.revocationEndpointAuthMethodsSupported, ["client_secret_post", "private_key_jwt", "none"])
+        XCTAssertEqual(
+            full.introspectionEndpointAuthMethodsSupported, ["client_secret_post", "private_key_jwt"])
+        XCTAssertEqual(full.revocationEndpointAuthSigningAlgValuesSupported, ["PS256", "ES256", "EdDSA"])
+        XCTAssertEqual(full.introspectionEndpointAuthSigningAlgValuesSupported, ["PS256", "ES256", "EdDSA"])
+    }
+
     // MARK: - §12.1 introspect / revoke
 
     func testRevokeTreatsAnUnknownTokenAsSuccess() async throws {

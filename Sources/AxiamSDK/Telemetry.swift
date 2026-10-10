@@ -97,13 +97,34 @@ public enum TelemetryEvent: Sendable, Equatable {
     ///   - effective: the value actually in force, rendered.
     ///   - contractReference: the §-reference for the limit, e.g. `§17.1 rule 2`.
     case configClamped(setting: String, requested: String, effective: String, contractReference: String)
+
+    /// The failure that left SETs unjudged (§19.1 `ssf_unjudged`, CONTRACT.md §34.2 P1).
+    public enum SsfUnjudgedCategory: String, Sendable {
+        /// The transmitter's JWKS (or its SSF configuration) could not be fetched.
+        case keyFetch = "key_fetch"
+        /// The replay store could not answer.
+        case replayStore = "replay_store"
+    }
+
+    /// Emitted when ``SsfReceiver/poll(streamID:options:)`` returns normally leaving at least
+    /// one SET unjudged (§19.1, contract 1.60): the SETs it returned are recorded, the
+    /// unjudged ones are re-offered by the transmitter, and nothing else says a key fetch or
+    /// the replay store is failing.
+    ///
+    /// Carries no `jti` and no SET.
+    ///
+    /// - Parameters:
+    ///   - operation: `ssf.poll`.
+    ///   - count: how many SETs were left unjudged.
+    ///   - category: the failure that left them unjudged.
+    case ssfUnjudged(operation: String, count: Int, category: SsfUnjudgedCategory)
 }
 
 /// A caller-supplied telemetry sink (CONTRACT.md §19).
 ///
 /// Install one with ``AxiamConfig/telemetryHook``. It receives request start/end, §16 retry, §9
-/// refresh and §19.2 rule 6 clamp events, so metrics can be wired without this package taking a
-/// dependency on any metrics library.
+/// refresh, §19.2 rule 6 clamp and §32.7 `ssf_unjudged` events, so metrics can be wired without
+/// this package taking a dependency on any metrics library.
 ///
 /// The closure is `@Sendable` because an `AxiamClient` is an actor and the hook is invoked from
 /// inside it. It must not block (§19.2 rule 4).

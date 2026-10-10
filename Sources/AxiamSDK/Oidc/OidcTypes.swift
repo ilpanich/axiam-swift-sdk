@@ -95,6 +95,25 @@ public struct OidcConfiguration: Sendable, Decodable, Equatable {
     ///
     /// Optional for the same reason as ``codeChallengeMethodsSupported``.
     public let tokenEndpointAuthSigningAlgValuesSupported: [String]?
+    /// RFC 8414 §2 — the client authentication methods the revocation endpoint accepts
+    /// (contract 1.60, §21.5): the token endpoint's list, since revocation authenticates a
+    /// client exactly as the token endpoint does.
+    ///
+    /// **Optional** although the server's schema marks it required: a server before 1.0.0
+    /// omits all four of these members. It describes the deployment and never changes how this
+    /// SDK authenticates (§12.1 rules 3 and 4).
+    public let revocationEndpointAuthMethodsSupported: [String]?
+    /// RFC 8414 §2 — the client authentication methods the introspection endpoint accepts
+    /// (contract 1.60, §21.5): the token endpoint's list without `none`. Optional, as
+    /// ``revocationEndpointAuthMethodsSupported``.
+    public let introspectionEndpointAuthMethodsSupported: [String]?
+    /// RFC 8414 §2 — the JWS algorithms a `private_key_jwt` assertion at the revocation endpoint
+    /// may use (contract 1.60, §21.5). Optional, as ``revocationEndpointAuthMethodsSupported``.
+    public let revocationEndpointAuthSigningAlgValuesSupported: [String]?
+    /// RFC 8414 §2 — the JWS algorithms a `private_key_jwt` assertion at the introspection
+    /// endpoint may use (contract 1.60, §21.5). Optional, as
+    /// ``revocationEndpointAuthMethodsSupported``.
+    public let introspectionEndpointAuthSigningAlgValuesSupported: [String]?
     /// RFC 8705 §5 endpoint aliases for a deployment that terminates mutual TLS on a host
     /// other than the issuer's own (contract 1.40, §21.3 rule 2).
     ///
@@ -129,6 +148,13 @@ public struct OidcConfiguration: Sendable, Decodable, Equatable {
         case codeChallengeMethodsSupported = "code_challenge_methods_supported"
         case tokenEndpointAuthSigningAlgValuesSupported =
             "token_endpoint_auth_signing_alg_values_supported"
+        case revocationEndpointAuthMethodsSupported = "revocation_endpoint_auth_methods_supported"
+        case introspectionEndpointAuthMethodsSupported =
+            "introspection_endpoint_auth_methods_supported"
+        case revocationEndpointAuthSigningAlgValuesSupported =
+            "revocation_endpoint_auth_signing_alg_values_supported"
+        case introspectionEndpointAuthSigningAlgValuesSupported =
+            "introspection_endpoint_auth_signing_alg_values_supported"
         case mtlsEndpointAliases = "mtls_endpoint_aliases"
         case backchannelAuthenticationEndpoint = "backchannel_authentication_endpoint"
         case backchannelTokenDeliveryModesSupported = "backchannel_token_delivery_modes_supported"
