@@ -19,7 +19,7 @@ namespaces, generated from the vendored `management-registry.json`), the §32.7 
 helper and the §33 CIBA helpers — and to the MUST-level §16 (retry) and §18 (shutdown), which
 the contract does not name. §1.1.1 / §10.3 `validate_token` / `introspect_token` are declined:
 both are gRPC-only. `CONTRACT.md`, `openapi.json` and `management-registry.json` are vendored
-from axiam `3ed6547`; `proto/` is unchanged.
+from axiam `8df0e11`; `proto/` is unchanged.
 
 ### Breaking changes
 
@@ -112,7 +112,7 @@ Since `v1.0.0-beta17`:
 ### Changed
 
 - **Contract artefacts re-vendored at contract 1.60** — `CONTRACT.md`, `openapi.json` and
-  `management-registry.json` byte for byte from axiam `3ed6547`, through contracts 1.58
+  `management-registry.json` byte for byte from axiam `8df0e11`, through contracts 1.58
   (`21a9c22e`) and 1.59 (`fe369eb`); `proto/` is unchanged. The §27 surface is regenerated
   from them with `Scripts/gen_management.py`, and the README states conformance at 1.60.
 - **`oidcRefresh` takes the response's `scope`** (contract 1.60, §12.1). The server now
