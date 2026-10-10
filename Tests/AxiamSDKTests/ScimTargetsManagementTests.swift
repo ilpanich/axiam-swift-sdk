@@ -261,6 +261,29 @@ final class ScimTargetsManagementTests: XCTestCase {
         XCTAssertThrowsError(try JSONEncoder().encode(all[0].auth))
     }
 
+    /// Contract 1.60 A4 (R-22, §34.2 P12.2): `.unknown` is never sent. A read-modify-write of a
+    /// target carrying a `deprovision` or `user_name_from` this SDK does not know raises the
+    /// validation failure before any request — and never sends `""`.
+    func testATargetCarryingAnUnknownEnumValueIsRefusedBeforeAnyRequest() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.json(Self.targetObject())),
+        ])
+        let before = transport.count
+        for (member, value) in [("deprovision", "archive"), ("user_name_from", "employee_number")] {
+            let target = try JSONDecoder().decode(
+                ScimTargetResponse.self,
+                from: Data(Self.json(Self.targetObject([member: value])).utf8))
+            do {
+                _ = try await client.scimTargets.update(
+                    id: target.id, body: ScimTargetInput(copying: target))
+                XCTFail("\(member): an unknown value must not be sent")
+            } catch AxiamError.network(let error) {
+                XCTAssertTrue(error.isValidation, "\(member): refused locally, as a validation failure")
+            }
+            XCTAssertEqual(transport.count, before, "\(member): nothing was sent")
+        }
+    }
+
     // MARK: - 5. No retry
 
     func testNoWriteIsRetriedOn503() async throws {

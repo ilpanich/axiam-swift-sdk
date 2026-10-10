@@ -23,8 +23,9 @@ import Foundation
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum ActorType: String, Codable, Sendable, CaseIterable {
     case user = "User"
     case serviceAccount = "ServiceAccount"
@@ -42,6 +43,23 @@ public enum ActorType: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = ActorType(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "ActorType: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// What attestation conveyance a registration ceremony requests, and whether the policy is
@@ -56,8 +74,9 @@ public enum ActorType: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum AttestationMode: String, Codable, Sendable, CaseIterable {
     case none = "none"
     case indirect = "indirect"
@@ -75,6 +94,23 @@ public enum AttestationMode: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = AttestationMode(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "AttestationMode: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Where an attribute's value comes from. Every variant has a real source today; a variant with
@@ -89,8 +125,9 @@ public enum AttestationMode: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum AttributeSource: String, Codable, Sendable, CaseIterable {
     case username = "username"
     case email = "email"
@@ -112,6 +149,23 @@ public enum AttributeSource: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = AttributeSource(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "AttributeSource: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// The `AuditOutcome` enumeration, as the server spells it.
@@ -124,8 +178,9 @@ public enum AttributeSource: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum AuditOutcome: String, Codable, Sendable, CaseIterable {
     case success = "Success"
     case failure = "Failure"
@@ -142,6 +197,23 @@ public enum AuditOutcome: String, Codable, Sendable, CaseIterable {
     public init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = AuditOutcome(rawValue: raw) ?? .unknown
+    }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "AuditOutcome: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 
@@ -164,8 +236,9 @@ public enum AuditOutcome: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum AuthnRequestParamsMode: String, Codable, Sendable, CaseIterable {
     case ignore = "ignore"
     case honour = "honour"
@@ -182,6 +255,23 @@ public enum AuthnRequestParamsMode: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = AuthnRequestParamsMode(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "AuthnRequestParamsMode: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Status of a certificate in its lifecycle.
@@ -194,8 +284,9 @@ public enum AuthnRequestParamsMode: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum CertificateStatus: String, Codable, Sendable, CaseIterable {
     case active = "Active"
     case revoked = "Revoked"
@@ -213,6 +304,23 @@ public enum CertificateStatus: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = CertificateStatus(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "CertificateStatus: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// The purpose for which a certificate was issued.
@@ -225,8 +333,9 @@ public enum CertificateStatus: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum CertificateType: String, Codable, Sendable, CaseIterable {
     case user = "User"
     case service = "Service"
@@ -245,6 +354,23 @@ public enum CertificateType: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = CertificateType(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "CertificateType: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// FIDO certification level, as recorded in an MDS `statusReports` entry's `FIDO_CERTIFIED*`
@@ -260,8 +386,9 @@ public enum CertificateType: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum CertificationLevel: String, Codable, Sendable, CaseIterable {
     case l1 = "L1"
     case l1Plus = "L1Plus"
@@ -282,6 +409,23 @@ public enum CertificationLevel: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = CertificationLevel(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "CertificationLevel: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// How a CIBA client learns that a request has been decided (CIBA Core §5). `push` is
@@ -297,8 +441,9 @@ public enum CertificationLevel: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum CibaDeliveryMode: String, Codable, Sendable, CaseIterable {
     case poll = "poll"
     case ping = "ping"
@@ -314,6 +459,23 @@ public enum CibaDeliveryMode: String, Codable, Sendable, CaseIterable {
     public init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = CibaDeliveryMode(rawValue: raw) ?? .unknown
+    }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "CibaDeliveryMode: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 
@@ -332,8 +494,9 @@ public enum CibaDeliveryMode: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum CibaRequestSigningAlg: String, Codable, Sendable, CaseIterable {
     case ps256 = "PS256"
     case es256 = "ES256"
@@ -350,6 +513,23 @@ public enum CibaRequestSigningAlg: String, Codable, Sendable, CaseIterable {
     public init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = CibaRequestSigningAlg(rawValue: raw) ?? .unknown
+    }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "CibaRequestSigningAlg: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 
@@ -371,8 +551,9 @@ public enum CibaRequestSigningAlg: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum ClientAuthMethod: String, Codable, Sendable, CaseIterable {
     case clientSecretPost = "client_secret_post"
     case clientSecretBasic = "client_secret_basic"
@@ -392,6 +573,23 @@ public enum ClientAuthMethod: String, Codable, Sendable, CaseIterable {
     public init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = ClientAuthMethod(rawValue: raw) ?? .unknown
+    }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "ClientAuthMethod: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 
@@ -413,8 +611,9 @@ public enum ClientAuthMethod: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum ClientProfile: String, Codable, Sendable, CaseIterable {
     case standard = "standard"
     case fapi2 = "fapi2"
@@ -431,6 +630,23 @@ public enum ClientProfile: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = ClientProfile(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "ClientProfile: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// What happens downstream to a user who falls out of scope or is no longer active. Erasure
@@ -444,8 +660,9 @@ public enum ClientProfile: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum DeprovisionPolicy: String, Codable, Sendable, CaseIterable {
     case deactivate = "deactivate"
     case delete = "delete"
@@ -461,6 +678,23 @@ public enum DeprovisionPolicy: String, Codable, Sendable, CaseIterable {
     public init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = DeprovisionPolicy(rawValue: raw) ?? .unknown
+    }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "DeprovisionPolicy: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 
@@ -478,8 +712,9 @@ public enum DeprovisionPolicy: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum DirectoryKind: String, Codable, Sendable, CaseIterable {
     case openLdap = "open_ldap"
     case activeDirectory = "active_directory"
@@ -496,6 +731,23 @@ public enum DirectoryKind: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = DirectoryKind(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "DirectoryKind: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// What the server does when an interceptor does not produce a usable reply — timeout,
@@ -509,8 +761,9 @@ public enum DirectoryKind: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum FailurePolicy: String, Codable, Sendable, CaseIterable {
     case failClosed = "fail_closed"
     case failOpen = "fail_open"
@@ -527,6 +780,23 @@ public enum FailurePolicy: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = FailurePolicy(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "FailurePolicy: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// The type of key algorithm used for a certificate.
@@ -539,8 +809,9 @@ public enum FailurePolicy: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum KeyAlgorithm: String, Codable, Sendable, CaseIterable {
     case rsa4096 = "Rsa4096"
     case ed25519 = "Ed25519"
@@ -556,6 +827,23 @@ public enum KeyAlgorithm: String, Codable, Sendable, CaseIterable {
     public init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = KeyAlgorithm(rawValue: raw) ?? .unknown
+    }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "KeyAlgorithm: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 
@@ -579,8 +867,9 @@ public enum KeyAlgorithm: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum ManagedBy: String, Codable, Sendable, CaseIterable {
     case admin = "admin"
     case dcr = "dcr"
@@ -598,6 +887,23 @@ public enum ManagedBy: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = ManagedBy(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "ManagedBy: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Type of MFA method.
@@ -610,8 +916,9 @@ public enum ManagedBy: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum MfaMethodType: String, Codable, Sendable, CaseIterable {
     case totp = "Totp"
     case passkey = "Passkey"
@@ -629,6 +936,23 @@ public enum MfaMethodType: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = MfaMethodType(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "MfaMethodType: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// How the assertion's `NameID` is formed (per service provider).
@@ -641,8 +965,9 @@ public enum MfaMethodType: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum NameIdFormat: String, Codable, Sendable, CaseIterable {
     case persistent = "persistent"
     case emailAddress = "email_address"
@@ -659,6 +984,23 @@ public enum NameIdFormat: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = NameIdFormat(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "NameIdFormat: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Events that can trigger an admin notification.
@@ -671,8 +1013,9 @@ public enum NameIdFormat: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum NotificationEventType: String, Codable, Sendable, CaseIterable {
     case loginFailure = "login_failure"
     case accountLocked = "account_locked"
@@ -705,6 +1048,23 @@ public enum NotificationEventType: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = NotificationEventType(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "NotificationEventType: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Whether a grant permits an action or refuses it (B1, deny-override). # Precedence Default
@@ -726,8 +1086,9 @@ public enum NotificationEventType: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum PermissionEffect: String, Codable, Sendable, CaseIterable {
     case allow = "allow"
     case deny = "deny"
@@ -744,6 +1105,23 @@ public enum PermissionEffect: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = PermissionEffect(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "PermissionEffect: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Key algorithm for OpenPGP keys.
@@ -756,8 +1134,9 @@ public enum PermissionEffect: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum PgpKeyAlgorithm: String, Codable, Sendable, CaseIterable {
     case rsa4096 = "Rsa4096"
     case ed25519 = "Ed25519"
@@ -774,6 +1153,23 @@ public enum PgpKeyAlgorithm: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = PgpKeyAlgorithm(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "PgpKeyAlgorithm: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// The purpose of an OpenPGP key.
@@ -786,8 +1182,9 @@ public enum PgpKeyAlgorithm: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum PgpKeyPurpose: String, Codable, Sendable, CaseIterable {
     case auditSigning = "AuditSigning"
     case export = "Export"
@@ -804,6 +1201,23 @@ public enum PgpKeyPurpose: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = PgpKeyPurpose(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "PgpKeyPurpose: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Status of an OpenPGP key.
@@ -816,8 +1230,9 @@ public enum PgpKeyPurpose: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum PgpKeyStatus: String, Codable, Sendable, CaseIterable {
     case active = "Active"
     case revoked = "Revoked"
@@ -834,6 +1249,23 @@ public enum PgpKeyStatus: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = PgpKeyStatus(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "PgpKeyStatus: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// How a reactor participates in an event.
@@ -846,8 +1278,9 @@ public enum PgpKeyStatus: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum ReactorMode: String, Codable, Sendable, CaseIterable {
     case intercept = "intercept"
     case listen = "listen"
@@ -864,6 +1297,23 @@ public enum ReactorMode: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = ReactorMode(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "ReactorMode: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// A SAML 2.0 protocol binding (SAML Bindings §3). The response binding for Web Browser SSO is
@@ -878,8 +1328,9 @@ public enum ReactorMode: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum SamlBinding: String, Codable, Sendable, CaseIterable {
     case httpPost = "http_post"
     case httpRedirect = "http_redirect"
@@ -896,6 +1347,23 @@ public enum SamlBinding: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = SamlBinding(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "SamlBinding: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Where a signing credential is in its life. An open set: an SDK decodes a value it does not
@@ -909,8 +1377,9 @@ public enum SamlBinding: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum SamlIdpCredentialStatus: String, Codable, Sendable, CaseIterable {
     case active = "active"
     case next = "next"
@@ -928,6 +1397,23 @@ public enum SamlIdpCredentialStatus: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = SamlIdpCredentialStatus(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "SamlIdpCredentialStatus: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Which slot a credential is issued into.
@@ -940,8 +1426,9 @@ public enum SamlIdpCredentialStatus: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum SamlIdpSlot: String, Codable, Sendable, CaseIterable {
     case active = "active"
     case next = "next"
@@ -958,6 +1445,23 @@ public enum SamlIdpSlot: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = SamlIdpSlot(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "SamlIdpSlot: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Why a token is or is not currently usable — for display only. The authentication path never
@@ -971,8 +1475,9 @@ public enum SamlIdpSlot: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum ScimTokenStatus: String, Codable, Sendable, CaseIterable {
     case active = "active"
     case expired = "expired"
@@ -990,6 +1495,23 @@ public enum ScimTokenStatus: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = ScimTokenStatus(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "ScimTokenStatus: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Whether a settings row belongs to an organization or a tenant.
@@ -1002,8 +1524,9 @@ public enum ScimTokenStatus: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum SettingsScope: String, Codable, Sendable, CaseIterable {
     case org = "Org"
     case tenant = "Tenant"
@@ -1020,6 +1543,23 @@ public enum SettingsScope: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = SettingsScope(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "SettingsScope: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// How SETs reach the receiver.
@@ -1032,8 +1572,9 @@ public enum SettingsScope: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum SsfDeliveryMethod: String, Codable, Sendable, CaseIterable {
     case push = "push"
     case poll = "poll"
@@ -1050,6 +1591,23 @@ public enum SsfDeliveryMethod: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = SsfDeliveryMethod(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "SsfDeliveryMethod: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// The six event types AXIAM transmits (G-5). Stored and sent as their event-type URIs;
@@ -1058,8 +1616,10 @@ public enum SsfDeliveryMethod: String, Codable, Sendable, CaseIterable {
 /// **Strings, with the known values as named constants** (CONTRACT.md §32.2). A value this
 /// SDK's copy of the spec does not list decodes AS ITSELF — `rawValue` is the server's string
 /// and `isKnown` is `false` — so nothing the server sent is lost, and it renders like any other
-/// value. It is never sent: `encode(to:)` refuses it locally, before any request, as a
-/// validation failure (§34.2 P12.2) — never as `""`, never left to the server to refuse.
+/// value. It is **sent as the string held**: an unseen URI read from the server goes back
+/// unchanged on an update, and the server judges one the caller typed (contract 1.60, §34.2
+/// P12.2 (b)). This SDK keeps no client-side list of URIs to refuse, because such a list goes
+/// stale, so a typed URI outside the named constants is **not** refused locally.
 public struct SsfEventType: RawRepresentable, Codable, Sendable, Hashable, CustomStringConvertible {
     /// The value as the server spells it.
     public let rawValue: String
@@ -1080,7 +1640,7 @@ public struct SsfEventType: RawRepresentable, Codable, Sendable, Hashable, Custo
     public static let allKnown: [SsfEventType] = [.sessionRevoked, .credentialChange, .assuranceLevelChange, .accountDisabled, .accountEnabled, .accountPurged]
 
     /// Whether this is one of ``allKnown`` — `false` for a value decoded from a newer server,
-    /// which cannot be written back.
+    /// which is still sent back unchanged.
     public var isKnown: Bool { Self.allKnown.contains(self) }
 
     public var description: String { rawValue }
@@ -1090,14 +1650,9 @@ public struct SsfEventType: RawRepresentable, Codable, Sendable, Hashable, Custo
     }
 
     public func encode(to encoder: any Encoder) throws {
-        // §32.2: an SDK MUST NOT send a value it does not know. Refused before a byte is
-        // written, as a local validation failure (§34.2 P12.2).
-        guard isKnown else {
-            throw AxiamError.network(NetworkError(
-                "SsfEventType: a value this SDK does not know is never sent "
-                    + "(CONTRACT.md §32.2)",
-                statusCode: 400, isValidation: true))
-        }
+        // Event types are sent as the strings the caller holds (§32.2's SHOULD; contract 1.60
+        // B4, §34.2 P12.2 (b)): an unseen URI read from the server goes back unchanged, and the
+        // server judges it.
         var container = encoder.singleValueContainer()
         try container.encode(rawValue)
     }
@@ -1114,8 +1669,9 @@ public struct SsfEventType: RawRepresentable, Codable, Sendable, Hashable, Custo
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum SsfStatusActor: String, Codable, Sendable, CaseIterable {
     case admin = "admin"
     case receiver = "receiver"
@@ -1132,6 +1688,23 @@ public enum SsfStatusActor: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = SsfStatusActor(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "SsfStatusActor: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// A stream's SSF status (SSF 1.0 §8.1.2), with AXIAM's meaning pinned by D-51.
@@ -1144,8 +1717,9 @@ public enum SsfStatusActor: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum SsfStreamStatus: String, Codable, Sendable, CaseIterable {
     case enabled = "enabled"
     case paused = "paused"
@@ -1163,6 +1737,23 @@ public enum SsfStreamStatus: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = SsfStreamStatus(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "SsfStreamStatus: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Which RFC 9493 subject identifier names the user in the SETs of a stream (D-46).
@@ -1175,8 +1766,9 @@ public enum SsfStreamStatus: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum SsfSubjectFormat: String, Codable, Sendable, CaseIterable {
     case issSub = "iss_sub"
     case email = "email"
@@ -1192,6 +1784,23 @@ public enum SsfSubjectFormat: String, Codable, Sendable, CaseIterable {
     public init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = SsfSubjectFormat(rawValue: raw) ?? .unknown
+    }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "SsfSubjectFormat: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 
@@ -1209,8 +1818,9 @@ public enum SsfSubjectFormat: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum TenantKind: String, Codable, Sendable, CaseIterable {
     case standard = "standard"
     case organization = "organization"
@@ -1227,6 +1837,23 @@ public enum TenantKind: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = TenantKind(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "TenantKind: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Lifecycle status of a tenant. A `Suspended` tenant remains stored and its data isolated, but
@@ -1240,8 +1867,9 @@ public enum TenantKind: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum TenantStatus: String, Codable, Sendable, CaseIterable {
     case active = "Active"
     case suspended = "Suspended"
@@ -1258,6 +1886,23 @@ public enum TenantStatus: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = TenantStatus(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "TenantStatus: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// What to do with an AAGUID that has no MDS entry (i.e. FIDO Alliance has no metadata for it —
@@ -1271,8 +1916,9 @@ public enum TenantStatus: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum UnknownAaguidAction: String, Codable, Sendable, CaseIterable {
     case allow = "allow"
     case deny = "deny"
@@ -1289,6 +1935,23 @@ public enum UnknownAaguidAction: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = UnknownAaguidAction(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "UnknownAaguidAction: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Which AXIAM attribute becomes the downstream `userName`. The mapping is a fixed attribute
@@ -1302,8 +1965,9 @@ public enum UnknownAaguidAction: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum UserNameSource: String, Codable, Sendable, CaseIterable {
     case username = "username"
     case email = "email"
@@ -1320,6 +1984,23 @@ public enum UserNameSource: String, Codable, Sendable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = UserNameSource(rawValue: raw) ?? .unknown
     }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "UserNameSource: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// The `UserStatus` enumeration, as the server spells it.
@@ -1332,8 +2013,9 @@ public enum UserNameSource: String, Codable, Sendable, CaseIterable {
 /// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
 /// be first turns a new server state into a wrong one, and on this surface these values gate
 /// access. `.unknown`'s own raw value is the empty string, which no server value is, so
-/// carrying an unrecognised value back into an update is refused by the server rather than
-/// written as a spelling it never used. A `switch` over these cases needs an `.unknown` arm.
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
 public enum UserStatus: String, Codable, Sendable, CaseIterable {
     case active = "Active"
     case inactive = "Inactive"
@@ -1353,6 +2035,23 @@ public enum UserStatus: String, Codable, Sendable, CaseIterable {
     public init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = UserStatus(rawValue: raw) ?? .unknown
+    }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "UserStatus: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 

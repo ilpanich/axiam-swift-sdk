@@ -1040,14 +1040,23 @@ RFC 8693 — a backend holding a user's token trades it for a **narrower** one b
 next service.
 
 ```swift
+// The actor token is this SAME client's own client_credentials token (§15.2 rule 9): the
+// server answers any token issued to another client with `invalid_request`.
+let actor = try await client.loginClientCredentials()
+
 let narrowed = try await client.tokenExchange(
     subjectToken: usersToken,
     subjectTokenType: AxiamClient.accessTokenType,  // required (§15.1), no default
-    actorToken: myServiceToken,       // present → delegation; absent → impersonation
+    actorToken: actor.accessToken,    // present → delegation; absent → impersonation
     scopes: ["orders:read"],
     audience: "inventory-service")
 print(narrowed.scope ?? "")           // what you were GRANTED, which may be narrower
 ```
+
+The SDK supplies no default actor token (§15.2 rule 1) and never reuses the client's session as
+one. An `actorToken` issued to another client, a console sign-in or a service account is
+answered `400 invalid_request` (`actor_token was not issued to the exchanging client`), and
+that surfaces unchanged — one request, no retry, never rewritten into an impersonation.
 
 An exchange only ever narrows, and this SDK does not hide the refusals:
 `unauthorized_client` surfaces verbatim (no retry, no rewriting the request into a delegation),
@@ -1966,10 +1975,13 @@ server would not have made is a silently different query the caller cannot see.
 to that enum's `.unknown` case rather than throwing. Throwing would fail the *whole*
 response, so one field of one record would take down the page it was on — including the
 records the caller did ask for. `.unknown` is never confused with a known case, and its raw
-value is the empty string, which no server value is: carrying an unrecognised value back into
-an update is refused by the server rather than written as a spelling it never used. The
-`init(rawValue:)` initializer stays strict, so code that parses a raw string keeps its check
-— only *decoding* is lenient. A `switch` over one of these enums needs an `.unknown` arm:
+value is the empty string, which no server value is, so `.unknown` is **never sent**: the
+generated `encode(to:)` of every one of these enums refuses it locally, before any request, as
+a `ValidationError`-category failure (`NetworkError` with `isValidation`) — a read-modify-write
+of an `SsfStream` or a `ScimTargetResponse` that carries a value this SDK does not know raises
+instead of writing `""` (contract 1.60, §34.2 P12.2). The `init(rawValue:)` initializer stays
+strict, so code that parses a raw string keeps its check — only *decoding* is lenient. A
+`switch` over one of these enums needs an `.unknown` arm:
 
 ```swift
 switch tenant.kind {
@@ -1982,8 +1994,10 @@ case .some(.unknown): …    // a kind this SDK predates
 One exception, by §32.2's own rule: **SSF event types are strings**, not an enum.
 `SsfEventType` is an open string type with the six URIs as named constants
 (`SsfEventType.sessionRevoked`, …): an unseen URI decodes **as itself** (`rawValue` kept,
-`isKnown == false`), so nothing the server sent is lost, and it is refused locally — before any
-request — if you try to send it back (contract 1.59, §34.2 P12.2).
+`isKnown == false`), so nothing the server sent is lost, and it is **sent as the string held**:
+read from the server, it goes back unchanged on `ssf.updateStream`, and the server judges one
+you typed. This SDK keeps no client-side list of URIs to refuse, because such a list goes
+stale (contract 1.60 B4, §34.2 P12.2 (b)).
 
 `Certificate.boundServiceAccountID` is a **projection**, not a property: the server resolves
 it for a whole page in one query, so `certificates.list()` populates it and

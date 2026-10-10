@@ -75,8 +75,10 @@ OPEN_UNIONS = {"ScimTargetAuth", "ScimTargetScope"}
 # String enums modelled as an open set of STRINGS rather than a Swift `enum`. CONTRACT.md
 # §32.2: "An SDK SHOULD model event types as strings with the six URIs as named constants" —
 # a closed `enum` with an `.unknown` carrier loses the URI it could not name (R-22, SW-10).
-# The value decodes as itself and renders as itself; one this SDK does not know is refused
-# locally on the way out (§34.2 P12.2), never sent as `""`.
+# The value decodes as itself, renders as itself and is sent as the string held (contract 1.60
+# B4, §34.2 P12.2 (b)): an unseen URI read from the server goes back unchanged on an update,
+# and the server judges one the caller typed. A client-side list of URIs goes stale, so this
+# SDK keeps no refusal of its own for them.
 OPEN_STRING_ENUMS = {"SsfEventType"}
 
 # Members where an explicit `null` is a different value from an absent member (§27.4 rule 5,
@@ -1150,9 +1152,11 @@ def emit_open_string_enum(rendered: str, cases: dict[str, str]) -> list[str]:
         "**Strings, with the known values as named constants** (CONTRACT.md §32.2). A value "
         "this SDK's copy of the spec does not list decodes AS ITSELF — `rawValue` is the "
         "server's string and `isKnown` is `false` — so nothing the server sent is lost, and "
-        "it renders like any other value. It is never sent: `encode(to:)` refuses it locally, "
-        "before any request, as a validation failure (§34.2 P12.2) — never as `\"\"`, never "
-        "left to the server to refuse."))
+        "it renders like any other value. It is **sent as the string held**: an unseen URI "
+        "read from the server goes back unchanged on an update, and the server judges one "
+        "the caller typed (contract 1.60, §34.2 P12.2 (b)). This SDK keeps no client-side "
+        "list of URIs to refuse, because such a list goes stale, so a typed URI outside the "
+        "named constants is **not** refused locally."))
     out.append(f"public struct {rendered}: RawRepresentable, Codable, Sendable, Hashable, "
                "CustomStringConvertible {")
     out.extend(doc("The value as the server spells it.", "    "))
@@ -1171,7 +1175,7 @@ def emit_open_string_enum(rendered: str, cases: dict[str, str]) -> list[str]:
     out.append(f"    public static let allKnown: [{rendered}] = [{known}]")
     out.append("")
     out.extend(doc("Whether this is one of ``allKnown`` — `false` for a value decoded from a "
-                   "newer server, which cannot be written back.", "    "))
+                   "newer server, which is still sent back unchanged.", "    "))
     out.append("    public var isKnown: Bool { Self.allKnown.contains(self) }")
     out.append("")
     out.append("    public var description: String { rawValue }")
@@ -1182,14 +1186,9 @@ def emit_open_string_enum(rendered: str, cases: dict[str, str]) -> list[str]:
     out.append("")
     out.append("    public func encode(to encoder: any Encoder) throws {")
     out.extend(comment(
-        "§32.2: an SDK MUST NOT send a value it does not know. Refused before a byte is "
-        "written, as a local validation failure (§34.2 P12.2).", "        "))
-    out.append("        guard isKnown else {")
-    out.append("            throw AxiamError.network(NetworkError(")
-    out.append(f'                "{rendered}: a value this SDK does not know is never sent "')
-    out.append('                    + "(CONTRACT.md §32.2)",')
-    out.append("                statusCode: 400, isValidation: true))")
-    out.append("        }")
+        "Event types are sent as the strings the caller holds (§32.2's SHOULD; contract "
+        "1.60 B4, §34.2 P12.2 (b)): an unseen URI read from the server goes back "
+        "unchanged, and the server judges it.", "        "))
     out.append("        var container = encoder.singleValueContainer()")
     out.append("        try container.encode(rawValue)")
     out.append("    }")
@@ -1254,9 +1253,11 @@ def emit_models() -> str:
             "It is never read as one of the KNOWN cases: reading a new value as whichever "
             "case happens to be first turns a new server state into a wrong one, and on this "
             "surface these values gate access. `.unknown`'s own raw value is the empty "
-            "string, which no server value is, so carrying an unrecognised value back into "
-            "an update is refused by the server rather than written as a spelling it never "
-            "used. A `switch` over these cases needs an `.unknown` arm."))
+            "string, which no server value is, so `.unknown` is never written: "
+            "`encode(to:)` refuses it locally, before any request, as a validation failure "
+            "(CONTRACT.md \u00a734.2 P12.2, contract 1.60 A4) \u2014 never as `\"\"`, never "
+            "left to the server to refuse. A `switch` over these cases needs an `.unknown` "
+            "arm."))
         out.append(f"public enum {rendered}: String, Codable, Sendable, CaseIterable {{")
         for case, value in cases.items():
             out.append(f'    case {case} = "{value}"')
@@ -1273,6 +1274,23 @@ def emit_models() -> str:
         out.append("    public init(from decoder: any Decoder) throws {")
         out.append("        let raw = try decoder.singleValueContainer().decode(String.self)")
         out.append(f"        self = {rendered}(rawValue: raw) ?? .unknown")
+        out.append("    }")
+        out.append("")
+        out.extend(doc("Refuses `.unknown`: a value this SDK could not name is never sent.\n\n"
+                       "Decoding is lenient so one unrecognised value does not fail a whole "
+                       "response; writing is not, because the only spelling `.unknown` has is "
+                       "the empty string. A read-modify-write of a record that carries one "
+                       "raises before any request (CONTRACT.md \u00a734.2 P12.2, contract "
+                       "1.60 A4).", "    "))
+        out.append("    public func encode(to encoder: any Encoder) throws {")
+        out.append("        guard self != .unknown else {")
+        out.append("            throw AxiamError.network(NetworkError(")
+        out.append(f'                "{rendered}: a value this SDK does not know is never sent "')
+        out.append('                    + "(CONTRACT.md §34.2 P12.2)",')
+        out.append("                statusCode: 400, isValidation: true))")
+        out.append("        }")
+        out.append("        var container = encoder.singleValueContainer()")
+        out.append("        try container.encode(rawValue)")
         out.append("    }")
         out.append("}")
         out.append("")
@@ -1989,16 +2007,19 @@ def emit_tests() -> str:
             out.append("")
             out.extend(comment(
                 "OPEN_STRING_ENUMS: an unrecognised value decodes AS ITSELF and is not "
-                "known; it is never sent (§32.2, §34.2 P12.2).", "        "))
+                "known, and it is SENT as itself (contract 1.60 B4, §34.2 P12.2 (b)).",
+                "        "))
             out.append(f'        let stranger = try JSONDecoder().decode(')
             out.append(f'            [{rendered}].self,')
             out.append(f'            from: Data("[\\"__not_a_{snake(rendered)}__\\"]".utf8))')
             out.append(f'        XCTAssertEqual(stranger.map(\\.rawValue), ["__not_a_{snake(rendered)}__"])')
             out.append("        XCTAssertFalse(stranger[0].isKnown)")
-            out.append("        XCTAssertThrowsError(try JSONEncoder().encode(stranger))")
             first = enum_case(values[0])
             out.append("        let encoder = JSONEncoder()")
             out.append("        encoder.outputFormatting = [.withoutEscapingSlashes]")
+            out.append("        let unchanged = try encoder.encode(stranger)")
+            out.append(f'        XCTAssertEqual(String(decoding: unchanged, as: UTF8.self), '
+                       f'"[\\"__not_a_{snake(rendered)}__\\"]")')
             out.append(f'        let encoded = try encoder.encode([{rendered}.{first}])')
             out.append(f'        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), '
                        f'"[\\"{values[0]}\\"]")')
@@ -2032,6 +2053,17 @@ def emit_tests() -> str:
             out.append(f"        XCTAssertNotEqual({rendered}.unknown, "
                        f"{rendered}.{enum_case(value)})")
         out.append(f'        XCTAssertEqual({rendered}.unknown.rawValue, "")')
+        out.append("")
+        out.extend(comment(
+            "ENCODING is the strict direction (contract 1.60 A4, \u00a734.2 P12.2): `.unknown` "
+            "is never written -- not as `\"\"`, and not left to the server to refuse. It is "
+            "refused before a byte is produced, as the validation failure.", "        "))
+        out.append(f"        XCTAssertThrowsError(try JSONEncoder().encode([{rendered}.unknown])) {{ error in")
+        out.append("            guard case AxiamError.network(let refusal) = error else {")
+        out.append('                return XCTFail("a local refusal is the validation failure")')
+        out.append("            }")
+        out.append("            XCTAssertTrue(refusal.isValidation)")
+        out.append("        }")
         first = enum_case(values[0])
         # Foundation escapes `/` by default; URI-valued enums (SsfEventType) would otherwise
         # compare an escaped slash against `/`. The wire value is pinned, not the escaping.

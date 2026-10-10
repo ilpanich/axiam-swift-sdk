@@ -137,11 +137,11 @@ final class SsfManagementTests: XCTestCase {
         XCTAssertEqual(active.eventsAllowed, [.sessionRevoked])
     }
 
-    /// §32.2 (R-22, SW-10): event types are strings with the six URIs as named constants. An
-    /// URI this SDK has never seen decodes AS ITSELF — not as a placeholder that loses it —
-    /// renders without failing, and is refused locally before it could be sent (§34.2 P12.2):
-    /// never as `""`, never left to the server.
-    func testAnUnseenEventTypeURIIsKeptAndNeverSent() async throws {
+    /// §32.2 (R-22, SW-10; contract 1.60 B4, §34.2 P12.2 (b)): event types are strings with the
+    /// six URIs as named constants. An URI this SDK has never seen decodes AS ITSELF — not as a
+    /// placeholder that loses it — renders without failing, and is sent back UNCHANGED on
+    /// `update_stream`, the server judging it: this SDK keeps no list of URIs to refuse.
+    func testAnUnseenEventTypeURIIsKeptAndSentBackUnchanged() async throws {
         let unseen = "https://example.test/event-type/\(UUID().uuidString.lowercased())"
         let odd = try Self.decode(Self.streamObject([
             "events_allowed": [Self.revoked, unseen],
@@ -156,15 +156,45 @@ final class SsfManagementTests: XCTestCase {
 
         let (client, transport) = try await ManagementFixture.signedIn([
             (status: 200, body: Self.json(Self.streamObject())),
+            (status: 200, body: Self.json(Self.streamObject())),
         ])
         let before = transport.count
-        do {
-            _ = try await client.ssf.updateStream(streamID: odd.id, body: SsfStreamInput(copying: odd))
-            XCTFail("an event type this SDK does not know must not be sent")
-        } catch AxiamError.network(let error) {
-            XCTAssertTrue(error.isValidation, "refused locally, as a validation failure")
+        _ = try await client.ssf.updateStream(streamID: odd.id, body: SsfStreamInput(copying: odd))
+        XCTAssertEqual(transport.count, before + 1, "the request was made")
+        let sent = try XCTUnwrap(transport.last?.jsonBody)
+        XCTAssertEqual(sent["events_allowed"] as? [String], [Self.revoked, unseen])
+        XCTAssertEqual(sent["events_requested"] as? [String], [unseen])
+
+        // A URI the caller typed is sent as held as well.
+        var typed = Self.input(header: nil)
+        typed.eventsAllowed = [SsfEventType(rawValue: unseen)]
+        _ = try await client.ssf.updateStream(streamID: odd.id, body: typed)
+        let typedSent = try XCTUnwrap(transport.last?.jsonBody)
+        XCTAssertEqual(typedSent["events_allowed"] as? [String], [unseen])
+    }
+
+    /// Contract 1.60 A4 (R-22, §34.2 P12.2): `.unknown` is never sent. A read-modify-write of a
+    /// stream carrying a `status`, `delivery_method` or `subject_format` this SDK does not
+    /// know raises the validation failure before any request — and never sends `""`.
+    func testAStreamCarryingAnUnknownEnumValueIsRefusedBeforeAnyRequest() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.json(Self.streamObject())),
+        ])
+        let before = transport.count
+        for (member, value) in [
+            ("status", "quarantined"), ("delivery_method", "websocket"),
+            ("subject_format", "opaque"),
+        ] {
+            let odd = try Self.decode(Self.streamObject([member: value]))
+            do {
+                _ = try await client.ssf.updateStream(
+                    streamID: odd.id, body: SsfStreamInput(copying: odd))
+                XCTFail("\(member): an unknown value must not be sent")
+            } catch AxiamError.network(let error) {
+                XCTAssertTrue(error.isValidation, "\(member): refused locally, as a validation failure")
+            }
+            XCTAssertEqual(transport.count, before, "\(member): nothing was sent")
         }
-        XCTAssertEqual(transport.count, before, "nothing was sent")
     }
 
     // MARK: - 4. Pagination
