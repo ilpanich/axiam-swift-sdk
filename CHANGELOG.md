@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — contract 1.60 (first part)
+
+Re-vendored `CONTRACT.md` at contract 1.60. `openapi.json`, `management-registry.json` and
+`proto/` follow in a second step; this part is not compiled by the author's container (no Swift
+toolchain) and relies on CI.
+
+- **A4 / R-22 (§34.2 P12.2) — every open enum refuses `.unknown` when it is encoded.** The
+  generator now writes `encode(to:)` for each generated open enum (`SsfStream.status`,
+  `deliveryMethod`, `subjectFormat`, `ScimTargetResponse.deprovision`, `userNameFrom`, …): a
+  read-modify-write of a record that carries a value this SDK does not know raises the
+  validation failure (`NetworkError` with `isValidation`) before any request and never sends
+  `""`. Decoding stays lenient. Behaviour change for code that echoed such a record back.
+- **B4 (§34.2 P12.2 (b), §32.2) — event types are sent as the strings held.** An event-type URI
+  read from the server that is none of the six decodes with its value and is sent back unchanged
+  on `ssf.updateStream`; a URI the caller typed outside the six is no longer refused locally
+  (the server judges it). Behaviour change from the 1.59 local refusal.
+- **B1 (§32.8 helper test 6, §34.2 P4) — verified, no change.** `SsfReplayStore.checkAndRecord`
+  already `throws` (R-4, below); the test now also asserts that the store's error is the cause
+  of the `NetworkError` `verifySet` raises.
+- **§15.2 rule 9 / §15.6 — the actor token is the same client's `client_credentials` token.**
+  The `tokenExchange` documentation, the README and `Examples/TokenExchange` obtain it with
+  `loginClientCredentials()`; a new test pins that `400 invalid_request` (`actor_token was not
+  issued to the exchanging client`) surfaces unchanged after exactly one request.
+
 ### Changed — contract 1.59
 
 Re-vendored `CONTRACT.md` at contract 1.59 (axiam `fe369eb`, §34: the cross-SDK review of the
