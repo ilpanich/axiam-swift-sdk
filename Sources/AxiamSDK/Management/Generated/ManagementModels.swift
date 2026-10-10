@@ -5533,7 +5533,7 @@ public struct FederationConfigResponse: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.allowSha1Signatures = try container.decode(Bool.self, forKey: .allowSha1Signatures)
+        self.allowSha1Signatures = try container.decodeIfPresent(Bool.self, forKey: .allowSha1Signatures) ?? false
         self.allowTenantInheritance = try container.decode(Bool.self, forKey: .allowTenantInheritance)
         self.allowedAlgorithms = try container.decode([String].self, forKey: .allowedAlgorithms)
         self.allowedIssuerTenants = try container.decode([String].self, forKey: .allowedIssuerTenants)
@@ -12845,19 +12845,19 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
     public let allowedIssuerTenants: [String]?
 
     /// Apple Key ID. Explicit `null` clears it.
-    public let appleKeyID: String?
+    public let appleKeyID: String??
 
     /// Apple Team ID. Explicit `null` clears it.
-    public let appleTeamID: String?
+    public let appleTeamID: String??
 
     /// The server's `attribute_map` field.
     public let attributeMap: ManagementJSON?
 
     /// OAuth2-variant authorization endpoint. Explicit `null` clears it.
-    public let authorizationEndpoint: String?
+    public let authorizationEndpoint: String??
 
     /// Sign-in-button icon for a generic provider. Explicit `null` clears it.
-    public let buttonIcon: String?
+    public let buttonIcon: String??
 
     /// The server's `client_id` field.
     public let clientID: String?
@@ -12872,20 +12872,20 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
     /// omitted leaves it. Clearing it is audited (`federation.metadata_signing_cert_cleared`),
     /// and so is replacing it with a different certificate
     /// (`federation.metadata_signing_cert_changed`).
-    public let idpMetadataSigningCertPEM: String?
+    public let idpMetadataSigningCertPEM: String??
 
     /// PEM-encoded X.509 certificate for verifying SAML assertions (CQ-B40/REQ-14 AC-5).
     /// Explicit `null` clears the stored cert; omitted leaves it.
-    public let idpSigningCertPEM: String?
+    public let idpSigningCertPEM: String??
 
     /// OIDC discovery or SAML metadata URL. Explicit `null` clears it; omitted leaves it.
-    public let metadataURL: String?
+    public let metadataURL: String??
 
     /// The server's `provider` field.
     public let provider: String?
 
     /// Operator-chosen identifier for a `generic_*` kind. Explicit `null` clears it.
-    public let providerSlug: String?
+    public let providerSlug: String??
 
     /// Send PKCE on the authorization request.
     public let requirePKCE: Bool?
@@ -12894,37 +12894,37 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
     public let scopes: [String]?
 
     /// OAuth2-variant token endpoint. Explicit `null` clears it.
-    public let tokenEndpoint: String?
+    public let tokenEndpoint: String??
 
     /// The server's `token_exchange` field.
     public let tokenExchange: TokenExchangeTrustRequest?
 
     /// OAuth2-variant userinfo endpoint. Explicit `null` clears it.
-    public let userinfoEndpoint: String?
+    public let userinfoEndpoint: String??
 
     public init(
         allowSha1Signatures: Bool? = nil,
         allowTenantInheritance: Bool? = nil,
         allowedAlgorithms: [String]? = nil,
         allowedIssuerTenants: [String]? = nil,
-        appleKeyID: String? = nil,
-        appleTeamID: String? = nil,
+        appleKeyID: String?? = nil,
+        appleTeamID: String?? = nil,
         attributeMap: ManagementJSON? = nil,
-        authorizationEndpoint: String? = nil,
-        buttonIcon: String? = nil,
+        authorizationEndpoint: String?? = nil,
+        buttonIcon: String?? = nil,
         clientID: String? = nil,
         clientSecret: Sensitive<String>? = nil,
         enabled: Bool? = nil,
-        idpMetadataSigningCertPEM: String? = nil,
-        idpSigningCertPEM: String? = nil,
-        metadataURL: String? = nil,
+        idpMetadataSigningCertPEM: String?? = nil,
+        idpSigningCertPEM: String?? = nil,
+        metadataURL: String?? = nil,
         provider: String? = nil,
-        providerSlug: String? = nil,
+        providerSlug: String?? = nil,
         requirePKCE: Bool? = nil,
         scopes: [String]? = nil,
-        tokenEndpoint: String? = nil,
+        tokenEndpoint: String?? = nil,
         tokenExchange: TokenExchangeTrustRequest? = nil,
-        userinfoEndpoint: String? = nil
+        userinfoEndpoint: String?? = nil
     ) {
         self.allowSha1Signatures = allowSha1Signatures
         self.allowTenantInheritance = allowTenantInheritance
@@ -12981,11 +12981,43 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
         self.allowTenantInheritance = try container.decodeIfPresent(Bool.self, forKey: .allowTenantInheritance)
         self.allowedAlgorithms = try container.decodeIfPresent([String].self, forKey: .allowedAlgorithms)
         self.allowedIssuerTenants = try container.decodeIfPresent([String].self, forKey: .allowedIssuerTenants)
-        self.appleKeyID = try container.decodeIfPresent(String.self, forKey: .appleKeyID)
-        self.appleTeamID = try container.decodeIfPresent(String.self, forKey: .appleTeamID)
+        if container.contains(.appleKeyID) {
+            if try container.decodeNil(forKey: .appleKeyID) {
+                self.appleKeyID = .some(nil)
+            } else {
+                self.appleKeyID = .some(try container.decode(String.self, forKey: .appleKeyID))
+            }
+        } else {
+            self.appleKeyID = nil
+        }
+        if container.contains(.appleTeamID) {
+            if try container.decodeNil(forKey: .appleTeamID) {
+                self.appleTeamID = .some(nil)
+            } else {
+                self.appleTeamID = .some(try container.decode(String.self, forKey: .appleTeamID))
+            }
+        } else {
+            self.appleTeamID = nil
+        }
         self.attributeMap = try container.decodeIfPresent(ManagementJSON.self, forKey: .attributeMap)
-        self.authorizationEndpoint = try container.decodeIfPresent(String.self, forKey: .authorizationEndpoint)
-        self.buttonIcon = try container.decodeIfPresent(String.self, forKey: .buttonIcon)
+        if container.contains(.authorizationEndpoint) {
+            if try container.decodeNil(forKey: .authorizationEndpoint) {
+                self.authorizationEndpoint = .some(nil)
+            } else {
+                self.authorizationEndpoint = .some(try container.decode(String.self, forKey: .authorizationEndpoint))
+            }
+        } else {
+            self.authorizationEndpoint = nil
+        }
+        if container.contains(.buttonIcon) {
+            if try container.decodeNil(forKey: .buttonIcon) {
+                self.buttonIcon = .some(nil)
+            } else {
+                self.buttonIcon = .some(try container.decode(String.self, forKey: .buttonIcon))
+            }
+        } else {
+            self.buttonIcon = nil
+        }
         self.clientID = try container.decodeIfPresent(String.self, forKey: .clientID)
         if let raw = try container.decodeIfPresent(String.self, forKey: .clientSecret) {
             self.clientSecret = Sensitive(raw)
@@ -12993,16 +13025,64 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
             self.clientSecret = nil
         }
         self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
-        self.idpMetadataSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .idpMetadataSigningCertPEM)
-        self.idpSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .idpSigningCertPEM)
-        self.metadataURL = try container.decodeIfPresent(String.self, forKey: .metadataURL)
+        if container.contains(.idpMetadataSigningCertPEM) {
+            if try container.decodeNil(forKey: .idpMetadataSigningCertPEM) {
+                self.idpMetadataSigningCertPEM = .some(nil)
+            } else {
+                self.idpMetadataSigningCertPEM = .some(try container.decode(String.self, forKey: .idpMetadataSigningCertPEM))
+            }
+        } else {
+            self.idpMetadataSigningCertPEM = nil
+        }
+        if container.contains(.idpSigningCertPEM) {
+            if try container.decodeNil(forKey: .idpSigningCertPEM) {
+                self.idpSigningCertPEM = .some(nil)
+            } else {
+                self.idpSigningCertPEM = .some(try container.decode(String.self, forKey: .idpSigningCertPEM))
+            }
+        } else {
+            self.idpSigningCertPEM = nil
+        }
+        if container.contains(.metadataURL) {
+            if try container.decodeNil(forKey: .metadataURL) {
+                self.metadataURL = .some(nil)
+            } else {
+                self.metadataURL = .some(try container.decode(String.self, forKey: .metadataURL))
+            }
+        } else {
+            self.metadataURL = nil
+        }
         self.provider = try container.decodeIfPresent(String.self, forKey: .provider)
-        self.providerSlug = try container.decodeIfPresent(String.self, forKey: .providerSlug)
+        if container.contains(.providerSlug) {
+            if try container.decodeNil(forKey: .providerSlug) {
+                self.providerSlug = .some(nil)
+            } else {
+                self.providerSlug = .some(try container.decode(String.self, forKey: .providerSlug))
+            }
+        } else {
+            self.providerSlug = nil
+        }
         self.requirePKCE = try container.decodeIfPresent(Bool.self, forKey: .requirePKCE)
         self.scopes = try container.decodeIfPresent([String].self, forKey: .scopes)
-        self.tokenEndpoint = try container.decodeIfPresent(String.self, forKey: .tokenEndpoint)
+        if container.contains(.tokenEndpoint) {
+            if try container.decodeNil(forKey: .tokenEndpoint) {
+                self.tokenEndpoint = .some(nil)
+            } else {
+                self.tokenEndpoint = .some(try container.decode(String.self, forKey: .tokenEndpoint))
+            }
+        } else {
+            self.tokenEndpoint = nil
+        }
         self.tokenExchange = try container.decodeIfPresent(TokenExchangeTrustRequest.self, forKey: .tokenExchange)
-        self.userinfoEndpoint = try container.decodeIfPresent(String.self, forKey: .userinfoEndpoint)
+        if container.contains(.userinfoEndpoint) {
+            if try container.decodeNil(forKey: .userinfoEndpoint) {
+                self.userinfoEndpoint = .some(nil)
+            } else {
+                self.userinfoEndpoint = .some(try container.decode(String.self, forKey: .userinfoEndpoint))
+            }
+        } else {
+            self.userinfoEndpoint = nil
+        }
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -13011,24 +13091,84 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
         try container.encodeIfPresent(allowTenantInheritance, forKey: .allowTenantInheritance)
         try container.encodeIfPresent(allowedAlgorithms, forKey: .allowedAlgorithms)
         try container.encodeIfPresent(allowedIssuerTenants, forKey: .allowedIssuerTenants)
-        try container.encodeIfPresent(appleKeyID, forKey: .appleKeyID)
-        try container.encodeIfPresent(appleTeamID, forKey: .appleTeamID)
+        if let appleKeyIDMember = appleKeyID {
+            if let appleKeyIDValue = appleKeyIDMember {
+                try container.encode(appleKeyIDValue, forKey: .appleKeyID)
+            } else {
+                try container.encodeNil(forKey: .appleKeyID)
+            }
+        }
+        if let appleTeamIDMember = appleTeamID {
+            if let appleTeamIDValue = appleTeamIDMember {
+                try container.encode(appleTeamIDValue, forKey: .appleTeamID)
+            } else {
+                try container.encodeNil(forKey: .appleTeamID)
+            }
+        }
         try container.encodeIfPresent(attributeMap, forKey: .attributeMap)
-        try container.encodeIfPresent(authorizationEndpoint, forKey: .authorizationEndpoint)
-        try container.encodeIfPresent(buttonIcon, forKey: .buttonIcon)
+        if let authorizationEndpointMember = authorizationEndpoint {
+            if let authorizationEndpointValue = authorizationEndpointMember {
+                try container.encode(authorizationEndpointValue, forKey: .authorizationEndpoint)
+            } else {
+                try container.encodeNil(forKey: .authorizationEndpoint)
+            }
+        }
+        if let buttonIconMember = buttonIcon {
+            if let buttonIconValue = buttonIconMember {
+                try container.encode(buttonIconValue, forKey: .buttonIcon)
+            } else {
+                try container.encodeNil(forKey: .buttonIcon)
+            }
+        }
         try container.encodeIfPresent(clientID, forKey: .clientID)
         try container.encodeIfPresent(clientSecret?.expose(), forKey: .clientSecret)
         try container.encodeIfPresent(enabled, forKey: .enabled)
-        try container.encodeIfPresent(idpMetadataSigningCertPEM, forKey: .idpMetadataSigningCertPEM)
-        try container.encodeIfPresent(idpSigningCertPEM, forKey: .idpSigningCertPEM)
-        try container.encodeIfPresent(metadataURL, forKey: .metadataURL)
+        if let idpMetadataSigningCertPEMMember = idpMetadataSigningCertPEM {
+            if let idpMetadataSigningCertPEMValue = idpMetadataSigningCertPEMMember {
+                try container.encode(idpMetadataSigningCertPEMValue, forKey: .idpMetadataSigningCertPEM)
+            } else {
+                try container.encodeNil(forKey: .idpMetadataSigningCertPEM)
+            }
+        }
+        if let idpSigningCertPEMMember = idpSigningCertPEM {
+            if let idpSigningCertPEMValue = idpSigningCertPEMMember {
+                try container.encode(idpSigningCertPEMValue, forKey: .idpSigningCertPEM)
+            } else {
+                try container.encodeNil(forKey: .idpSigningCertPEM)
+            }
+        }
+        if let metadataURLMember = metadataURL {
+            if let metadataURLValue = metadataURLMember {
+                try container.encode(metadataURLValue, forKey: .metadataURL)
+            } else {
+                try container.encodeNil(forKey: .metadataURL)
+            }
+        }
         try container.encodeIfPresent(provider, forKey: .provider)
-        try container.encodeIfPresent(providerSlug, forKey: .providerSlug)
+        if let providerSlugMember = providerSlug {
+            if let providerSlugValue = providerSlugMember {
+                try container.encode(providerSlugValue, forKey: .providerSlug)
+            } else {
+                try container.encodeNil(forKey: .providerSlug)
+            }
+        }
         try container.encodeIfPresent(requirePKCE, forKey: .requirePKCE)
         try container.encodeIfPresent(scopes, forKey: .scopes)
-        try container.encodeIfPresent(tokenEndpoint, forKey: .tokenEndpoint)
+        if let tokenEndpointMember = tokenEndpoint {
+            if let tokenEndpointValue = tokenEndpointMember {
+                try container.encode(tokenEndpointValue, forKey: .tokenEndpoint)
+            } else {
+                try container.encodeNil(forKey: .tokenEndpoint)
+            }
+        }
         try container.encodeIfPresent(tokenExchange, forKey: .tokenExchange)
-        try container.encodeIfPresent(userinfoEndpoint, forKey: .userinfoEndpoint)
+        if let userinfoEndpointMember = userinfoEndpoint {
+            if let userinfoEndpointValue = userinfoEndpointMember {
+                try container.encode(userinfoEndpointValue, forKey: .userinfoEndpoint)
+            } else {
+                try container.encodeNil(forKey: .userinfoEndpoint)
+            }
+        }
     }
 }
 

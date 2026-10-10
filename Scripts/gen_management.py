@@ -91,11 +91,35 @@ OPEN_STRING_ENUMS = {"SsfEventType"}
 # sent, or was not received), `.some(nil)` is an explicit JSON `null`. A name list rather
 # than a schema rule, because the export spells every optional member `["string", "null"]`
 # and cannot say which ones `null` clears.
+#
+# Contract 1.60 §27.15 note 8 adds the ten nullable string members of
+# `UpdateFederationConfigRequest`: each is cleared by an explicit `null` and left unchanged
+# when omitted. Its other members (the booleans, the lists, `client_secret`, ...) cannot be
+# cleared -- the server reads `null` there as absent -- so they stay plain optionals.
 EXPLICIT_NULL_FIELDS = {
     ("UpdateDirectoryConfig", "group_base_dn"),
     ("UpdateDirectoryConfig", "group_filter"),
     ("SamlIdpInfo", "active_credential_id"),
     ("SamlIdpInfo", "next_credential_id"),
+    ("UpdateFederationConfigRequest", "metadata_url"),
+    ("UpdateFederationConfigRequest", "idp_signing_cert_pem"),
+    ("UpdateFederationConfigRequest", "idp_metadata_signing_cert_pem"),
+    ("UpdateFederationConfigRequest", "provider_slug"),
+    ("UpdateFederationConfigRequest", "authorization_endpoint"),
+    ("UpdateFederationConfigRequest", "token_endpoint"),
+    ("UpdateFederationConfigRequest", "userinfo_endpoint"),
+    ("UpdateFederationConfigRequest", "apple_team_id"),
+    ("UpdateFederationConfigRequest", "apple_key_id"),
+    ("UpdateFederationConfigRequest", "button_icon"),
+}
+
+# Response members the spec marks required that a server older than the member omits, read
+# as a fixed value when absent rather than failing the whole response. Keyed by (schema, wire
+# name); the value is the Swift literal. Contract 1.60 §27.15 note 6: a
+# `FederationConfigResponse` without `allow_sha1_signatures` (a pre-1.0.0 server) decodes as
+# `false`. The property stays non-optional -- absent and `false` mean the same thing here.
+DEFAULT_WHEN_ABSENT: dict[tuple[str, str], str] = {
+    ("FederationConfigResponse", "allow_sha1_signatures"): "false",
 }
 
 # Field documentation the contract makes an SDK state "where it documents the field"
@@ -133,6 +157,16 @@ CALL_SITE_NOTES: dict[str, str] = {
         "re-send. A member left `nil` is not sent and stays as stored; `groupBaseDn` / "
         "`groupFilter` set to `.some(nil)` are sent as `null` and clear the value. An "
         "enabled directory and an effective `opaque_mode = required` never coexist (`409`)."
+    ),
+    "federation.update_config": (
+        "A member left `nil` is not sent and stays as stored. The ten nullable strings -- "
+        "`metadataURL`, `idpSigningCertPEM`, `idpMetadataSigningCertPEM`, `providerSlug`, "
+        "`authorizationEndpoint`, `tokenEndpoint`, `userinfoEndpoint`, `appleTeamID`, "
+        "`appleKeyID` and `buttonIcon` -- are `String??`: `.some(nil)` is sent as `null` and "
+        "clears the value (§27.15 note 8). An `OAuth2` configuration's three endpoints cannot "
+        "be cleared (`400`), and `appleTeamID` / `appleKeyID` clear only together. "
+        "`allowSha1Signatures` and `idpMetadataSigningCertPEM` apply to SAML configurations "
+        "only (`400` otherwise)."
     ),
     "directory.delete": (
         "**Deleting stops the directory, and only that** (§30.3 rule 5): directory accounts "
@@ -212,7 +246,10 @@ CALL_SITE_NOTES: dict[str, str] = {
         "without `credential` in the same write is refused `400` and changes nothing. The "
         "SDK holds no credential to re-send. Every other member left out takes its default "
         "(`ScimTargetInput(copying:)` carries them over). An update overtaken by another "
-        "administrator's write is `409` (§31.3 rule 4): reload, then retry yourself."
+        "administrator's write is `409` (§31.3 rule 4): reload, then retry yourself. With "
+        "`expectedUpdatedAt` set to the `updatedAt` you read -- `ScimTargetInput(copying:)` "
+        "sets it -- a write made since your read is `409` too (contract 1.60); `create` "
+        "ignores it."
     ),
     "scim_targets.delete": (
         "**Deprovisions nothing downstream** (§31.3 rule 8): the users and groups AXIAM "
@@ -819,10 +856,16 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
             raise SystemExit(
                 f"EXPLICIT_NULL_FIELDS names {schema_name}.{wire}, which is required or "
                 "secret; only an optional, non-secret member can be tri-state.")
+        default = DEFAULT_WHEN_ABSENT.get((schema_name, wire))
+        if default is not None and (wire not in required or wire in secrets or explicit_null):
+            raise SystemExit(
+                f"DEFAULT_WHEN_ABSENT names {schema_name}.{wire}, which is not a required, "
+                "non-secret, two-state member.")
         out.append({
             "wire": wire, "name": field(wire), "decl": info["decl"], "kind": info["kind"],
             "ref": info["ref"], "required": False if is_inherit else wire in required,
             "schema": sub, "secret": wire in secrets, "explicit_null": explicit_null,
+            "default": default,
             "description": sub.get("description") if isinstance(sub, dict) else None,
         })
     return out, description
@@ -1087,6 +1130,10 @@ def decode_expr(f: dict[str, Any]) -> list[str]:
             f"            self.{name} = nil",
             "        }",
         ]
+    if f.get("default") is not None:
+        # DEFAULT_WHEN_ABSENT: an older server omits the member; read it as the default.
+        return [f"        self.{name} = try container.decodeIfPresent({decl}.self, "
+                f"forKey: .{key}) ?? {f['default']}"]
     if f["required"]:
         return [f"        self.{name} = try container.decode({decl}.self, forKey: .{key})"]
     return [f"        self.{name} = try container.decodeIfPresent({decl}.self, forKey: .{key})"]
