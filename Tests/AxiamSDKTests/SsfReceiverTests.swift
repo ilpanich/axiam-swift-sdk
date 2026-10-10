@@ -442,10 +442,11 @@ final class SsfReceiverTests: XCTestCase {
         XCTAssertFalse(returned.contains(secondJTI))
     }
 
-    /// §32.7 step 9, §34.2 P3 – P4 (R-4, SW-4): a replay store that cannot answer fails
-    /// CLOSED. The store reports the failure by throwing; `verifySet` then raises a
-    /// `NetworkError` with no reason code — no verdict, no acceptance — and `poll` neither
-    /// returns nor records the SET (P1), so the transmitter offers it again.
+    /// §32.7 step 9, §32.8 helper test 6, §34.2 P3 – P4 (R-4, SW-4; contract 1.60 B1): a replay
+    /// store that cannot answer fails CLOSED. The store reports the failure by throwing;
+    /// `verifySet` then raises a `NetworkError` with no reason code — no verdict, no
+    /// acceptance — and `poll` neither returns nor records the SET (P1), so the transmitter
+    /// offers it again.
     func testAReplayStoreThatCannotAnswerRefusesAndRecordsNothing() async throws {
         let key = SetKey.generate()
         let stream = UUID().uuidString.lowercased()
@@ -476,7 +477,11 @@ final class SsfReceiverTests: XCTestCase {
                 key.signSet(Self.with(Self.claims(), "jti", unanswerableJTI)))
             XCTFail("a store that cannot answer must not let the SET through")
         } catch let error as AxiamError {
-            guard case .network = error else { return XCTFail("a store failure is a NetworkError") }
+            guard case .network(let network) = error else {
+                return XCTFail("a store failure is a NetworkError")
+            }
+            XCTAssertTrue(network.cause is FailingReplayStore.Unavailable,
+                          "the store's own error travels as the cause")
             XCTAssertNil(error.setFailureReason, "not a verdict on the SET")
         }
 
