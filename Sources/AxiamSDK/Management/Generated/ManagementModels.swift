@@ -3395,6 +3395,12 @@ public struct CreateCertificateRequest: Codable, Sendable {
 
 /// The `CreateFederationConfigRequest` schema.
 public struct CreateFederationConfigRequest: Codable, Sendable {
+    /// SAML only: accept IdP responses signed with SHA-1 (`rsa-sha1`). Default `false` — since
+    /// 1.0.0 the SP verifier accepts only SHA-2 signatures. The escape hatch for an IdP that
+    /// cannot sign with SHA-2 yet; refused on a non-SAML config, and audited
+    /// (`federation.sha1_signatures_allowed`) when set to `true`.
+    public let allowSha1Signatures: Bool?
+
     /// Whether tenants of this organization may inherit this provider. Only meaningful on a
     /// config in the organization-scope tenant.
     public let allowTenantInheritance: Bool?
@@ -3433,6 +3439,12 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
 
     /// OAuth2 client secret registered with the external IdP.
     public let clientSecret: Sensitive<String>
+
+    /// SAML only: the PEM certificate the IdP signs its metadata document with (#530). When
+    /// set, the metadata must carry one SHA-2 signature on its `EntityDescriptor` root that
+    /// verifies against it, or no sign-in starts. Omitted: the metadata is not
+    /// signature-checked.
+    public let idpMetadataSigningCertPEM: String?
 
     /// PEM-encoded X.509 certificate for verifying SAML assertions or OIDC signatures
     /// (CQ-B40/REQ-14 AC-5). Required for SAML configs.
@@ -3474,6 +3486,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
     public let userinfoEndpoint: String?
 
     public init(
+        allowSha1Signatures: Bool? = nil,
         allowTenantInheritance: Bool? = nil,
         allowedAlgorithms: [String]? = nil,
         allowedIssuerTenants: [String]? = nil,
@@ -3484,6 +3497,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
         buttonIcon: String? = nil,
         clientID: String,
         clientSecret: Sensitive<String>,
+        idpMetadataSigningCertPEM: String? = nil,
         idpSigningCertPEM: String? = nil,
         metadataURL: String? = nil,
         `protocol`: String,
@@ -3496,6 +3510,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
         tokenExchange: TokenExchangeTrustRequest? = nil,
         userinfoEndpoint: String? = nil
     ) {
+        self.allowSha1Signatures = allowSha1Signatures
         self.allowTenantInheritance = allowTenantInheritance
         self.allowedAlgorithms = allowedAlgorithms
         self.allowedIssuerTenants = allowedIssuerTenants
@@ -3506,6 +3521,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
         self.buttonIcon = buttonIcon
         self.clientID = clientID
         self.clientSecret = clientSecret
+        self.idpMetadataSigningCertPEM = idpMetadataSigningCertPEM
         self.idpSigningCertPEM = idpSigningCertPEM
         self.metadataURL = metadataURL
         self.`protocol` = `protocol`
@@ -3520,6 +3536,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case allowSha1Signatures = "allow_sha1_signatures"
         case allowTenantInheritance = "allow_tenant_inheritance"
         case allowedAlgorithms = "allowed_algorithms"
         case allowedIssuerTenants = "allowed_issuer_tenants"
@@ -3530,6 +3547,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
         case buttonIcon = "button_icon"
         case clientID = "client_id"
         case clientSecret = "client_secret"
+        case idpMetadataSigningCertPEM = "idp_metadata_signing_cert_pem"
         case idpSigningCertPEM = "idp_signing_cert_pem"
         case metadataURL = "metadata_url"
         case `protocol` = "protocol"
@@ -3545,6 +3563,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.allowSha1Signatures = try container.decodeIfPresent(Bool.self, forKey: .allowSha1Signatures)
         self.allowTenantInheritance = try container.decodeIfPresent(Bool.self, forKey: .allowTenantInheritance)
         self.allowedAlgorithms = try container.decodeIfPresent([String].self, forKey: .allowedAlgorithms)
         self.allowedIssuerTenants = try container.decodeIfPresent([String].self, forKey: .allowedIssuerTenants)
@@ -3555,6 +3574,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
         self.buttonIcon = try container.decodeIfPresent(String.self, forKey: .buttonIcon)
         self.clientID = try container.decode(String.self, forKey: .clientID)
         self.clientSecret = Sensitive(try container.decode(String.self, forKey: .clientSecret))
+        self.idpMetadataSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .idpMetadataSigningCertPEM)
         self.idpSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .idpSigningCertPEM)
         self.metadataURL = try container.decodeIfPresent(String.self, forKey: .metadataURL)
         self.`protocol` = try container.decode(String.self, forKey: .`protocol`)
@@ -3570,6 +3590,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(allowSha1Signatures, forKey: .allowSha1Signatures)
         try container.encodeIfPresent(allowTenantInheritance, forKey: .allowTenantInheritance)
         try container.encodeIfPresent(allowedAlgorithms, forKey: .allowedAlgorithms)
         try container.encodeIfPresent(allowedIssuerTenants, forKey: .allowedIssuerTenants)
@@ -3580,6 +3601,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
         try container.encodeIfPresent(buttonIcon, forKey: .buttonIcon)
         try container.encode(clientID, forKey: .clientID)
         try container.encode(clientSecret.expose(), forKey: .clientSecret)
+        try container.encodeIfPresent(idpMetadataSigningCertPEM, forKey: .idpMetadataSigningCertPEM)
         try container.encodeIfPresent(idpSigningCertPEM, forKey: .idpSigningCertPEM)
         try container.encodeIfPresent(metadataURL, forKey: .metadataURL)
         try container.encode(`protocol`, forKey: .`protocol`)
@@ -3702,16 +3724,23 @@ public struct CreateNotificationRuleRequest: Codable, Sendable {
     /// Email addresses to notify.
     public let recipientEmails: [String]
 
+    /// Minutes in which one event type mails each recipient at most once: the first event of a
+    /// window is mailed, the rest are counted and the next mail says how many were not sent
+    /// (#551). 1 … 1440; 15 when omitted.
+    public let windowMinutes: Int?
+
     public init(
         description: String,
         events: [NotificationEventType],
         name: String,
-        recipientEmails: [String]
+        recipientEmails: [String],
+        windowMinutes: Int? = nil
     ) {
         self.description = description
         self.events = events
         self.name = name
         self.recipientEmails = recipientEmails
+        self.windowMinutes = windowMinutes
     }
 
     enum CodingKeys: String, CodingKey {
@@ -3719,6 +3748,7 @@ public struct CreateNotificationRuleRequest: Codable, Sendable {
         case events = "events"
         case name = "name"
         case recipientEmails = "recipient_emails"
+        case windowMinutes = "window_minutes"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -3727,6 +3757,7 @@ public struct CreateNotificationRuleRequest: Codable, Sendable {
         self.events = try container.decode([NotificationEventType].self, forKey: .events)
         self.name = try container.decode(String.self, forKey: .name)
         self.recipientEmails = try container.decode([String].self, forKey: .recipientEmails)
+        self.windowMinutes = try container.decodeIfPresent(Int.self, forKey: .windowMinutes)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -3735,6 +3766,7 @@ public struct CreateNotificationRuleRequest: Codable, Sendable {
         try container.encode(events, forKey: .events)
         try container.encode(name, forKey: .name)
         try container.encode(recipientEmails, forKey: .recipientEmails)
+        try container.encodeIfPresent(windowMinutes, forKey: .windowMinutes)
     }
 }
 
@@ -5310,6 +5342,9 @@ public struct EncryptedExport: Codable, Sendable {
 
 /// Federation config response -- omits client_secret.
 public struct FederationConfigResponse: Codable, Sendable {
+    /// SAML only: whether IdP responses signed with SHA-1 are accepted (default `false`; #531).
+    public let allowSha1Signatures: Bool
+
     /// Whether tenants of this organization may inherit this provider.
     public let allowTenantInheritance: Bool
 
@@ -5356,6 +5391,10 @@ public struct FederationConfigResponse: Codable, Sendable {
     /// The server's `id` field.
     public let id: String
 
+    /// SAML only: the certificate the IdP's metadata must be signed with (#530); `null` when
+    /// the metadata is not signature-checked.
+    public let idpMetadataSigningCertPEM: String?
+
     /// The server's `metadata_url` field.
     public let metadataURL: String?
 
@@ -5399,6 +5438,7 @@ public struct FederationConfigResponse: Codable, Sendable {
     public let userinfoEndpoint: String?
 
     public init(
+        allowSha1Signatures: Bool,
         allowTenantInheritance: Bool,
         allowedAlgorithms: [String],
         allowedIssuerTenants: [String],
@@ -5413,6 +5453,7 @@ public struct FederationConfigResponse: Codable, Sendable {
         enabled: Bool,
         hasBundledMark: Bool,
         id: String,
+        idpMetadataSigningCertPEM: String? = nil,
         metadataURL: String? = nil,
         mintsClientSecret: Bool,
         pkceRequired: Bool,
@@ -5427,6 +5468,7 @@ public struct FederationConfigResponse: Codable, Sendable {
         updatedAt: String,
         userinfoEndpoint: String? = nil
     ) {
+        self.allowSha1Signatures = allowSha1Signatures
         self.allowTenantInheritance = allowTenantInheritance
         self.allowedAlgorithms = allowedAlgorithms
         self.allowedIssuerTenants = allowedIssuerTenants
@@ -5441,6 +5483,7 @@ public struct FederationConfigResponse: Codable, Sendable {
         self.enabled = enabled
         self.hasBundledMark = hasBundledMark
         self.id = id
+        self.idpMetadataSigningCertPEM = idpMetadataSigningCertPEM
         self.metadataURL = metadataURL
         self.mintsClientSecret = mintsClientSecret
         self.pkceRequired = pkceRequired
@@ -5457,6 +5500,7 @@ public struct FederationConfigResponse: Codable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case allowSha1Signatures = "allow_sha1_signatures"
         case allowTenantInheritance = "allow_tenant_inheritance"
         case allowedAlgorithms = "allowed_algorithms"
         case allowedIssuerTenants = "allowed_issuer_tenants"
@@ -5471,6 +5515,7 @@ public struct FederationConfigResponse: Codable, Sendable {
         case enabled = "enabled"
         case hasBundledMark = "has_bundled_mark"
         case id = "id"
+        case idpMetadataSigningCertPEM = "idp_metadata_signing_cert_pem"
         case metadataURL = "metadata_url"
         case mintsClientSecret = "mints_client_secret"
         case pkceRequired = "pkce_required"
@@ -5488,6 +5533,7 @@ public struct FederationConfigResponse: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.allowSha1Signatures = try container.decode(Bool.self, forKey: .allowSha1Signatures)
         self.allowTenantInheritance = try container.decode(Bool.self, forKey: .allowTenantInheritance)
         self.allowedAlgorithms = try container.decode([String].self, forKey: .allowedAlgorithms)
         self.allowedIssuerTenants = try container.decode([String].self, forKey: .allowedIssuerTenants)
@@ -5502,6 +5548,7 @@ public struct FederationConfigResponse: Codable, Sendable {
         self.enabled = try container.decode(Bool.self, forKey: .enabled)
         self.hasBundledMark = try container.decode(Bool.self, forKey: .hasBundledMark)
         self.id = try container.decode(String.self, forKey: .id)
+        self.idpMetadataSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .idpMetadataSigningCertPEM)
         self.metadataURL = try container.decodeIfPresent(String.self, forKey: .metadataURL)
         self.mintsClientSecret = try container.decode(Bool.self, forKey: .mintsClientSecret)
         self.pkceRequired = try container.decode(Bool.self, forKey: .pkceRequired)
@@ -5519,6 +5566,7 @@ public struct FederationConfigResponse: Codable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(allowSha1Signatures, forKey: .allowSha1Signatures)
         try container.encode(allowTenantInheritance, forKey: .allowTenantInheritance)
         try container.encode(allowedAlgorithms, forKey: .allowedAlgorithms)
         try container.encode(allowedIssuerTenants, forKey: .allowedIssuerTenants)
@@ -5533,6 +5581,7 @@ public struct FederationConfigResponse: Codable, Sendable {
         try container.encode(enabled, forKey: .enabled)
         try container.encode(hasBundledMark, forKey: .hasBundledMark)
         try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(idpMetadataSigningCertPEM, forKey: .idpMetadataSigningCertPEM)
         try container.encodeIfPresent(metadataURL, forKey: .metadataURL)
         try container.encode(mintsClientSecret, forKey: .mintsClientSecret)
         try container.encode(pkceRequired, forKey: .pkceRequired)
@@ -6879,6 +6928,10 @@ public struct NotificationRuleResponse: Codable, Sendable {
     /// The server's `updated_at` field.
     public let updatedAt: String
 
+    /// Minutes in which one event type mails each recipient at most once; further events are
+    /// counted and reported by the next mail (#551).
+    public let windowMinutes: Int
+
     public init(
         createdAt: String,
         description: String,
@@ -6888,7 +6941,8 @@ public struct NotificationRuleResponse: Codable, Sendable {
         name: String,
         recipientEmails: [String],
         tenantID: String,
-        updatedAt: String
+        updatedAt: String,
+        windowMinutes: Int
     ) {
         self.createdAt = createdAt
         self.description = description
@@ -6899,6 +6953,7 @@ public struct NotificationRuleResponse: Codable, Sendable {
         self.recipientEmails = recipientEmails
         self.tenantID = tenantID
         self.updatedAt = updatedAt
+        self.windowMinutes = windowMinutes
     }
 
     enum CodingKeys: String, CodingKey {
@@ -6911,6 +6966,7 @@ public struct NotificationRuleResponse: Codable, Sendable {
         case recipientEmails = "recipient_emails"
         case tenantID = "tenant_id"
         case updatedAt = "updated_at"
+        case windowMinutes = "window_minutes"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -6924,6 +6980,7 @@ public struct NotificationRuleResponse: Codable, Sendable {
         self.recipientEmails = try container.decode([String].self, forKey: .recipientEmails)
         self.tenantID = try container.decode(String.self, forKey: .tenantID)
         self.updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        self.windowMinutes = try container.decode(Int.self, forKey: .windowMinutes)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -6937,6 +6994,7 @@ public struct NotificationRuleResponse: Codable, Sendable {
         try container.encode(recipientEmails, forKey: .recipientEmails)
         try container.encode(tenantID, forKey: .tenantID)
         try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(windowMinutes, forKey: .windowMinutes)
     }
 }
 
@@ -9980,6 +10038,14 @@ public struct ScimTargetInput: Codable, Sendable {
     /// `true` by default. A disabled target receives nothing.
     public var enabled: Bool?
 
+    /// The `updated_at` of the target as the client read it (P23W5-09, T-416). **Update only;
+    /// create ignores it.** When present, the replacement lands only if the target still has
+    /// that version, else `409` (reload and retry): two administrators who opened the form at
+    /// the same version cannot silently overwrite each other. When absent the replacement is
+    /// conditional on the version the server reads during the request — last-writer-wins
+    /// between administrators, as before.
+    public var expectedUpdatedAt: String?
+
     /// 1–128 bytes.
     public var name: String
 
@@ -10000,6 +10066,7 @@ public struct ScimTargetInput: Codable, Sendable {
         credential: Sensitive<String>? = nil,
         deprovision: DeprovisionPolicy? = nil,
         enabled: Bool? = nil,
+        expectedUpdatedAt: String? = nil,
         name: String,
         pushGroups: Bool? = nil,
         scope: ScimTargetScope,
@@ -10010,6 +10077,7 @@ public struct ScimTargetInput: Codable, Sendable {
         self.credential = credential
         self.deprovision = deprovision
         self.enabled = enabled
+        self.expectedUpdatedAt = expectedUpdatedAt
         self.name = name
         self.pushGroups = pushGroups
         self.scope = scope
@@ -10022,6 +10090,7 @@ public struct ScimTargetInput: Codable, Sendable {
         case credential = "credential"
         case deprovision = "deprovision"
         case enabled = "enabled"
+        case expectedUpdatedAt = "expected_updated_at"
         case name = "name"
         case pushGroups = "push_groups"
         case scope = "scope"
@@ -10039,6 +10108,7 @@ public struct ScimTargetInput: Codable, Sendable {
         }
         self.deprovision = try container.decodeIfPresent(DeprovisionPolicy.self, forKey: .deprovision)
         self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
+        self.expectedUpdatedAt = try container.decodeIfPresent(String.self, forKey: .expectedUpdatedAt)
         self.name = try container.decode(String.self, forKey: .name)
         self.pushGroups = try container.decodeIfPresent(Bool.self, forKey: .pushGroups)
         self.scope = try container.decode(ScimTargetScope.self, forKey: .scope)
@@ -10052,6 +10122,7 @@ public struct ScimTargetInput: Codable, Sendable {
         try container.encodeIfPresent(credential?.expose(), forKey: .credential)
         try container.encodeIfPresent(deprovision, forKey: .deprovision)
         try container.encodeIfPresent(enabled, forKey: .enabled)
+        try container.encodeIfPresent(expectedUpdatedAt, forKey: .expectedUpdatedAt)
         try container.encode(name, forKey: .name)
         try container.encodeIfPresent(pushGroups, forKey: .pushGroups)
         try container.encode(scope, forKey: .scope)
@@ -12760,6 +12831,10 @@ public struct UpdateDirectoryConfig: Codable, Sendable {
 
 /// The `UpdateFederationConfigRequest` schema.
 public struct UpdateFederationConfigRequest: Codable, Sendable {
+    /// SAML only: accept IdP responses signed with SHA-1. Refused on a non-SAML config; turning
+    /// it on is audited (`federation.sha1_signatures_allowed`).
+    public let allowSha1Signatures: Bool?
+
     /// Whether tenants may inherit this organization-level provider.
     public let allowTenantInheritance: Bool?
 
@@ -12769,19 +12844,19 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
     /// Accepted external IdP tenants for a templated issuer. Replaced wholesale.
     public let allowedIssuerTenants: [String]?
 
-    /// Apple Key ID. `Some(None)` clears it.
+    /// Apple Key ID. Explicit `null` clears it.
     public let appleKeyID: String?
 
-    /// Apple Team ID. `Some(None)` clears it.
+    /// Apple Team ID. Explicit `null` clears it.
     public let appleTeamID: String?
 
     /// The server's `attribute_map` field.
     public let attributeMap: ManagementJSON?
 
-    /// OAuth2-variant authorization endpoint. `Some(None)` clears it.
+    /// OAuth2-variant authorization endpoint. Explicit `null` clears it.
     public let authorizationEndpoint: String?
 
-    /// Sign-in-button icon for a generic provider. `Some(None)` clears it.
+    /// Sign-in-button icon for a generic provider. Explicit `null` clears it.
     public let buttonIcon: String?
 
     /// The server's `client_id` field.
@@ -12793,17 +12868,23 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
     /// The server's `enabled` field.
     public let enabled: Bool?
 
+    /// SAML only: the IdP metadata signing certificate (#530). Explicit `null` clears it;
+    /// omitted leaves it. Clearing it is audited (`federation.metadata_signing_cert_cleared`),
+    /// and so is replacing it with a different certificate
+    /// (`federation.metadata_signing_cert_changed`).
+    public let idpMetadataSigningCertPEM: String?
+
     /// PEM-encoded X.509 certificate for verifying SAML assertions (CQ-B40/REQ-14 AC-5).
-    /// `Some(None)` clears the stored cert.
+    /// Explicit `null` clears the stored cert; omitted leaves it.
     public let idpSigningCertPEM: String?
 
-    /// The server's `metadata_url` field.
+    /// OIDC discovery or SAML metadata URL. Explicit `null` clears it; omitted leaves it.
     public let metadataURL: String?
 
     /// The server's `provider` field.
     public let provider: String?
 
-    /// Operator-chosen identifier for a `generic_*` kind. `Some(None)` clears it.
+    /// Operator-chosen identifier for a `generic_*` kind. Explicit `null` clears it.
     public let providerSlug: String?
 
     /// Send PKCE on the authorization request.
@@ -12812,16 +12893,17 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
     /// Scopes to request. Replaced wholesale; empty restores the per-kind default.
     public let scopes: [String]?
 
-    /// OAuth2-variant token endpoint. `Some(None)` clears it.
+    /// OAuth2-variant token endpoint. Explicit `null` clears it.
     public let tokenEndpoint: String?
 
     /// The server's `token_exchange` field.
     public let tokenExchange: TokenExchangeTrustRequest?
 
-    /// OAuth2-variant userinfo endpoint. `Some(None)` clears it.
+    /// OAuth2-variant userinfo endpoint. Explicit `null` clears it.
     public let userinfoEndpoint: String?
 
     public init(
+        allowSha1Signatures: Bool? = nil,
         allowTenantInheritance: Bool? = nil,
         allowedAlgorithms: [String]? = nil,
         allowedIssuerTenants: [String]? = nil,
@@ -12833,6 +12915,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
         clientID: String? = nil,
         clientSecret: Sensitive<String>? = nil,
         enabled: Bool? = nil,
+        idpMetadataSigningCertPEM: String? = nil,
         idpSigningCertPEM: String? = nil,
         metadataURL: String? = nil,
         provider: String? = nil,
@@ -12843,6 +12926,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
         tokenExchange: TokenExchangeTrustRequest? = nil,
         userinfoEndpoint: String? = nil
     ) {
+        self.allowSha1Signatures = allowSha1Signatures
         self.allowTenantInheritance = allowTenantInheritance
         self.allowedAlgorithms = allowedAlgorithms
         self.allowedIssuerTenants = allowedIssuerTenants
@@ -12854,6 +12938,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
         self.clientID = clientID
         self.clientSecret = clientSecret
         self.enabled = enabled
+        self.idpMetadataSigningCertPEM = idpMetadataSigningCertPEM
         self.idpSigningCertPEM = idpSigningCertPEM
         self.metadataURL = metadataURL
         self.provider = provider
@@ -12866,6 +12951,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case allowSha1Signatures = "allow_sha1_signatures"
         case allowTenantInheritance = "allow_tenant_inheritance"
         case allowedAlgorithms = "allowed_algorithms"
         case allowedIssuerTenants = "allowed_issuer_tenants"
@@ -12877,6 +12963,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
         case clientID = "client_id"
         case clientSecret = "client_secret"
         case enabled = "enabled"
+        case idpMetadataSigningCertPEM = "idp_metadata_signing_cert_pem"
         case idpSigningCertPEM = "idp_signing_cert_pem"
         case metadataURL = "metadata_url"
         case provider = "provider"
@@ -12890,6 +12977,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.allowSha1Signatures = try container.decodeIfPresent(Bool.self, forKey: .allowSha1Signatures)
         self.allowTenantInheritance = try container.decodeIfPresent(Bool.self, forKey: .allowTenantInheritance)
         self.allowedAlgorithms = try container.decodeIfPresent([String].self, forKey: .allowedAlgorithms)
         self.allowedIssuerTenants = try container.decodeIfPresent([String].self, forKey: .allowedIssuerTenants)
@@ -12905,6 +12993,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
             self.clientSecret = nil
         }
         self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
+        self.idpMetadataSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .idpMetadataSigningCertPEM)
         self.idpSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .idpSigningCertPEM)
         self.metadataURL = try container.decodeIfPresent(String.self, forKey: .metadataURL)
         self.provider = try container.decodeIfPresent(String.self, forKey: .provider)
@@ -12918,6 +13007,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(allowSha1Signatures, forKey: .allowSha1Signatures)
         try container.encodeIfPresent(allowTenantInheritance, forKey: .allowTenantInheritance)
         try container.encodeIfPresent(allowedAlgorithms, forKey: .allowedAlgorithms)
         try container.encodeIfPresent(allowedIssuerTenants, forKey: .allowedIssuerTenants)
@@ -12929,6 +13019,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
         try container.encodeIfPresent(clientID, forKey: .clientID)
         try container.encodeIfPresent(clientSecret?.expose(), forKey: .clientSecret)
         try container.encodeIfPresent(enabled, forKey: .enabled)
+        try container.encodeIfPresent(idpMetadataSigningCertPEM, forKey: .idpMetadataSigningCertPEM)
         try container.encodeIfPresent(idpSigningCertPEM, forKey: .idpSigningCertPEM)
         try container.encodeIfPresent(metadataURL, forKey: .metadataURL)
         try container.encodeIfPresent(provider, forKey: .provider)
@@ -13000,18 +13091,23 @@ public struct UpdateNotificationRuleRequest: Codable, Sendable {
     /// The server's `recipient_emails` field.
     public let recipientEmails: [String]?
 
+    /// The rule's notification window in minutes, 1 … 1440 (#551).
+    public let windowMinutes: Int?
+
     public init(
         description: String? = nil,
         enabled: Bool? = nil,
         events: [NotificationEventType]? = nil,
         name: String? = nil,
-        recipientEmails: [String]? = nil
+        recipientEmails: [String]? = nil,
+        windowMinutes: Int? = nil
     ) {
         self.description = description
         self.enabled = enabled
         self.events = events
         self.name = name
         self.recipientEmails = recipientEmails
+        self.windowMinutes = windowMinutes
     }
 
     enum CodingKeys: String, CodingKey {
@@ -13020,6 +13116,7 @@ public struct UpdateNotificationRuleRequest: Codable, Sendable {
         case events = "events"
         case name = "name"
         case recipientEmails = "recipient_emails"
+        case windowMinutes = "window_minutes"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -13029,6 +13126,7 @@ public struct UpdateNotificationRuleRequest: Codable, Sendable {
         self.events = try container.decodeIfPresent([NotificationEventType].self, forKey: .events)
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
         self.recipientEmails = try container.decodeIfPresent([String].self, forKey: .recipientEmails)
+        self.windowMinutes = try container.decodeIfPresent(Int.self, forKey: .windowMinutes)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -13038,6 +13136,7 @@ public struct UpdateNotificationRuleRequest: Codable, Sendable {
         try container.encodeIfPresent(events, forKey: .events)
         try container.encodeIfPresent(name, forKey: .name)
         try container.encodeIfPresent(recipientEmails, forKey: .recipientEmails)
+        try container.encodeIfPresent(windowMinutes, forKey: .windowMinutes)
     }
 }
 
