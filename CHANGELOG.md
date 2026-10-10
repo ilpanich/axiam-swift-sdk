@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-10
+
 AXIAM Swift SDK 1.0.0 is the first stable release: from this version the public API follows
 Semantic Versioning, and a breaking change needs a new major version. The SDK is a REST client
 for Swift 5.9 and later on macOS 13+, iOS 16+ and Linux, built on AsyncHTTPClient and NIOSSL so
@@ -109,6 +111,20 @@ Since `v1.0.0-beta17`:
   server before 1.0.0 still decodes. They describe the deployment and never change how the SDK
   authenticates.
 
+- The SSF key cache expires and counts a failed fetch; ssf_unjudged; refresh scope and the 1.60 discovery members
+
+- Contract 1.60 §27.15 and §31 members — null clears a federation member, an older response reads allow_sha1_signatures false, expected_updated_at
+
+- An auto-paging form for every paginated list (R-30, SW-7)
+
+- CIBA initiation, polling and ping helpers, signed form (CONTRACT §33, §21.3.1)
+
+- SSF stream management tests and the receiver helper (CONTRACT §32, §32.7)
+
+- Directory namespace semantics and §29–§32 generator support (CONTRACT §30)
+
+- RFC 7592 client configuration operations (CONTRACT §28.12)
+
 ### Changed
 
 - **Contract artefacts re-vendored at contract 1.60** — `CONTRACT.md`, `openapi.json` and
@@ -128,6 +144,34 @@ Since `v1.0.0-beta17`:
   `spSigningCertPEM` notes that an ECDSA certificate verifies HTTP-POST requests only (§29.3
   rule 2).
 
+- re-vendor at axiam 8df0e11 (the R1W1 tls_client_auth note, the spec digest)
+
+- README at contract 1.60; the 1.0.0 changelog
+
+- re-vendor contract 1.60, the spec and the registry (axiam 3ed6547)
+
+- Actor token from the same client (contract 1.60 15.2 rule 9); store-failure case pinned (B1 verify)
+
+- re-vendor CONTRACT.md at contract 1.60
+
+- Contract 1.59 conformance statement and changelog
+
+- Pin vector A from the vendored CONTRACT.md and round-trip PS256 (R-31, SW-17, Q8)
+
+- State §31.3 rule 2 at scim_targets.create and the ECDSA note on spSigningCertPEM (R-29, SW-14, SW-15)
+
+- re-vendor CONTRACT.md at contract 1.59 (axiam fe369eb)
+
+- Contract 1.58 conformance statement, usage, changelog
+
+- scim_targets namespace required tests (CONTRACT §31)
+
+- Saml namespace required tests (CONTRACT §29)
+
+- re-vendor contract 1.58 artifacts and regenerate §27 surface
+
+- re-vendor openapi.json + management-registry.json after utoipa 6
+
 ### Fixed
 
 - An open management enum's `.unknown` was encoded as `""` and reached the server as a value
@@ -136,6 +180,20 @@ Since `v1.0.0-beta17`:
   pins the wire value of each URI-valued enum case. The suite reads §21.3.1 vector A from the
   vendored `CONTRACT.md` rather than a retyped copy, and round-trips the §33.2 PS256 signed
   form with an RSA key generated at run time.
+
+- Every open enum refuses .unknown on encode; an unseen event-type URI is sent back unchanged (contract 1.60 A4, B4)
+
+- Event types are open strings that keep an unseen URI (R-22, SW-10)
+
+- ScimTargetAuth and ScimTargetScope keep only declared members (R-20, SW-9)
+
+- cibaAwait ends on a failure after the 200; a 5xx on ciba_poll is retried whatever its body (R-12, SW-3; §33.8 t8, P8)
+
+- Poll never keeps a jti it does not return; the replay store can fail closed (R-1, SW-2; R-4, SW-4)
+
+- Dump and Mirror reflect no wrapped secret (R-19, SW-1)
+
+- Resolve nested enum fixtures and pin URI enum wire values
 
 ### Security
 
