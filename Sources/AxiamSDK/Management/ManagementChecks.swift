@@ -192,6 +192,14 @@ extension SsfStreamInput {
     /// `authorizationHeader` is left `nil` — absent keeps the stored header (§32.2), unless the
     /// update moves `endpointURL` to another origin (§32.3 rule 5) — and so is
     /// `clearAuthorizationHeader`. No response carries the header.
+    ///
+    /// Contract 1.61 (§32.2): `expectedUpdatedAt` is the read's `updatedAt`, verbatim, so a
+    /// write that landed since — the receiver's pause or narrowing included — makes the update
+    /// `409` (`ConflictError`, never retried) instead of being reverted; reload, then retry.
+    /// `eventsRequested` is the one the read carried and is never dropped: an empty array stays
+    /// `[]` (the receiver's "none"), because an absent `eventsRequested` *resets* the stream to
+    /// every event of `eventsAllowed`. If you lower `eventsAllowed`, cut `eventsRequested` to
+    /// the new ceiling before sending.
     public init(copying stream: SsfStream) {
         self.init(
             audience: stream.audience,
@@ -202,6 +210,7 @@ extension SsfStreamInput {
             endpointURL: stream.endpointURL,
             eventsAllowed: stream.eventsAllowed,
             eventsRequested: stream.eventsRequested,
+            expectedUpdatedAt: stream.updatedAt,
             receiverClientID: stream.receiverClientID,
             status: stream.status,
             statusReason: stream.statusReason,

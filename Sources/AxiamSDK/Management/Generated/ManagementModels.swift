@@ -2803,7 +2803,10 @@ public struct Certificate: Codable, Sendable {
     /// The server's `key_algorithm` field.
     public let keyAlgorithm: KeyAlgorithm
 
-    /// Arbitrary key-value metadata (e.g., device serial, user ID binding).
+    /// Arbitrary key-value metadata (e.g., a device serial). Free-form and never authoritative:
+    /// the account a `User` certificate was issued for is `user_id`. A `metadata.user_id` is
+    /// still read, by the revocation of a user's certificates, for a row issued before the
+    /// binding existed (schema v98, #533).
     public let metadata: ManagementJSON
 
     /// Validity end.
@@ -2826,6 +2829,16 @@ public struct Certificate: Codable, Sendable {
     /// The tenant this certificate belongs to.
     public let tenantID: String
 
+    /// The user account a `User` certificate was issued for, in this tenant (#533); `null` for
+    /// every other type, for a `User` certificate issued without one, and for every certificate
+    /// issued before schema v98. What revoking a user's certificates matches on — directory
+    /// linking, administrator deletion and Art. 17 erasure. A row with `None` is matched by the
+    /// older convention instead (`metadata.user_id`, or a subject common name equal to the
+    /// account's username or email); a row naming another account never is. It does not make
+    /// the certificate authenticate as the user: a certificate authenticates only as the
+    /// service account it is bound to.
+    public let userID: String?
+
     /// Resolved by the list projection only. The server resolves this for a whole page in one
     /// query, so it is populated by `list` and is `nil` on `get` (CONTRACT.md §27.11 rule 4).
     /// `nil` there means "this read does not carry it", not "there is nothing bound" — this SDK
@@ -2846,6 +2859,7 @@ public struct Certificate: Codable, Sendable {
         status: CertificateStatus,
         subject: String,
         tenantID: String,
+        userID: String? = nil,
         boundServiceAccountID: String? = nil
     ) {
         self.certType = certType
@@ -2861,6 +2875,7 @@ public struct Certificate: Codable, Sendable {
         self.status = status
         self.subject = subject
         self.tenantID = tenantID
+        self.userID = userID
         self.boundServiceAccountID = boundServiceAccountID
     }
 
@@ -2878,6 +2893,7 @@ public struct Certificate: Codable, Sendable {
         case status = "status"
         case subject = "subject"
         case tenantID = "tenant_id"
+        case userID = "user_id"
         case boundServiceAccountID = "bound_service_account_id"
     }
 
@@ -2896,6 +2912,7 @@ public struct Certificate: Codable, Sendable {
         self.status = try container.decode(CertificateStatus.self, forKey: .status)
         self.subject = try container.decode(String.self, forKey: .subject)
         self.tenantID = try container.decode(String.self, forKey: .tenantID)
+        self.userID = try container.decodeIfPresent(String.self, forKey: .userID)
         self.boundServiceAccountID = try container.decodeIfPresent(String.self, forKey: .boundServiceAccountID)
     }
 
@@ -2914,6 +2931,7 @@ public struct Certificate: Codable, Sendable {
         try container.encode(status, forKey: .status)
         try container.encode(subject, forKey: .subject)
         try container.encode(tenantID, forKey: .tenantID)
+        try container.encodeIfPresent(userID, forKey: .userID)
         try container.encodeIfPresent(boundServiceAccountID, forKey: .boundServiceAccountID)
     }
 }
@@ -3339,6 +3357,13 @@ public struct CreateCertificateRequest: Codable, Sendable {
     /// organization administrator lists names.
     public let subjectAltNames: [SubjectAltName]?
 
+    /// The user account a `User` certificate is issued for (#533), returned as the
+    /// certificate's `user_id`. Optional; accepted only for `cert_type: User`, and it must name
+    /// a user of this tenant that has not been deleted or erased. A `metadata.user_id` in the
+    /// same request must agree with it. Revoking the account's certificates — directory
+    /// linking, deletion, erasure — matches on it.
+    public let userID: String?
+
     /// Validity duration in days.
     public let validityDays: Int
 
@@ -3349,6 +3374,7 @@ public struct CreateCertificateRequest: Codable, Sendable {
         metadata: ManagementJSON? = nil,
         subject: String,
         subjectAltNames: [SubjectAltName]? = nil,
+        userID: String? = nil,
         validityDays: Int
     ) {
         self.certType = certType
@@ -3357,6 +3383,7 @@ public struct CreateCertificateRequest: Codable, Sendable {
         self.metadata = metadata
         self.subject = subject
         self.subjectAltNames = subjectAltNames
+        self.userID = userID
         self.validityDays = validityDays
     }
 
@@ -3367,6 +3394,7 @@ public struct CreateCertificateRequest: Codable, Sendable {
         case metadata = "metadata"
         case subject = "subject"
         case subjectAltNames = "subject_alt_names"
+        case userID = "user_id"
         case validityDays = "validity_days"
     }
 
@@ -3378,6 +3406,7 @@ public struct CreateCertificateRequest: Codable, Sendable {
         self.metadata = try container.decodeIfPresent(ManagementJSON.self, forKey: .metadata)
         self.subject = try container.decode(String.self, forKey: .subject)
         self.subjectAltNames = try container.decodeIfPresent([SubjectAltName].self, forKey: .subjectAltNames)
+        self.userID = try container.decodeIfPresent(String.self, forKey: .userID)
         self.validityDays = try container.decode(Int.self, forKey: .validityDays)
     }
 
@@ -3389,6 +3418,7 @@ public struct CreateCertificateRequest: Codable, Sendable {
         try container.encodeIfPresent(metadata, forKey: .metadata)
         try container.encode(subject, forKey: .subject)
         try container.encodeIfPresent(subjectAltNames, forKey: .subjectAltNames)
+        try container.encodeIfPresent(userID, forKey: .userID)
         try container.encode(validityDays, forKey: .validityDays)
     }
 }
@@ -3804,7 +3834,11 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
     public let backchannelClientNotificationEndpoint: String?
 
     /// B5 — where OIDC back-channel logout tokens are delivered. Omit for a client that does
-    /// not participate.
+    /// not participate. Must be an absolute `https` URL with no credentials and no fragment,
+    /// naming a public host: an IP literal that is loopback, private, link-local or the cloud
+    /// metadata address, and the names `localhost`, `*.localhost`, `*.local` and `*.internal`,
+    /// are refused with `400`. Delivery is one request that does not follow redirects, and a
+    /// name that resolves to a non-public address is refused when it is sent.
     public let backchannelLogoutURI: String?
 
     /// G-7 — CIBA Core §4 `backchannel_token_delivery_mode`: `poll` or `ping`. Required when
@@ -5896,7 +5930,10 @@ public struct GeneratedCertificate: Codable, Sendable {
     /// The server's `key_algorithm` field.
     public let keyAlgorithm: KeyAlgorithm
 
-    /// Arbitrary key-value metadata (e.g., device serial, user ID binding).
+    /// Arbitrary key-value metadata (e.g., a device serial). Free-form and never authoritative:
+    /// the account a `User` certificate was issued for is `user_id`. A `metadata.user_id` is
+    /// still read, by the revocation of a user's certificates, for a row issued before the
+    /// binding existed (schema v98, #533).
     public let metadata: ManagementJSON
 
     /// Validity end.
@@ -5918,6 +5955,16 @@ public struct GeneratedCertificate: Codable, Sendable {
 
     /// The tenant this certificate belongs to.
     public let tenantID: String
+
+    /// The user account a `User` certificate was issued for, in this tenant (#533); `null` for
+    /// every other type, for a `User` certificate issued without one, and for every certificate
+    /// issued before schema v98. What revoking a user's certificates matches on — directory
+    /// linking, administrator deletion and Art. 17 erasure. A row with `None` is matched by the
+    /// older convention instead (`metadata.user_id`, or a subject common name equal to the
+    /// account's username or email); a row naming another account never is. It does not make
+    /// the certificate authenticate as the user: a certificate authenticates only as the
+    /// service account it is bound to.
+    public let userID: String?
 
     /// The issuing chain, concatenated PEM, nearest issuer first. Present only when the signer
     /// returned one — which is the `vault_pki` case, where the root's certificate exists
@@ -5943,6 +5990,7 @@ public struct GeneratedCertificate: Codable, Sendable {
         status: CertificateStatus,
         subject: String,
         tenantID: String,
+        userID: String? = nil,
         chainPEM: String? = nil,
         privateKeyPEM: Sensitive<String>
     ) {
@@ -5959,6 +6007,7 @@ public struct GeneratedCertificate: Codable, Sendable {
         self.status = status
         self.subject = subject
         self.tenantID = tenantID
+        self.userID = userID
         self.chainPEM = chainPEM
         self.privateKeyPEM = privateKeyPEM
     }
@@ -5977,6 +6026,7 @@ public struct GeneratedCertificate: Codable, Sendable {
         case status = "status"
         case subject = "subject"
         case tenantID = "tenant_id"
+        case userID = "user_id"
         case chainPEM = "chain_pem"
         case privateKeyPEM = "private_key_pem"
     }
@@ -5996,6 +6046,7 @@ public struct GeneratedCertificate: Codable, Sendable {
         self.status = try container.decode(CertificateStatus.self, forKey: .status)
         self.subject = try container.decode(String.self, forKey: .subject)
         self.tenantID = try container.decode(String.self, forKey: .tenantID)
+        self.userID = try container.decodeIfPresent(String.self, forKey: .userID)
         self.chainPEM = try container.decodeIfPresent(String.self, forKey: .chainPEM)
         self.privateKeyPEM = Sensitive(try container.decode(String.self, forKey: .privateKeyPEM))
     }
@@ -6015,6 +6066,7 @@ public struct GeneratedCertificate: Codable, Sendable {
         try container.encode(status, forKey: .status)
         try container.encode(subject, forKey: .subject)
         try container.encode(tenantID, forKey: .tenantID)
+        try container.encodeIfPresent(userID, forKey: .userID)
         try container.encodeIfPresent(chainPEM, forKey: .chainPEM)
         try container.encode(privateKeyPEM.expose(), forKey: .privateKeyPEM)
     }
@@ -11535,6 +11587,9 @@ public struct SignCertificateCsrRequest: Codable, Sendable {
     /// /api/v1/certificates`.
     public let subjectAltNames: [SubjectAltName]?
 
+    /// See [`CreateCertificateRequest::user_id`].
+    public let userID: String?
+
     /// Validity duration in days.
     public let validityDays: Int
 
@@ -11544,6 +11599,7 @@ public struct SignCertificateCsrRequest: Codable, Sendable {
         issuerCAID: String,
         metadata: ManagementJSON? = nil,
         subjectAltNames: [SubjectAltName]? = nil,
+        userID: String? = nil,
         validityDays: Int
     ) {
         self.certType = certType
@@ -11551,6 +11607,7 @@ public struct SignCertificateCsrRequest: Codable, Sendable {
         self.issuerCAID = issuerCAID
         self.metadata = metadata
         self.subjectAltNames = subjectAltNames
+        self.userID = userID
         self.validityDays = validityDays
     }
 
@@ -11560,6 +11617,7 @@ public struct SignCertificateCsrRequest: Codable, Sendable {
         case issuerCAID = "issuer_ca_id"
         case metadata = "metadata"
         case subjectAltNames = "subject_alt_names"
+        case userID = "user_id"
         case validityDays = "validity_days"
     }
 
@@ -11570,6 +11628,7 @@ public struct SignCertificateCsrRequest: Codable, Sendable {
         self.issuerCAID = try container.decode(String.self, forKey: .issuerCAID)
         self.metadata = try container.decodeIfPresent(ManagementJSON.self, forKey: .metadata)
         self.subjectAltNames = try container.decodeIfPresent([SubjectAltName].self, forKey: .subjectAltNames)
+        self.userID = try container.decodeIfPresent(String.self, forKey: .userID)
         self.validityDays = try container.decode(Int.self, forKey: .validityDays)
     }
 
@@ -11580,6 +11639,7 @@ public struct SignCertificateCsrRequest: Codable, Sendable {
         try container.encode(issuerCAID, forKey: .issuerCAID)
         try container.encodeIfPresent(metadata, forKey: .metadata)
         try container.encodeIfPresent(subjectAltNames, forKey: .subjectAltNames)
+        try container.encodeIfPresent(userID, forKey: .userID)
         try container.encode(validityDays, forKey: .validityDays)
     }
 }
@@ -11958,8 +12018,18 @@ public struct SsfStreamInput: Codable, Sendable {
     public var eventsAllowed: [SsfEventType]
 
     /// A subset of `events_allowed`; absent means all of them. The receiver may narrow it
-    /// later, never widen it.
+    /// later, never widen it. On update, absent therefore *resets* a narrowing the receiver
+    /// made to every allowed event, and `[]` keeps a receiver's "none": a client that edits a
+    /// stream sends the value it read (cut to the new `events_allowed`), never an absent field.
     public var eventsRequested: [SsfEventType]?
+
+    /// The `updated_at` of the stream as the client read it (R1W2-03, T-406). **Update only;
+    /// create ignores it.** When present, the replacement lands only if the stream still has
+    /// that version, else `409` (reload and retry): a pause or a narrowing the receiver made
+    /// after the form was read is not silently reverted. When absent the replacement is
+    /// conditional on the version the server reads during the request — an old client keeps
+    /// that behaviour, and the console always sends it.
+    public var expectedUpdatedAt: String?
 
     /// An OAuth2 client of the tenant with the `client_credentials` grant and the `ssf.manage`
     /// scope.
@@ -11983,6 +12053,7 @@ public struct SsfStreamInput: Codable, Sendable {
         endpointURL: String? = nil,
         eventsAllowed: [SsfEventType],
         eventsRequested: [SsfEventType]? = nil,
+        expectedUpdatedAt: String? = nil,
         receiverClientID: String,
         status: SsfStreamStatus? = nil,
         statusReason: String? = nil,
@@ -11996,6 +12067,7 @@ public struct SsfStreamInput: Codable, Sendable {
         self.endpointURL = endpointURL
         self.eventsAllowed = eventsAllowed
         self.eventsRequested = eventsRequested
+        self.expectedUpdatedAt = expectedUpdatedAt
         self.receiverClientID = receiverClientID
         self.status = status
         self.statusReason = statusReason
@@ -12011,6 +12083,7 @@ public struct SsfStreamInput: Codable, Sendable {
         case endpointURL = "endpoint_url"
         case eventsAllowed = "events_allowed"
         case eventsRequested = "events_requested"
+        case expectedUpdatedAt = "expected_updated_at"
         case receiverClientID = "receiver_client_id"
         case status = "status"
         case statusReason = "status_reason"
@@ -12031,6 +12104,7 @@ public struct SsfStreamInput: Codable, Sendable {
         self.endpointURL = try container.decodeIfPresent(String.self, forKey: .endpointURL)
         self.eventsAllowed = try container.decode([SsfEventType].self, forKey: .eventsAllowed)
         self.eventsRequested = try container.decodeIfPresent([SsfEventType].self, forKey: .eventsRequested)
+        self.expectedUpdatedAt = try container.decodeIfPresent(String.self, forKey: .expectedUpdatedAt)
         self.receiverClientID = try container.decode(String.self, forKey: .receiverClientID)
         self.status = try container.decodeIfPresent(SsfStreamStatus.self, forKey: .status)
         self.statusReason = try container.decodeIfPresent(String.self, forKey: .statusReason)
@@ -12047,6 +12121,7 @@ public struct SsfStreamInput: Codable, Sendable {
         try container.encodeIfPresent(endpointURL, forKey: .endpointURL)
         try container.encode(eventsAllowed, forKey: .eventsAllowed)
         try container.encodeIfPresent(eventsRequested, forKey: .eventsRequested)
+        try container.encodeIfPresent(expectedUpdatedAt, forKey: .expectedUpdatedAt)
         try container.encode(receiverClientID, forKey: .receiverClientID)
         try container.encodeIfPresent(status, forKey: .status)
         try container.encodeIfPresent(statusReason, forKey: .statusReason)
@@ -13296,7 +13371,8 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
     public let backchannelClientNotificationEndpoint: String?
 
     /// Pass an empty string to clear a previously registered URI — the one edit an operator
-    /// makes when an RP is decommissioned.
+    /// makes when an RP is decommissioned. Any other value is held to the same rule as on
+    /// create.
     public let backchannelLogoutURI: String?
 
     /// G-7 — see the create DTO. `""` clears.
