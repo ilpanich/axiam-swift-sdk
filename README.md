@@ -12,7 +12,7 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to contract 1.60 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
+> **This SDK conforms to contract 1.61 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
 > §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and
 > §33, with §32.7 and §33.2 signed (including §6.1 mTLS —
 > now including rules 6–10, the mTLS device login `authenticateDevice()` — §5.2 rule 1's
@@ -61,6 +61,15 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 > declared members (P12.1); SSF event types are open strings (`SsfEventType`, §32.2); every
 > paginated list has an auto-paging `…All(page:)` form (§27.4 rule 4); §21.3.1 vector A is
 > read from this `CONTRACT.md` by the suite.
+>
+> **Contract 1.61 (§34.5, the 1.0.1 fields).** Additive; the sections are unchanged. In this
+> SDK: `userID` (`user_id`) on `Certificate` and `GeneratedCertificate` — optional, with a
+> UUID, `null` and an absent member (a server before 1.0.1) decoding, the last two as `nil`,
+> "no account named" — and on `CreateCertificateRequest` and `SignCertificateCsrRequest`,
+> sent as set and omitted, never `null`, when `nil` (§27.11 rule 5); `expectedUpdatedAt` on
+> `SsfStreamInput`, which `SsfStreamInput(copying:)` fills from the read together with the
+> `eventsRequested` it read, `[]` as `[]` (§32.2). `CibaPendingList` (§33.3 rule 16) belongs
+> to the console and no operation of this SDK returns it, so it is not modelled.
 >
 > **Contract 1.60 (§34.4, the 1.0.0 release).** The sections are unchanged; the port closes
 > every row §34.4 assigns to Swift. The generated `encode(to:)` of every open enum refuses
@@ -2273,6 +2282,14 @@ The `federation` configuration's sparse update follows the same rule as `directo
 _ = try await client.federation.updateConfig(
     id: configID, body: UpdateFederationConfigRequest(idpMetadataSigningCertPEM: .some(nil)))
 ```
+
+`SsfStreamInput(copying:)` (contract 1.61, §32.2) also sends back what the read carried: its
+`updatedAt` as `expectedUpdatedAt`, so a write that landed since — the receiver's pause or
+narrowing included — makes the update a `409` (`ConflictError`, never retried) instead of
+being reverted; and its `eventsRequested`, where `[]` stays `[]` (the receiver's "none")
+rather than being omitted. An `eventsRequested` you leave `nil` on an input you build yourself
+is *absent*, which resets the stream to every event of `eventsAllowed`; if you lower
+`eventsAllowed`, cut `eventsRequested` to the new ceiling before sending.
 
 `allowSha1Signatures` (SAML only; `false` unless set) and `idpMetadataSigningCertPEM` are sent
 only when you set them. `windowMinutes` on a notification rule is sent as given — the SDK does

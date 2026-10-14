@@ -296,6 +296,86 @@ final class SsfManagementTests: XCTestCase {
         }
     }
 
+    // MARK: - Contract 1.61 (§32.2, §32.3 rule 4, §32.8 test 1)
+
+    /// `expected_updated_at`, when the caller sets it, is sent exactly as given — the string, not
+    /// re-formatted — and is absent from the body when unset; an `events_requested` of `[]` is
+    /// sent as `[]` while an unset one is absent.
+    func testExpectedUpdatedAtIsSentAsGivenAndEventsRequestedKeepsItsThreeMeanings() async throws {
+        let id = UUID().uuidString.lowercased()
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.json(Self.streamObject())),
+            (status: 200, body: Self.json(Self.streamObject())),
+            (status: 200, body: Self.json(Self.streamObject())),
+        ])
+        // Fractional seconds and an offset: a re-formatting encoder would not keep this spelling.
+        let readAt = "2026-10-04T02:00:00.123456789+02:00"
+        var guarded = Self.input(header: nil)
+        guarded.expectedUpdatedAt = readAt
+        _ = try await client.ssf.updateStream(streamID: id, body: guarded)
+        var sent = try XCTUnwrap(transport.last?.jsonBody)
+        XCTAssertEqual(sent["expected_updated_at"] as? String, readAt)
+        XCTAssertNil(sent["events_requested"], "unset is absent, neither [] nor null")
+
+        _ = try await client.ssf.updateStream(streamID: id, body: Self.input(header: nil))
+        sent = try XCTUnwrap(transport.last?.jsonBody)
+        XCTAssertFalse(sent.keys.contains("expected_updated_at"), "unset is omitted, never null")
+
+        var none = Self.input(header: nil)
+        none.eventsRequested = []
+        _ = try await client.ssf.updateStream(streamID: id, body: none)
+        sent = try XCTUnwrap(transport.last?.jsonBody)
+        XCTAssertEqual(sent["events_requested"] as? [String], [], "[] is sent as []")
+    }
+
+    /// §32.3 rule 4: a write that landed since the read is a `409`, surfaced as the conflict
+    /// class, sent once and never retried.
+    func testA409OnUpdateIsAConflictAndIsNotRetried() async throws {
+        let id = UUID().uuidString.lowercased()
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 409, body: #"{"error": "conflict", "message": "the stream changed since it was read"}"#),
+            (status: 200, body: Self.json(Self.streamObject())),
+        ])
+        var body = Self.input(header: nil)
+        body.expectedUpdatedAt = "2026-10-04T00:00:00Z"
+        do {
+            _ = try await client.ssf.updateStream(streamID: id, body: body)
+            XCTFail("expected a 409")
+        } catch AxiamError.authz(let error) {
+            XCTAssertEqual(error.managementFailure, .conflict)
+        }
+        XCTAssertEqual(transport.count, 1, "a 409 is not retried")
+    }
+
+    /// The read-modify-write form sends back the `updated_at` and the `events_requested` it
+    /// read, and `[]` as `[]`.
+    func testTheReadModifyWriteSendsBackEventsRequestedAndExpectedUpdatedAt() async throws {
+        let id = UUID().uuidString.lowercased()
+        let readAt = "2026-10-04T02:00:00.5+02:00"
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.json(Self.streamObject())),
+            (status: 200, body: Self.json(Self.streamObject())),
+        ])
+
+        let narrowed = try Self.decode(Self.streamObject(["updated_at": readAt]))
+        let copy = SsfStreamInput(copying: narrowed)
+        XCTAssertEqual(copy.expectedUpdatedAt, readAt, "the version it read, verbatim")
+        _ = try await client.ssf.updateStream(streamID: id, body: copy)
+        var sent = try XCTUnwrap(transport.last?.jsonBody)
+        XCTAssertEqual(sent["expected_updated_at"] as? String, readAt)
+        XCTAssertEqual(sent["events_requested"] as? [String], [Self.revoked])
+
+        // The receiver's "none" goes back as [], never omitted: omitting it would widen the stream
+        // to every allowed event.
+        let none = try Self.decode(Self.streamObject(["events_requested": [String]()]))
+        let noneCopy = SsfStreamInput(copying: none)
+        XCTAssertEqual(noneCopy.eventsRequested, [])
+        _ = try await client.ssf.updateStream(streamID: id, body: noneCopy)
+        sent = try XCTUnwrap(transport.last?.jsonBody)
+        XCTAssertEqual(sent["events_requested"] as? [String], [])
+        XCTAssertNotNil(sent["expected_updated_at"])
+    }
+
     func testAReadConvertsIntoTheReplacementBodyWithoutTheHeader() throws {
         let stream = try Self.decode(Self.streamObject())
         var body = SsfStreamInput(copying: stream)

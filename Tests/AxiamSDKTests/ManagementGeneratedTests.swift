@@ -75,7 +75,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureCreateCertificateRequest: CreateCertificateRequest = decodeFixture(
         CreateCertificateRequest.self,
-        "{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"subject_alt_names\": [{\"dns\": \"example\"}], \"validity_days\": 1}",
+        "{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"subject_alt_names\": [{\"dns\": \"example\"}], \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}",
         "CreateCertificateRequest")
 
     static let fixtureCreateFederationConfigRequest: CreateFederationConfigRequest = decodeFixture(
@@ -250,7 +250,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureSignCertificateCsrRequest: SignCertificateCsrRequest = decodeFixture(
         SignCertificateCsrRequest.self,
-        "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"subject_alt_names\": [{\"dns\": \"example\"}], \"validity_days\": 1}",
+        "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"subject_alt_names\": [{\"dns\": \"example\"}], \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}",
         "SignCertificateCsrRequest")
 
     static let fixtureSignIntermediateCsrRequest: SignIntermediateCsrRequest = decodeFixture(
@@ -260,7 +260,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     static let fixtureSsfStreamInput: SsfStreamInput = decodeFixture(
         SsfStreamInput.self,
-        "{\"audience\": \"example\", \"authorization_header\": \"example\", \"clear_authorization_header\": true, \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\"}",
+        "{\"audience\": \"example\", \"authorization_header\": \"example\", \"clear_authorization_header\": true, \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"expected_updated_at\": \"2026-08-26T00:00:00Z\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\"}",
         "SsfStreamInput")
 
     static let fixtureTenantSettingsOverride: TenantSettingsOverride = decodeFixture(
@@ -1100,7 +1100,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testCertificatesListReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"items\": [{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+            [(status: 200, body: "{\"items\": [{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
         _ = try await client.certificates.list()
 
         XCTAssertEqual(transport.count, 1)
@@ -1110,7 +1110,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testCertificatesGenerateReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"chain_pem\": \"example\", \"private_key_pem\": \"example\"}")])
+            [(status: 200, body: "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"chain_pem\": \"example\", \"private_key_pem\": \"example\"}")])
         _ = try await client.certificates.generate(body: Self.fixtureCreateCertificateRequest)
 
         XCTAssertEqual(transport.count, 1)
@@ -1120,7 +1120,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testCertificatesSignCsrReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}")])
+            [(status: 200, body: "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}")])
         _ = try await client.certificates.signCSR(body: Self.fixtureSignCertificateCsrRequest)
 
         XCTAssertEqual(transport.count, 1)
@@ -1130,7 +1130,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testCertificatesGetReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}")])
+            [(status: 200, body: "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}")])
         _ = try await client.certificates.get(id: "11111111-1111-4111-8111-111111111111")
 
         XCTAssertEqual(transport.count, 1)
@@ -2535,7 +2535,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCertificateRoundTripsWithoutLosingAField() throws {
-        let json = "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let json = "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -2691,7 +2691,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCreateCertificateRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"subject_alt_names\": [{\"dns\": \"example\"}], \"validity_days\": 1}"
+        let json = "{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"subject_alt_names\": [{\"dns\": \"example\"}], \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -3523,7 +3523,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testGeneratedCertificateRoundTripsWithoutLosingAField() throws {
-        let json = "{\"cert_type\": \"User\", \"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"private_key_pem\": \"example\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let json = "{\"cert_type\": \"User\", \"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"private_key_pem\": \"example\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -5421,7 +5421,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSignCertificateCsrRequestRoundTripsWithoutLosingAField() throws {
-        let json = "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"subject_alt_names\": [{\"dns\": \"example\"}], \"validity_days\": 1}"
+        let json = "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"subject_alt_names\": [{\"dns\": \"example\"}], \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -5551,7 +5551,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSsfStreamInputRoundTripsWithoutLosingAField() throws {
-        let json = "{\"audience\": \"example\", \"authorization_header\": \"example\", \"clear_authorization_header\": true, \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\"}"
+        let json = "{\"audience\": \"example\", \"authorization_header\": \"example\", \"clear_authorization_header\": true, \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"expected_updated_at\": \"2026-08-26T00:00:00Z\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -6485,7 +6485,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCertificateMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let json = "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
         let decoded = try JSONDecoder().decode(Certificate.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -6506,6 +6506,7 @@ final class ManagementGeneratedTests: XCTestCase {
             status: decoded.status,
             subject: decoded.subject,
             tenantID: decoded.tenantID,
+            userID: decoded.userID,
             boundServiceAccountID: decoded.boundServiceAccountID)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
@@ -6642,7 +6643,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testCreateCertificateRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"subject_alt_names\": [{\"dns\": \"example\"}], \"validity_days\": 1}"
+        let json = "{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"subject_alt_names\": [{\"dns\": \"example\"}], \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}"
         let decoded = try JSONDecoder().decode(CreateCertificateRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -6656,6 +6657,7 @@ final class ManagementGeneratedTests: XCTestCase {
             metadata: decoded.metadata,
             subject: decoded.subject,
             subjectAltNames: decoded.subjectAltNames,
+            userID: decoded.userID,
             validityDays: decoded.validityDays)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
@@ -7479,7 +7481,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testGeneratedCertificateMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"cert_type\": \"User\", \"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"private_key_pem\": \"example\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}"
+        let json = "{\"cert_type\": \"User\", \"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"private_key_pem\": \"example\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}"
         let decoded = try JSONDecoder().decode(GeneratedCertificate.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -7500,6 +7502,7 @@ final class ManagementGeneratedTests: XCTestCase {
             status: decoded.status,
             subject: decoded.subject,
             tenantID: decoded.tenantID,
+            userID: decoded.userID,
             chainPEM: decoded.chainPEM,
             privateKeyPEM: decoded.privateKeyPEM)
 
@@ -9354,7 +9357,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSignCertificateCsrRequestMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"subject_alt_names\": [{\"dns\": \"example\"}], \"validity_days\": 1}"
+        let json = "{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"subject_alt_names\": [{\"dns\": \"example\"}], \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}"
         let decoded = try JSONDecoder().decode(SignCertificateCsrRequest.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -9367,6 +9370,7 @@ final class ManagementGeneratedTests: XCTestCase {
             issuerCAID: decoded.issuerCAID,
             metadata: decoded.metadata,
             subjectAltNames: decoded.subjectAltNames,
+            userID: decoded.userID,
             validityDays: decoded.validityDays)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
@@ -9488,7 +9492,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testSsfStreamInputMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"audience\": \"example\", \"authorization_header\": \"example\", \"clear_authorization_header\": true, \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\"}"
+        let json = "{\"audience\": \"example\", \"authorization_header\": \"example\", \"clear_authorization_header\": true, \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"expected_updated_at\": \"2026-08-26T00:00:00Z\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\"}"
         let decoded = try JSONDecoder().decode(SsfStreamInput.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -9504,6 +9508,7 @@ final class ManagementGeneratedTests: XCTestCase {
             endpointURL: decoded.endpointURL,
             eventsAllowed: decoded.eventsAllowed,
             eventsRequested: decoded.eventsRequested,
+            expectedUpdatedAt: decoded.expectedUpdatedAt,
             receiverClientID: decoded.receiverClientID,
             status: decoded.status,
             statusReason: decoded.statusReason,

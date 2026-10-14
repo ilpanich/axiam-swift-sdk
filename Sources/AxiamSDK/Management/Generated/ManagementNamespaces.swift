@@ -4145,9 +4145,12 @@ public struct SsfApi: Sendable {
     /// An omitted optional member takes its default (§32.2) -- **except `authorizationHeader`,
     /// which absent keeps the stored one** -- unless the update moves `endpointURL` to another
     /// scheme, host or port while a header is stored: then it must carry `authorizationHeader`
-    /// again or `clearAuthorizationHeader: true`, else `400` (§32.3 rule 5). An update
-    /// overtaken by the receiver's own write is `409`: read the stream again.
-    /// `SsfStreamInput(copying:)` turns a read into this body.
+    /// again or `clearAuthorizationHeader: true`, else `400` (§32.3 rule 5).
+    /// `SsfStreamInput(copying:)` turns a read into this body and sends back the
+    /// `eventsRequested` and the `expectedUpdatedAt` it read (contract 1.61, §32.2): an omitted
+    /// `eventsRequested` *resets* the stream to every allowed event, `[]` keeps the receiver's
+    /// "none". An update overtaken by a write since the read -- the receiver's included -- is
+    /// `409`, never retried: read the stream again.
     ///
     /// - Parameter streamID: The `{stream_id}` path parameter.
     /// - Parameter body: The request body.
