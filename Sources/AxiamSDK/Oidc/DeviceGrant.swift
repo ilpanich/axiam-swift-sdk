@@ -27,9 +27,24 @@ extension AxiamClient {
 
     /// `POST /oauth2/device_authorization` (§14.1) — start the grant.
     ///
-    /// **Unauthenticated**: a device that cannot show a browser also cannot hold a client
-    /// secret, so §14.1 forbids sending one here and forbids refusing to call this from a client
-    /// constructed without one. Only `client_id` goes out.
+    /// **Authenticates the client by what it was configured with** (§14.1 rule 2, contract 1.62):
+    ///
+    /// - A **public** client — the usual device, which cannot hold a secret — is constructed
+    ///   without `oidcClientSecret` and without a client certificate. Only `client_id` goes out,
+    ///   and this call is never refused client-side for lacking a credential (§14.1 rule 1).
+    /// - A client with ``AxiamConfig/oidcClientSecret`` sends it as `client_secret` **in the
+    ///   form body**, exactly as at `/oauth2/token`, whichever of `client_secret_post` and
+    ///   `client_secret_basic` it is registered for. **No `Authorization: Basic` header is ever
+    ///   sent** (§12.1 rule 3 stands for this route; the server accepts either form).
+    /// - A client with a §6.1 client certificate presents it on the connection, and the request
+    ///   goes to the `mtls_endpoint_aliases` entry when the document publishes one (§21.3 rule 2).
+    ///
+    /// A credential goes out only when the caller configured one: this never borrows a secret
+    /// from another configuration and never invents one. A `401` `invalid_client` — an unknown
+    /// client, a failed or missing credential, a credential sent by a public client — throws an
+    /// ``AuthError`` whose ``AuthError/oauthError`` is `invalid_client`, after exactly one
+    /// request, and never enters the §9 refresh guard (§14.2 rule 5). This SDK does not
+    /// generate `private_key_jwt` assertions (§21.8), so there is no assertion form to send.
     public func deviceAuthorize(
         scope: String? = nil,
         tenantID: String? = nil,
@@ -46,6 +61,10 @@ extension AxiamClient {
                 "the discovery document advertises no device_authorization_endpoint"))
         }
         var form = ["client_id": try requireOidcClientID()]
+        // §14.1 rule 2: a client configured with a secret authenticates here as it does at
+        // `/oauth2/token` — in the body, never as `Authorization: Basic`. A public client
+        // configures none and sends none.
+        if let secret = config.oidcClientSecret { form["client_secret"] = secret.wrapped }
         if let scope, !scope.isEmpty { form["scope"] = scope }
 
         let response = try await oidcFormPost(endpoint, form: form, tenantID: tenantID)
@@ -69,7 +88,18 @@ extension AxiamClient {
     /// the `error` field rather than the status: this throws an ``AuthError`` whose
     /// ``AuthError/oauthError`` carries that field, so a caller driving its own loop can tell
     /// `authorization_pending` and `slow_down` (keep going) from `access_denied`,
-    /// `expired_token` and `invalid_grant` (stop).
+    /// `expired_token` and `invalid_grant` (stop). The sixth, `401` `invalid_client` (contract
+    /// 1.62), is dispatched the same way and is terminal: a failed client authentication is not
+    /// an expired session, so it is not retried and does not enter the §9 refresh guard.
+    ///
+    /// **Client authentication (§14.1 rules 2 and 3).** Every poll sends `client_id`. A client
+    /// configured with ``AxiamConfig/oidcClientSecret`` also sends it as `client_secret` in the
+    /// form body — never as `Authorization: Basic`, whatever the client is registered for — and a
+    /// client with a §6.1 certificate presents it on the connection; a public client sends
+    /// neither. This SDK verifies DPoP proofs but does not generate them (§21.9), so a client
+    /// registered for DPoP cannot be driven from here: its poll is refused `401 invalid_client`
+    /// and surfaces as above. A response whose `token_type` is `DPoP` is surfaced as the server
+    /// said it (``OidcTokenSet/tokenType``), never assumed to be `Bearer`.
     ///
     /// ``deviceLogin(scope:tenantID:configuration:onAuthorization:)`` is the loop most callers
     /// want; this exists for one that needs its own.
@@ -84,8 +114,9 @@ extension AxiamClient {
             "device_code": deviceCode.wrapped,
             "client_id": try requireOidcClientID(),
         ]
-        // A device client is public by definition (see deviceAuthorize), but a confidential one
-        // driving the same grant must still authenticate — send the secret only when configured.
+        // §14.1 rule 2: the same credential as `deviceAuthorize` and as every other token
+        // request — a secret in the body when one is configured, none for a public client, the
+        // certificate on the connection for an mTLS one. Never `Authorization: Basic`.
         if let secret = config.oidcClientSecret { form["client_secret"] = secret.wrapped }
 
         let wire = try await oidcTokenGrant(form, document: document, tenantID: tenantID)
