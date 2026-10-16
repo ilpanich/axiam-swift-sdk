@@ -12,7 +12,7 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to contract 1.61 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
+> **This SDK conforms to contract 1.62 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
 > §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and
 > §33, with §32.7 and §33.2 signed (including §6.1 mTLS —
 > now including rules 6–10, the mTLS device login `authenticateDevice()` — §5.2 rule 1's
@@ -32,6 +32,11 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 > "the first three operations served only over gRPC" already excludes Swift from every
 > gRPC-only surface, and 1.51 adds two more to that list). The §8 rule 7 test "the gRPC
 > wrappers read `cnf`" therefore does not apply to this port.
+>
+> **§27.6.2's `network` manifest namespace (contract 1.62) is implemented**, beside the
+> flat-entity tier below: segments, reply profiles and the policy, with the natural keys,
+> the order and the version-conditional `replace_*` the contract gives. This SDK's manifest has
+> no pruning (omission is never deletion), so §27.6.2 item 6's opt-in `Delete` is not offered.
 >
 > **§27.6.1's manifest additions land at the flat-entity tier** (§27.10): `resources[].metadata`,
 > the resource-scoped role binding (`{role, resource, inherit}`) and `service_accounts` are
@@ -62,6 +67,21 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 > paginated list has an auto-paging `…All(page:)` form (§27.4 rule 4); §21.3.1 vector A is
 > read from this `CONTRACT.md` by the suite.
 >
+> **Contract 1.62 (§34.6, the 1.1.0 release).** Additive; no section changes meaning. In this
+> SDK: the **`network`** management namespace (§36) — twelve operations on `client.network`
+> (`listSegments`, `createSegment`, `getSegment`, `replaceSegment`, `deleteSegment`,
+> `listProfiles`, `createProfile`, `getProfile`, `replaceProfile`, `deleteProfile`, `getPolicy`,
+> `replacePolicy`), 202 operations in 29 namespaces in all, with a `409`'s `reason_code` on
+> `AuthzError.reasonCode` (§36.4); `network` as a **§27.6 manifest namespace** (§27.6.2:
+> segments by site + kind + name, profiles by their segment, the policy a singleton); the
+> **device grant authenticates its client** (§14.1: a configured secret goes in the form body at
+> `deviceAuthorize` and at the poll, a public client sends none, never `Authorization: Basic`);
+> and the **change-taking form** for an SSF stream, `SsfStreamInput.changing(_:_:)` (§32.2),
+> with the three meanings of `eventsRequested` stated at `updateStream`. The request `user_id`
+> was already an untyped `String?`, an assigned `nil` on `userID` and `expectedUpdatedAt` was
+> already "none", and `SsfStream.updatedAt` was already the server's own string, so §27.11
+> rule 5 and §32.2's string rule needed no change here.
+>
 > **Contract 1.61 (§34.5, the 1.0.1 fields).** Additive; the sections are unchanged. In this
 > SDK: `userID` (`user_id`) on `Certificate` and `GeneratedCertificate` — optional, with a
 > UUID, `null` and an absent member (a server before 1.0.1) decoding, the last two as `nil`,
@@ -88,7 +108,8 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 > (§21.5).
 >
 > From 1.0.0 this SDK is stable and follows [Semantic Versioning](https://semver.org): a
-> breaking change to the public API needs a new major version.
+> breaking change to the public API needs a new major version. A contract record that **adds a
+> member or widens a type** is a minor release (1.1.0 is one); **a removal waits for 2.0.0**.
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -125,7 +146,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 | §24 WebAuthn / passkeys | ✅ implemented (contract 1.45) — the eight relying-party operations (register, authenticate, discoverable, and the setup-token pair added at 1.45 for forced first-login enrolment) and §24.6a's JSON bridge on **every** target, plus §24.6b's linked-API ceremony helpers on iOS 16+ and macOS 13+, including the setup-token composed helper. The Linux build keeps the RP layer and the bridge; `webauthnCeremonySupported` answers `false` there rather than throwing |
 | §25 account lifecycle & MFA enrolment | ✅ implemented (contract 1.45) — voluntary and forced TOTP enrolment, a passkey or security key as the first factor at forced enrolment (contract 1.45), email verification, and the password-reset triple |
 | §26 Pushed Authorization Requests (RFC 9126) | ✅ implemented (contract 1.28) — required for a FAPI 2.0 client, which cannot authorize any other way (§21.1) |
-| §27 management API | ✅ implemented — 190 operations across 28 namespaces, generated from the vendored `management-registry.json` (every paginated list with its auto-paging `…All(page:)` form, contract 1.59), plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL. §27.6.1's three additions (contract 1.51) — `resources[].metadata`, resource-scoped role bindings with `inherit`, and `service_accounts` (with role bindings) — are implemented at the **flat-entity tier**: no `users`, no `scopes` (§27.10, unchanged tier gap) |
+| §27 management API | ✅ implemented — 202 operations across 29 namespaces (contract 1.62 adds `network`, §36), generated from the vendored `management-registry.json` (every paginated list with its auto-paging `…All(page:)` form, contract 1.59), plus the §27.6/§27.7 declarative manifest with a `@resultBuilder` DSL, and `network` as a manifest namespace (§27.6.2, contract 1.62). §27.6.1's three additions (contract 1.51) — `resources[].metadata`, resource-scoped role bindings with `inherit`, and `service_accounts` (with role bindings) — are implemented at the **flat-entity tier**: no `users`, no `scopes` (§27.10, unchanged tier gap) |
 | §28.12 RFC 7592 client configuration | ✅ implemented (contract 1.53) — `readClientRegistration` / `updateClientRegistration` / `deleteClientRegistration`, origin-pinned, bearer-only, no SDK session, writes never retried |
 | §29 `saml`, §30 `directory`, §31 `scim_targets`, §32 `ssf` | ✅ implemented (contracts 1.54–1.57) — generated namespaces plus explicit-null members, call-site notes, `ParseSamlSpMetadata.fromURL`/`.fromXML` and the `init(copying:)` read-modify-write helpers |
 | §32.7 SSF receiver helper | ✅ implemented (contract 1.56, MAY for Swift) — `SsfReceiver.verifySet` / `poll`; at contract 1.59 `poll` returns what it judged and lists the rest in `unjudged` (§34.2 P1) and the replay store fails closed by throwing (P4); at contract 1.60 the key cache expires after five minutes, a failed key fetch counts toward the once-a-minute limit (P6), and `poll` emits `ssfUnjudged` (§19.1) |
@@ -138,7 +159,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ilpanich/axiam-swift-sdk.git", from: "1.0.0")
+    .package(url: "https://github.com/ilpanich/axiam-swift-sdk.git", from: "1.1.0")
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
@@ -150,7 +171,7 @@ targets: [
 ### CocoaPods
 
 ```ruby
-pod 'AxiamSDK', '~> 1.0.0'
+pod 'AxiamSDK', '~> 1.1.0'
 ```
 
 ## Supported Swift versions
@@ -1055,6 +1076,18 @@ let tokens = try await client.deviceLogin(scope: "openid profile") { authorizati
 }
 ```
 
+**The grant authenticates its client (§14.1, contract 1.62).** A **public** client — the usual
+device, configured with neither `oidcClientSecret` nor a client certificate — sends `client_id`
+and no credential at `deviceAuthorize` or at the poll, and is not refused client-side. A client
+configured with `oidcClientSecret` sends it at **both** endpoints as `client_secret` in the form
+body, exactly as at `/oauth2/token` — **never as `Authorization: Basic`**, whichever of
+`client_secret_post` and `client_secret_basic` it is registered for (§12.1 rule 3) — and a client
+with a §6.1 certificate presents it on the connection and sends no secret. The poll sends
+`client_id` every time. A `401` `invalid_client` from either call is an `AuthError` whose
+`oauthError` is `invalid_client`, after one request, and is not a §9 refresh. This SDK does not
+generate `private_key_jwt` assertions (§21.8) or DPoP proofs (§21.9), so a client registered for
+either cannot be driven from here: its poll is refused `invalid_client` and surfaces that way.
+
 Polling follows §14.2 exactly, and three of its rules are the ones implementations get wrong:
 
 - **`slow_down` raises the interval permanently**, by 5 s, and never resets it. Backing off for
@@ -1908,7 +1941,7 @@ including a transport skeleton: [`Examples/Reactor`](Examples/Reactor/main.swift
 
 ## Management API (§27)
 
-190 operations across 28 namespaces, reached through namespace handles that sit directly on
+202 operations across 29 namespaces, reached through namespace handles that sit directly on
 the client — the form §27.3's Swift row specifies (property, camelCase, `async`):
 
 ```swift
@@ -1921,7 +1954,7 @@ let role = try await client.roles.create(body: CreateRoleRequest(
 let secret = try await client.serviceAccounts.rotateSecret(saID: account.id)
 ```
 
-The same 24 handles are also reachable behind one accessor (§27.2 rule 4), which reads better
+The same handles are also reachable behind one accessor (§27.2 rule 4), which reads better
 where a call site is already dense with §1 operations:
 
 ```swift
@@ -2183,6 +2216,58 @@ let report = try await client.manifest.apply(manifest)
   role ignores resource scope — and this SDK checks it client-side too, since it needs no
   server state).
 
+### The `network` manifest namespace (§27.6.2, contract 1.62)
+
+`Manifest(entities:network:)` takes a `NetworkManifest` of segments, profiles and a policy:
+
+```swift
+let manifest = Manifest(entities: [], network: NetworkManifest(
+    segments: [
+        Declare.networkSegment("lab", site: "default", kind: .access, name: "lab",
+                               vlanID: 20, rank: .value(1), filterIds: ["corp", "guest"]),
+        Declare.networkSegment("quarantine", site: "default", kind: .quarantine, name: "quarantine",
+                               vlanID: 99, rank: .null),
+    ],
+    profiles: [
+        Declare.networkProfile(segment: "lab", sessionTimeoutSecs: 3600, filterID: .value("corp")),
+    ],
+    policy: Declare.networkPolicy(sessionTimeoutMaxSecs: 7200)))
+let report = try await client.manifest.apply(manifest)
+```
+
+- **Natural keys.** A segment is `site` + `kind` + `name`, where `kind` is the **wire** spelling
+  (`.access` or `.quarantine`) — there is no `zones` spelling anywhere; a profile is its
+  segment (it names the manifest-local `key` of a segment spec of the same manifest); the policy
+  is a singleton, so a manifest cannot carry two. Two segments with one natural key, a Filter-Id
+  listed twice in one segment, and a profile naming no segment are refused by `validate(_:)`
+  with **zero wire calls**.
+- **Order.** The policy, then the segments, then the profiles, each in key order, after
+  everything else — so a manifest without a `network` section plans exactly as before. A
+  profile's `session_timeout_secs` is checked against the cap at the write, which is why the
+  policy goes first.
+- **Judged on the read.** `plan` issues `GET`s only (`getPolicy`, `listSegments`,
+  `listProfiles`, each walked to exhaustion) and compares every **stated** member with the
+  value as the read returns it: for a profile, the *effective* (clamped) one. `filterIds` compare
+  as a **set** — a reorder is `NoChange`, and a write sends the order you stated. A stated
+  `sessionTimeoutSecs` above a lowered cap differs from the read, so `plan` shows an `Update`,
+  and `apply`'s `replaceProfile` is refused by the server with `403 authorization_denied`:
+  `apply` reports it as given, stops, and does not retry or lower the value.
+- **Stated, silent, none.** `NetworkMember` has three states for the members that can be null
+  (`rank`, `idleTimeoutSecs`, `filterID`, `serviceType`): `.unstated` (not compared, carried from
+  the read), `.null` (compared; the key is left **out** of the replacement body, never sent as
+  `null`) and `.value(_)`. `terminationAction` has no `.null`: the server always returns one, so a
+  stated "none" could never converge.
+- **Version-conditional and never retried.** Every `replace_*` is built from the read — your
+  stated members, the read's for the rest — and sends the version `plan` read. A profile's
+  `segment_version` is the response `version` of this `apply`'s own write of its segment when
+  there was one, not the stale one. A `409` is that action's failure: `apply` stops and
+  `ApplyReport.networkFailureReasonCode` carries its `reason_code` (`stale_version`,
+  `strands_profile`, `duplicate_vlan`, … — open, never parsed from the message); run `apply`
+  again, which re-reads. `networkFailureError` is the `AxiamError` as given.
+- **No pruning.** This SDK's manifest never deletes (`ChangeAction` has no `delete`), so a
+  segment or profile the manifest does not state is left alone.
+- **Human-only.** The namespace answers a service-account token `401`.
+
 ### Worked examples
 
 - [`Examples/ManagementBasics`](Examples/ManagementBasics/main.swift) — paging, per-call scope,
@@ -2290,6 +2375,25 @@ being reverted; and its `eventsRequested`, where `[]` stays `[]` (the receiver's
 rather than being omitted. An `eventsRequested` you leave `nil` on an input you build yourself
 is *absent*, which resets the stream to every event of `eventsAllowed`; if you lower
 `eventsAllowed`, cut `eventsRequested` to the new ceiling before sending.
+
+**The change-taking form (contract 1.62, §32.2).** `SsfStreamInput.changing(_:_:)` takes the
+stream you read and a closure that edits the copy, and does the part a plain converter cannot:
+
+```swift
+let stream = try await client.ssf.getStream(streamID: streamID)
+let body = SsfStreamInput.changing(stream) { $0.eventsAllowed = [.sessionRevoked] }
+_ = try await client.ssf.updateStream(streamID: streamID, body: body)
+```
+
+It sends `eventsRequested` and `expectedUpdatedAt` **as read** — the server's own string, never
+rendered again — and **cuts `eventsRequested` to the new `eventsAllowed`** when the closure lowers
+the ceiling. An `eventsRequested` the closure sets to something other than what was read is sent
+as given and the server judges it; setting `expectedUpdatedAt` to `nil` is "none" (the key is
+left out, `null` is never sent). `SsfStreamInput(copying:)` remains the plain converter: it cannot
+know you will lower the ceiling, so **the cut is your duty there**. The three meanings of
+`eventsRequested` on an update — absent *resets* the stream to every event of `eventsAllowed`,
+`[]` is the receiver's "none", a list is stored as given and refused `400` outside the ceiling —
+are stated in the documentation of `updateStream` itself.
 
 `allowSha1Signatures` (SAML only; `false` unless set) and `idpMetadataSigningCertPEM` are sent
 only when you set them. `windowMinutes` on a notification rule is sent as given — the SDK does

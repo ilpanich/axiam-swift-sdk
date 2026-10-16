@@ -423,7 +423,7 @@ final class SsfManagementTests: XCTestCase {
         let body = SsfStreamInput.changing(stream) { $0.eventsAllowed = [.sessionRevoked] }
 
         XCTAssertEqual(body.eventsAllowed, [.sessionRevoked])
-        XCTAssertEqual(body.eventsRequested, [.sessionRevoked], "only what is in the new ceiling")
+        XCTAssertEqual(body.eventsRequested ?? [], [.sessionRevoked], "only what is in the new ceiling")
         let sent = try Self.wire(body)
         XCTAssertEqual(sent["events_allowed"] as? [String], [Self.revoked])
         XCTAssertEqual(sent["events_requested"] as? [String], [Self.revoked])
@@ -432,7 +432,7 @@ final class SsfManagementTests: XCTestCase {
         let reordered = SsfStreamInput.changing(stream) {
             $0.eventsAllowed = [.credentialChange, .sessionRevoked]
         }
-        XCTAssertEqual(reordered.eventsRequested, [.sessionRevoked, .credentialChange])
+        XCTAssertEqual(reordered.eventsRequested ?? [], [.sessionRevoked, .credentialChange])
     }
 
     /// A change that touches nothing about events sends `eventsRequested` as read, and the
@@ -440,7 +440,7 @@ final class SsfManagementTests: XCTestCase {
     func testChangingSendsEventsRequestedAndExpectedUpdatedAtAsRead() throws {
         let stream = try Self.threeAllowedTwoRequested()
         let renamed = SsfStreamInput.changing(stream) { $0.statusReason = "maintenance" }
-        XCTAssertEqual(renamed.eventsRequested, [.sessionRevoked, .credentialChange])
+        XCTAssertEqual(renamed.eventsRequested ?? [], [.sessionRevoked, .credentialChange])
         XCTAssertEqual(renamed.expectedUpdatedAt, Self.readAt)
         var sent = try Self.wire(renamed)
         XCTAssertEqual(sent["events_requested"] as? [String], [Self.revoked, Self.credentialChange])
@@ -480,7 +480,7 @@ final class SsfManagementTests: XCTestCase {
             $0.eventsAllowed = [.sessionRevoked]
             $0.eventsRequested = [.accountDisabled]
         }
-        XCTAssertEqual(named.eventsRequested, [.accountDisabled], "outside the ceiling: the server refuses it")
+        XCTAssertEqual(named.eventsRequested ?? [], [.accountDisabled], "outside the ceiling: the server refuses it")
 
         let reset = SsfStreamInput.changing(stream) { $0.eventsRequested = nil }
         XCTAssertNil(reset.eventsRequested, "absent is a reset, named on purpose")
