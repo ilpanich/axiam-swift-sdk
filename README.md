@@ -13,8 +13,8 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
 > **This SDK conforms to contract 1.62 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
-> §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and
-> §33, with §32.7 and §33.2 signed (including §6.1 mTLS —
+> §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33
+> and §36, with §32.7 and §33.2 signed (including §6.1 mTLS —
 > now including rules 6–10, the mTLS device login `authenticateDevice()` — §5.2 rule 1's
 > acting tenant, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login
 > path — which needs `libaxiam_opaque_ffi` installed, see below — and §28's REST surface:
@@ -36,7 +36,11 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 > **§27.6.2's `network` manifest namespace (contract 1.62) is implemented**, beside the
 > flat-entity tier below: segments, reply profiles and the policy, with the natural keys,
 > the order and the version-conditional `replace_*` the contract gives. This SDK's manifest has
-> no pruning (omission is never deletion), so §27.6.2 item 6's opt-in `Delete` is not offered.
+> no pruning (omission is never deletion), so §27.6.2 item 6's opt-in `Delete` is not offered:
+> **manifest pruning: not offered in any namespace** (§27.10). §36 (the `network` management
+> namespace, with `AuthzError.reasonCode` and §36.3's call-site documentation) is named in the
+> statement above in the form the contract's Conformance Statement gives; the decision route
+> `POST /api/v1/network/decide` (§36.11) is not SDK surface and is no part of the claim.
 >
 > **§27.6.1's manifest additions land at the flat-entity tier** (§27.10): `resources[].metadata`,
 > the resource-scoped role binding (`{role, resource, inherit}`) and `service_accounts` are
