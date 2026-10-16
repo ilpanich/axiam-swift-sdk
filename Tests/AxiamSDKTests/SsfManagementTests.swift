@@ -389,4 +389,153 @@ final class SsfManagementTests: XCTestCase {
         XCTAssertNil(sent["authorization_header"])
         XCTAssertEqual(sent["status_reason"] as? String, "maintenance")
     }
+
+    // MARK: - Contract 1.62 (§32.2, §32.8 test 7): the change-taking form
+
+    private static let credentialChange = SsfEventTypeURI.credentialChange
+    private static let accountDisabled = SsfEventTypeURI.accountDisabled
+
+    /// A stream whose ceiling holds three event types and whose receiver asked for two. Its
+    /// `updated_at` carries an offset and nine fraction digits, which a parse-and-render would
+    /// not give back.
+    private static let readAt = "2026-10-04T02:00:00.123456789+00:00"
+
+    private static func threeAllowedTwoRequested(_ extra: [String: Any] = [:]) throws -> SsfStream {
+        var members: [String: Any] = [
+            "events_allowed": [revoked, credentialChange, accountDisabled],
+            "events_requested": [revoked, credentialChange],
+            "events_delivered": [revoked, credentialChange],
+            "updated_at": readAt,
+        ]
+        for (key, value) in extra { members[key] = value }
+        return try decode(streamObject(members))
+    }
+
+    private static func wire(_ body: SsfStreamInput) throws -> [String: Any] {
+        try XCTUnwrap(
+            JSONSerialization.jsonObject(with: try JSONEncoder().encode(body)) as? [String: Any])
+    }
+
+    /// Lowering `eventsAllowed` to one of the two requested types cuts `eventsRequested` to what
+    /// the new ceiling holds — never to the old list, which the server would refuse `400`.
+    func testChangingCutsEventsRequestedToTheLoweredCeiling() throws {
+        let stream = try Self.threeAllowedTwoRequested()
+        let body = SsfStreamInput.changing(stream) { $0.eventsAllowed = [.sessionRevoked] }
+
+        XCTAssertEqual(body.eventsAllowed, [.sessionRevoked])
+        XCTAssertEqual(body.eventsRequested, [.sessionRevoked], "only what is in the new ceiling")
+        let sent = try Self.wire(body)
+        XCTAssertEqual(sent["events_allowed"] as? [String], [Self.revoked])
+        XCTAssertEqual(sent["events_requested"] as? [String], [Self.revoked])
+
+        // The cut keeps the read's order, whatever order the ceiling is written in.
+        let reordered = SsfStreamInput.changing(stream) {
+            $0.eventsAllowed = [.credentialChange, .sessionRevoked]
+        }
+        XCTAssertEqual(reordered.eventsRequested, [.sessionRevoked, .credentialChange])
+    }
+
+    /// A change that touches nothing about events sends `eventsRequested` as read, and the
+    /// receiver's "none" as `[]`, and `expected_updated_at` as the response's own string.
+    func testChangingSendsEventsRequestedAndExpectedUpdatedAtAsRead() throws {
+        let stream = try Self.threeAllowedTwoRequested()
+        let renamed = SsfStreamInput.changing(stream) { $0.statusReason = "maintenance" }
+        XCTAssertEqual(renamed.eventsRequested, [.sessionRevoked, .credentialChange])
+        XCTAssertEqual(renamed.expectedUpdatedAt, Self.readAt)
+        var sent = try Self.wire(renamed)
+        XCTAssertEqual(sent["events_requested"] as? [String], [Self.revoked, Self.credentialChange])
+        XCTAssertEqual(
+            sent["expected_updated_at"] as? String, Self.readAt,
+            "nine fraction digits and the +00:00 offset come back byte for byte")
+        XCTAssertEqual(sent["status_reason"] as? String, "maintenance")
+
+        // `[]` is the receiver's "none": it stays `[]` and is never omitted, because an absent
+        // `events_requested` would widen the stream to every allowed event.
+        let none = try Self.threeAllowedTwoRequested(["events_requested": [String]()])
+        let kept = SsfStreamInput.changing(none) { $0.description = "edited" }
+        XCTAssertEqual(kept.eventsRequested, [])
+        sent = try Self.wire(kept)
+        XCTAssertEqual(sent["events_requested"] as? [String], [])
+        // ... and lowering the ceiling cuts nothing out of an empty list.
+        let loweredNone = SsfStreamInput.changing(none) { $0.eventsAllowed = [.sessionRevoked] }
+        XCTAssertEqual(loweredNone.eventsRequested, [])
+    }
+
+    /// An assigned `nil` for `expectedUpdatedAt` is "none": the key is left out and `null` is
+    /// never sent (§27.11 rule 5, contract 1.62).
+    func testChangingWithNoExpectedUpdatedAtLeavesTheKeyOut() throws {
+        let stream = try Self.threeAllowedTwoRequested()
+        let body = SsfStreamInput.changing(stream) { $0.expectedUpdatedAt = nil }
+        XCTAssertNil(body.expectedUpdatedAt)
+        let sent = try Self.wire(body)
+        XCTAssertFalse(sent.keys.contains("expected_updated_at"), "omitted, never null")
+    }
+
+    /// An `eventsRequested` the caller names is sent as given — the server judges it — and the
+    /// cut is not applied over it.
+    func testChangingSendsANamedEventsRequestedAsGiven() throws {
+        let stream = try Self.threeAllowedTwoRequested()
+
+        let named = SsfStreamInput.changing(stream) {
+            $0.eventsAllowed = [.sessionRevoked]
+            $0.eventsRequested = [.accountDisabled]
+        }
+        XCTAssertEqual(named.eventsRequested, [.accountDisabled], "outside the ceiling: the server refuses it")
+
+        let reset = SsfStreamInput.changing(stream) { $0.eventsRequested = nil }
+        XCTAssertNil(reset.eventsRequested, "absent is a reset, named on purpose")
+        let resetWire = try Self.wire(reset)
+        XCTAssertFalse(resetWire.keys.contains("events_requested"))
+
+        let none = SsfStreamInput.changing(stream) { $0.eventsRequested = [] }
+        XCTAssertEqual(none.eventsRequested, [])
+    }
+
+    /// The form reaches the wire as a `PUT` carrying the cut list and the version it read.
+    func testChangingReachesTheWireOnUpdateStream() async throws {
+        let id = UUID().uuidString.lowercased()
+        let (client, transport) = try await ManagementFixture.signedIn([
+            (status: 200, body: Self.json(Self.streamObject())),
+        ])
+        let stream = try Self.threeAllowedTwoRequested()
+        let body = SsfStreamInput.changing(stream) { $0.eventsAllowed = [.sessionRevoked] }
+        _ = try await client.ssf.updateStream(streamID: id, body: body)
+
+        XCTAssertEqual(transport.last?.method, "PUT")
+        let sent = try XCTUnwrap(transport.last?.jsonBody)
+        XCTAssertEqual(sent["events_requested"] as? [String], [Self.revoked])
+        XCTAssertEqual(sent["expected_updated_at"] as? String, Self.readAt)
+    }
+
+    /// §32.8 test 7's documentation check: the doc comment a developer sees at `updateStream`
+    /// states the three meanings of `eventsRequested`, and the plain converter's names the
+    /// caller's duty. The generated and hand-written sources are read as text.
+    func testTheCallSiteStatesTheThreeMeaningsAndTheConverterNamesTheCallersDuty() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()  // AxiamSDKTests
+            .deletingLastPathComponent()  // Tests
+            .deletingLastPathComponent()  // repository root
+        let namespaces = try String(
+            contentsOf: root.appendingPathComponent(
+                "Sources/AxiamSDK/Management/Generated/ManagementNamespaces.swift"),
+            encoding: .utf8)
+        let start = try XCTUnwrap(namespaces.range(of: "public func updateStream("))
+        let before = String(namespaces[..<start.lowerBound])
+        let docStart = try XCTUnwrap(before.range(of: "/// `PUT /api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}`", options: .backwards))
+        // Joined across the `///` line breaks, so a phrase the generator wrapped still matches.
+        let doc = String(before[docStart.lowerBound...])
+            .replacingOccurrences(of: "\n    /// ", with: " ")
+        XCTAssertTrue(doc.contains("three meanings of `eventsRequested`"))
+        XCTAssertTrue(doc.contains("*resets* the stream to every event of `eventsAllowed`"))
+        XCTAssertTrue(doc.contains("`[]` is stored as the receiver's"))
+        XCTAssertTrue(doc.contains("refused (`400`) if any is outside `eventsAllowed`"))
+        XCTAssertTrue(doc.contains("**your duty**"))
+
+        let checks = try String(
+            contentsOf: root.appendingPathComponent("Sources/AxiamSDK/Management/ManagementChecks.swift"),
+            encoding: .utf8)
+        let flatChecks = checks.replacingOccurrences(of: "\n    /// ", with: " ")
+        XCTAssertTrue(flatChecks.contains("**The caller's duty (contract 1.62, §32.2).**"))
+        XCTAssertTrue(flatChecks.contains("cutting `eventsRequested` to the new `eventsAllowed` is yours"))
+    }
 }
