@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Contract 1.62 (§34.6, the 1.1.0 release) on top of contract 1.61 (§34.5, the fields of the
 never-tagged 1.0.1, merged into this release): every change is additive, and **there is no
 source-breaking change in this SDK**. `CONTRACT.md`, `openapi.json` and
-`management-registry.json` are re-vendored from ilpanich/axiam `d25413506` (branch
+`management-registry.json` are re-vendored from ilpanich/axiam `e8722b668` (branch
 `claude/release-1.1.0`; `proto/` and `opaque-test-vectors.json` are unchanged) and the §27 surface
 regenerated with `Scripts/gen_management.py` — 202 operations in 29 namespaces. (Contract 1.61's
 fields were first vendored from ilpanich/axiam `058d8e0`, branch `claude/release-1.0.1`, with no new
@@ -74,8 +74,8 @@ contract-side, with no SDK work.
 
 - **Contract 1.62 corrections re-vendored** (the 1.1.0 fix pass): `CONTRACT.md`,
   `openapi.json` (version `1.1.0`, digest
-  `sha256:cf0fc71c2061576b077afd48d9903f9f4ef26d66e9edbebe5e3020be89fc59a7`) and
-  `management-registry.json` now come from axiam `d25413506`; `proto/` is unchanged and
+  `sha256:7c3a5091d9d515b1aa3e157e74d342faf64a2c88e735f3c873b66951b3fac8a1`) and
+  `management-registry.json` now come from axiam `e8722b668`; `proto/` is unchanged and
   `Scripts/gen_management.py --check` is clean. The README's conformance statement names §36 in
   the form the contract's Conformance Statement gives and states that manifest pruning is not
   offered in any namespace (§27.10). No SDK source changed; a regression test pins that no
