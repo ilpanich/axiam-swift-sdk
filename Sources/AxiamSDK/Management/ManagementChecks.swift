@@ -186,20 +186,28 @@ extension ScimTargetInput {
 // MARK: - §32 ssf
 
 extension SsfStreamInput {
-    /// The read-modify-write form for `ssf.update_stream`, a **replacement**: a read result
-    /// turned back into the body, every member carried over.
+    /// The **plain converter** for `ssf.update_stream`, a **replacement**: a read result turned
+    /// back into the body, every member carried over, for the caller to edit.
     ///
     /// `authorizationHeader` is left `nil` — absent keeps the stored header (§32.2), unless the
     /// update moves `endpointURL` to another origin (§32.3 rule 5) — and so is
     /// `clearAuthorizationHeader`. No response carries the header.
     ///
-    /// Contract 1.61 (§32.2): `expectedUpdatedAt` is the read's `updatedAt`, verbatim, so a
-    /// write that landed since — the receiver's pause or narrowing included — makes the update
-    /// `409` (`ConflictError`, never retried) instead of being reverted; reload, then retry.
-    /// `eventsRequested` is the one the read carried and is never dropped: an empty array stays
-    /// `[]` (the receiver's "none"), because an absent `eventsRequested` *resets* the stream to
-    /// every event of `eventsAllowed`. If you lower `eventsAllowed`, cut `eventsRequested` to
-    /// the new ceiling before sending.
+    /// Contract 1.61 (§32.2): `expectedUpdatedAt` is the read's `updatedAt`, verbatim — the
+    /// server's own string, which this SDK's models keep as a `String` rather than a parsed date,
+    /// so nothing is rendered again — and a write that landed since (the receiver's pause or
+    /// narrowing included) makes the update `409` (`ConflictError`, never retried) instead of
+    /// being reverted; reload, then retry. `eventsRequested` is the one the read carried and is
+    /// never dropped: an empty array stays `[]` (the receiver's "none").
+    ///
+    /// **The caller's duty (contract 1.62, §32.2).** This converter cannot know that you are about
+    /// to lower `eventsAllowed`, so **cutting `eventsRequested` to the new `eventsAllowed` is
+    /// yours, wherever you build the body this way**: a requested list left outside the new
+    /// ceiling is refused `400`, and one left out altogether *resets* the stream to every event of
+    /// `eventsAllowed` (the three meanings of `eventsRequested`: absent resets, `[]` is none, a
+    /// list is stored as given). An update conditional on the version you read is `409` once the
+    /// stream changes under it. ``changing(_:_:)`` does the cut for you and is the form to use
+    /// when you edit a stream.
     public init(copying stream: SsfStream) {
         self.init(
             audience: stream.audience,
@@ -215,5 +223,54 @@ extension SsfStreamInput {
             status: stream.status,
             statusReason: stream.statusReason,
             subjectFormat: stream.subjectFormat)
+    }
+
+    /// The **change-taking read-modify-write form** for `ssf.update_stream` (contract 1.62,
+    /// CONTRACT.md §32.2): `(stream, changes) → body`. Hand it the stream you read and a closure
+    /// that edits the copy; it returns the replacement body.
+    ///
+    /// ```swift
+    /// let stream = try await client.ssf.getStream(streamID: id)
+    /// let body = SsfStreamInput.changing(stream) { $0.eventsAllowed = [.sessionRevoked] }
+    /// _ = try await client.ssf.updateStream(streamID: id, body: body)
+    /// ```
+    ///
+    /// What the body carries, and why each point is a rule rather than a convenience:
+    ///
+    /// - **`eventsRequested`, as read.** An update that omits it *resets* the stream to every
+    ///   event of `eventsAllowed`, widening what the receiver narrowed, and AXIAM then sends the
+    ///   receiver more events about the tenant's users than it asked for. The read list goes back
+    ///   as it was; an `[]` (the receiver's "none") goes back as `[]` and is never omitted.
+    /// - **Cut to the new ceiling.** When `changes` lowers `eventsAllowed` and does not name
+    ///   `eventsRequested`, the requested list becomes the entries of the read list that are in
+    ///   the new `eventsAllowed`, in their order (a request outside the ceiling is `400`). An
+    ///   `eventsRequested` that `changes` sets to anything other than what was read — a list, `[]`
+    ///   or `nil` (absent: a reset) — is sent as given: the server judges it. Setting it to the
+    ///   very value that was read is the same as not naming it, and is cut like the rest.
+    /// - **`expectedUpdatedAt`, as read.** The `updatedAt` string of the stream you read, byte for
+    ///   byte — never parsed and rendered again, because the comparison is of the instant and a
+    ///   timestamp rounded to fewer fraction digits than the server stored does not match. The
+    ///   update then lands only on the version you read, and a write made since (the receiver's
+    ///   own included) answers `409` (`ConflictError`, never retried): read again and decide
+    ///   again. Setting it to `nil` in `changes` is "none": the key is left out of the body and
+    ///   `null` is never sent, which replaces whatever is stored.
+    /// - **The header.** `authorizationHeader` and `clearAuthorizationHeader` start `nil`
+    ///   (absent keeps the stored header, §32.2); set them in `changes` when the update moves
+    ///   `endpointURL` to another origin (§32.3 rule 5).
+    ///
+    /// ``init(copying:)`` is the plain converter, and the cut is the caller's duty there.
+    public static func changing(
+        _ stream: SsfStream,
+        _ changes: (inout SsfStreamInput) throws -> Void
+    ) rethrows -> SsfStreamInput {
+        var body = SsfStreamInput(copying: stream)
+        let asRead: [SsfEventType]? = stream.eventsRequested
+        try changes(&body)
+        if body.eventsRequested == asRead {
+            // Not named by the caller: carry the read list, cut to the ceiling the body now has.
+            let ceiling = Set(body.eventsAllowed)
+            body.eventsRequested = stream.eventsRequested.filter { ceiling.contains($0) }
+        }
+        return body
     }
 }

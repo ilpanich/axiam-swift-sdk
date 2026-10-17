@@ -4,7 +4,7 @@
 
 import Foundation
 
-// CONTRACT.md §27 namespace handles — 190 operations across 28 of them.
+// CONTRACT.md §27 namespace handles — 202 operations across 29 of them.
 //
 // §27.2 rule 1: a handle is cheap and stateless. It holds the client and a scope of two
 // optional strings, acquiring one performs no I/O, and every accessor below builds a fresh one
@@ -4147,10 +4147,18 @@ public struct SsfApi: Sendable {
     /// scheme, host or port while a header is stored: then it must carry `authorizationHeader`
     /// again or `clearAuthorizationHeader: true`, else `400` (§32.3 rule 5).
     /// `SsfStreamInput(copying:)` turns a read into this body and sends back the
-    /// `eventsRequested` and the `expectedUpdatedAt` it read (contract 1.61, §32.2): an omitted
-    /// `eventsRequested` *resets* the stream to every allowed event, `[]` keeps the receiver's
-    /// "none". An update overtaken by a write since the read -- the receiver's included -- is
-    /// `409`, never retried: read the stream again.
+    /// `eventsRequested` and the `expectedUpdatedAt` it read (contract 1.61, §32.2). **The
+    /// three meanings of `eventsRequested` on an update (§32.2, contract 1.62):** absent
+    /// *resets* the stream to every event of `eventsAllowed` (as on create), widening a
+    /// narrowing the receiver made; `[]` is stored as the receiver's "none" -- it does not
+    /// widen, and the stream carries nothing; a list of event types is stored as given and
+    /// refused (`400`) if any is outside `eventsAllowed`. An update overtaken by a write since
+    /// the read -- the receiver's included -- is `409`, never retried: read the stream again.
+    /// When you lower `eventsAllowed` the cut of `eventsRequested` to the new ceiling is **your
+    /// duty** with `SsfStreamInput(copying:)`; `SsfStreamInput.changing(_:_:)` is the
+    /// change-taking form that sends both values as read and does the cut. A raw API client is
+    /// bound by the same meaning: an `events_requested` left out of the `PUT` resets the
+    /// stream.
     ///
     /// - Parameter streamID: The `{stream_id}` path parameter.
     /// - Parameter body: The request body.
@@ -4382,6 +4390,345 @@ public struct ScimTargetsApi: Sendable {
             scope: scope,
             implicitTenant: false)
         return try ManagementCodec.decode(ScimReconcileAccepted.self, from: data)
+    }
+
+}
+
+/// A tenant's network segments and the RADIUS reply profile each owns (RADIUS D4): a segment is
+/// a node of the reserved /network subtree of the resource tree (kind, VLAN, Filter-Id
+/// envelope, placement rank), and its profile is the typed `axiam-radius-reply/1` record a
+/// decision renders. Every write is conditional on the `version` the caller read and passes the
+/// server's write gate. The tenant's Session-Timeout cap is one more row of it (get_policy,
+/// replace_policy): lowering it is always allowed, raising it is allowed and audited. The
+/// decision route FreeRADIUS calls is not in this registry.
+public struct NetworkApi: Sendable {
+    private let client: AxiamClient
+    private let scope: CallScope
+
+    init(client: AxiamClient, scope: CallScope) {
+        self.client = client
+        self.scope = scope
+    }
+
+    /// This namespace scoped to a different organization (§27.4 rule 3).
+    ///
+    /// Returns a NEW handle. A handle that repointed itself would mean an unrelated code path
+    /// re-scoping a shared object could send this one's next WRITE to somebody else's
+    /// organization.
+    public func inOrg(_ orgID: String) -> NetworkApi {
+        NetworkApi(client: client, scope: scope.withOrg(orgID))
+    }
+
+    /// This namespace scoped to a different tenant (§27.4 rule 3).
+    ///
+    /// Returns a NEW handle, for the same reason `inOrg(_:)` does.
+    public func forTenant(_ tenantID: String) -> NetworkApi {
+        NetworkApi(client: client, scope: scope.withTenant(tenantID))
+    }
+
+    /// `GET /api/v1/network/segments`
+    ///
+    /// Returns ONE page. `Page.total` is the server's count across every page and is not
+    /// `items.count`. To walk every page, use `listSegmentsAll(page:)` — §27.4 rule 4's
+    /// auto-paging form.
+    ///
+    /// - Parameter page: Which page to fetch; defaults to the first.
+    /// - Parameter site: The optional `site` query parameter.
+    public func listSegments(
+        page: PageRequest = PageRequest(),
+        site: String? = nil
+    ) async throws -> Page<NetworkSegmentResponse> {
+        let pathParameters: [String: String] = [:]
+        var query: [(String, String)] = page.queryPairs
+        if let site = site {
+            query.append(("site", site))
+        }
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "network.list_segments",
+            method: .get,
+            template: "/api/v1/network/segments",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decodePage(NetworkSegmentResponse.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/network/segments`, across every page — §27.4 rule 4's
+    /// auto-paging form.
+    ///
+    /// A `ManagementPager` over `listSegments(page:)`: iterating fetches page after page from
+    /// `page`, carrying its `limit` and `search` on every request, until a page comes back
+    /// empty. Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    /// - Parameter site: The optional `site` query parameter.
+    public func listSegmentsAll(
+        page: PageRequest = PageRequest(),
+        site: String? = nil
+    ) -> ManagementPager<NetworkSegmentResponse> {
+        ManagementPager(start: page) { request in
+            try await self.listSegments(page: request, site: site)
+        }
+    }
+
+    /// `POST /api/v1/network/segments`
+    ///
+    /// - Parameter body: The request body.
+    public func createSegment(
+        body: CreateNetworkSegmentRequest
+    ) async throws -> NetworkSegmentResponse {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "network.create_segment",
+            method: .post,
+            template: "/api/v1/network/segments",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(NetworkSegmentResponse.self, from: data)
+    }
+
+    /// `GET /api/v1/network/segments/{id}`
+    ///
+    /// - Parameter id: The `{id}` path parameter.
+    public func getSegment(id: String) async throws -> NetworkSegmentResponse {
+        let pathParameters = ["id": id]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "network.get_segment",
+            method: .get,
+            template: "/api/v1/network/segments/{id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(NetworkSegmentResponse.self, from: data)
+    }
+
+    /// `PUT /api/v1/network/segments/{id}`
+    ///
+    /// - Parameter id: The `{id}` path parameter.
+    /// - Parameter body: The request body.
+    public func replaceSegment(
+        id: String,
+        body: ReplaceNetworkSegmentRequest
+    ) async throws -> NetworkSegmentResponse {
+        let pathParameters = ["id": id]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "network.replace_segment",
+            method: .put,
+            template: "/api/v1/network/segments/{id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(NetworkSegmentResponse.self, from: data)
+    }
+
+    /// `DELETE /api/v1/network/segments/{id}?version=`
+    ///
+    /// `DELETE /api/v1/network/segments/{id}`
+    ///
+    /// - Parameter id: The `{id}` path parameter.
+    /// - Parameter version: The required `version` query parameter.
+    public func deleteSegment(id: String, version: String) async throws {
+        let pathParameters = ["id": id]
+        var query: [(String, String)] = []
+        query.append(("version", version))
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "network.delete_segment",
+            method: .delete,
+            template: "/api/v1/network/segments/{id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
+        // server that started sending one does not silently change what this returns.
+        _ = data
+    }
+
+    /// `GET /api/v1/network/profiles`
+    ///
+    /// Returns ONE page. `Page.total` is the server's count across every page and is not
+    /// `items.count`. To walk every page, use `listProfilesAll(page:)` — §27.4 rule 4's
+    /// auto-paging form.
+    ///
+    /// - Parameter page: Which page to fetch; defaults to the first.
+    public func listProfiles(
+        page: PageRequest = PageRequest()
+    ) async throws -> Page<NetworkReplyProfile> {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = page.queryPairs
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "network.list_profiles",
+            method: .get,
+            template: "/api/v1/network/profiles",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decodePage(NetworkReplyProfile.self, from: data, request: page)
+    }
+
+    /// Every item of `GET /api/v1/network/profiles`, across every page — §27.4 rule 4's
+    /// auto-paging form.
+    ///
+    /// A `ManagementPager` over `listProfiles(page:)`: iterating fetches page after page from
+    /// `page`, carrying its `limit` and `search` on every request, until a page comes back
+    /// empty. Building it performs no I/O.
+    ///
+    /// - Parameter page: The first page to fetch; its `limit` and `search` are kept for the
+    /// whole walk.
+    public func listProfilesAll(
+        page: PageRequest = PageRequest()
+    ) -> ManagementPager<NetworkReplyProfile> {
+        ManagementPager(start: page) { request in
+            try await self.listProfiles(page: request)
+        }
+    }
+
+    /// `POST /api/v1/network/profiles`
+    ///
+    /// - Parameter body: The request body.
+    public func createProfile(
+        body: CreateNetworkReplyProfileRequest
+    ) async throws -> NetworkReplyProfile {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "network.create_profile",
+            method: .post,
+            template: "/api/v1/network/profiles",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(NetworkReplyProfile.self, from: data)
+    }
+
+    /// `GET /api/v1/network/profiles/{segment_id}`
+    ///
+    /// - Parameter segmentID: The `{segment_id}` path parameter.
+    public func getProfile(segmentID: String) async throws -> NetworkReplyProfile {
+        let pathParameters = ["segment_id": segmentID]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "network.get_profile",
+            method: .get,
+            template: "/api/v1/network/profiles/{segment_id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(NetworkReplyProfile.self, from: data)
+    }
+
+    /// `PUT /api/v1/network/profiles/{segment_id}`
+    ///
+    /// - Parameter segmentID: The `{segment_id}` path parameter.
+    /// - Parameter body: The request body.
+    public func replaceProfile(
+        segmentID: String,
+        body: ReplaceNetworkReplyProfileRequest
+    ) async throws -> NetworkReplyProfile {
+        let pathParameters = ["segment_id": segmentID]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "network.replace_profile",
+            method: .put,
+            template: "/api/v1/network/profiles/{segment_id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(NetworkReplyProfile.self, from: data)
+    }
+
+    /// `DELETE /api/v1/network/profiles/{segment_id}?version=`
+    ///
+    /// `DELETE /api/v1/network/profiles/{segment_id}`
+    ///
+    /// - Parameter segmentID: The `{segment_id}` path parameter.
+    /// - Parameter version: The required `version` query parameter.
+    public func deleteProfile(segmentID: String, version: String) async throws {
+        let pathParameters = ["segment_id": segmentID]
+        var query: [(String, String)] = []
+        query.append(("version", version))
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "network.delete_profile",
+            method: .delete,
+            template: "/api/v1/network/profiles/{segment_id}",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        // A 204 carries no body. The bytes are read and dropped rather than ignored, so a
+        // server that started sending one does not silently change what this returns.
+        _ = data
+    }
+
+    /// `GET /api/v1/network/policy`
+    public func getPolicy() async throws -> NetworkPolicyResponse {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload: Data? = nil
+        let data = try await client.managementSend(
+            operation: "network.get_policy",
+            method: .get,
+            template: "/api/v1/network/policy",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(NetworkPolicyResponse.self, from: data)
+    }
+
+    /// `PUT /api/v1/network/policy`
+    ///
+    /// - Parameter body: The request body.
+    public func replacePolicy(
+        body: ReplaceNetworkPolicyRequest
+    ) async throws -> NetworkPolicyResponse {
+        let pathParameters: [String: String] = [:]
+        let query: [(String, String)] = []
+        let payload = try ManagementCodec.encode(body)
+        let data = try await client.managementSend(
+            operation: "network.replace_policy",
+            method: .put,
+            template: "/api/v1/network/policy",
+            pathParameters: pathParameters,
+            query: query,
+            body: payload,
+            scope: scope,
+            implicitTenant: false)
+        return try ManagementCodec.decode(NetworkPolicyResponse.self, from: data)
     }
 
 }
@@ -5495,6 +5842,17 @@ public struct ManagementApi: Sendable {
         ScimTargetsApi(client: client, scope: scope)
     }
 
+    /// A tenant's network segments and the RADIUS reply profile each owns (RADIUS D4): a
+    /// segment is a node of the reserved /network subtree of the resource tree (kind, VLAN,
+    /// Filter-Id envelope, placement rank), and its profile is the typed `axiam-radius-reply/1`
+    /// record a decision renders. Every write is conditional on the `version` the caller read
+    /// and passes the server's write gate. The tenant's Session-Timeout cap is one more row of
+    /// it (get_policy, replace_policy): lowering it is always allowed, raising it is allowed
+    /// and audited. The decision route FreeRADIUS calls is not in this registry.
+    public var network: NetworkApi {
+        NetworkApi(client: client, scope: scope)
+    }
+
     /// Effective settings, and the organization/tenant layers they resolve from.
     public var settings: SettingsApi {
         SettingsApi(client: client, scope: scope)
@@ -5673,6 +6031,17 @@ extension AxiamClient {
     /// anything downstream.
     public nonisolated var scimTargets: ScimTargetsApi {
         ScimTargetsApi(client: self, scope: CallScope())
+    }
+
+    /// A tenant's network segments and the RADIUS reply profile each owns (RADIUS D4): a
+    /// segment is a node of the reserved /network subtree of the resource tree (kind, VLAN,
+    /// Filter-Id envelope, placement rank), and its profile is the typed `axiam-radius-reply/1`
+    /// record a decision renders. Every write is conditional on the `version` the caller read
+    /// and passes the server's write gate. The tenant's Session-Timeout cap is one more row of
+    /// it (get_policy, replace_policy): lowering it is always allowed, raising it is allowed
+    /// and audited. The decision route FreeRADIUS calls is not in this registry.
+    public nonisolated var network: NetworkApi {
+        NetworkApi(client: self, scope: CallScope())
     }
 
     /// Effective settings, and the organization/tenant layers they resolve from.

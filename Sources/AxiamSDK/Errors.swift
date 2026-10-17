@@ -92,19 +92,33 @@ public struct AuthzError: Error, Sendable, CustomStringConvertible {
     /// existed still catches both, which is precisely why 404 belongs under authorization at
     /// all. `nil` for every failure that is not one of those two.
     public let managementFailure: ManagementFailure?
+    /// The `409` sub-code a management write answered (CONTRACT.md §36.3 rule 2, §36.4; contract
+    /// 1.62) — `stale_version`, `strands_profile`, `has_children`, `site_gone`, `duplicate_name`,
+    /// `duplicate_vlan`, `duplicate_rank`, `profile_exists` or `other`.
+    ///
+    /// Branch on this, never on ``message``, which an SDK does not parse. The vocabulary is
+    /// **open**: a value this SDK does not name is surfaced verbatim, and is a conflict whose
+    /// message is for a human. It is not the `reason` of an authorization decision (§3); the name
+    /// follows that decision's own `reason_code`.
+    ///
+    /// `nil` for every failure that is not a `409` — and for a `409` from a server that predates
+    /// the member, or from an operation that does not carry one.
+    public let reasonCode: String?
 
     public init(
         _ message: String,
         action: String? = nil,
         resourceID: String? = nil,
         challenge: String? = nil,
-        managementFailure: ManagementFailure? = nil
+        managementFailure: ManagementFailure? = nil,
+        reasonCode: String? = nil
     ) {
         self.message = message
         self.action = action
         self.resourceID = resourceID
         self.challenge = challenge
         self.managementFailure = managementFailure
+        self.reasonCode = reasonCode
     }
 
     public var description: String { "AuthzError: \(message)" }
@@ -188,15 +202,19 @@ enum ErrorMapper {
         status: Int,
         message: String,
         action: String? = nil,
-        resourceID: String? = nil
+        resourceID: String? = nil,
+        reasonCode: String? = nil
     ) -> AxiamError {
         switch status {
         case 404:
             return .authz(AuthzError(
                 message, action: action, resourceID: resourceID, managementFailure: .notFound))
         case 409:
+            // §36.4: a `409`'s `reason_code` is surfaced as the server spelled it. It is read
+            // for a 409 only, so no other status grows a member it was never specified to have.
             return .authz(AuthzError(
-                message, action: action, resourceID: resourceID, managementFailure: .conflict))
+                message, action: action, resourceID: resourceID, managementFailure: .conflict,
+                reasonCode: reasonCode))
         case 400, 422:
             return .network(NetworkError(message, statusCode: status, isValidation: true))
         default:

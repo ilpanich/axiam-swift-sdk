@@ -248,9 +248,14 @@ public struct ManifestEntity: Sendable, Equatable {
 /// A declarative description of the state a tenant must be in.
 public struct Manifest: Sendable, Equatable {
     public let entities: [ManifestEntity]
+    /// The `network` namespace of a manifest (§27.6.2, contract 1.62): segments, their reply
+    /// profiles and the tenant's `Session-Timeout` cap. Empty by default, and a manifest whose
+    /// network section is empty plans exactly as it did before 1.62.
+    public let network: NetworkManifest
 
-    public init(entities: [ManifestEntity]) {
+    public init(entities: [ManifestEntity], network: NetworkManifest = NetworkManifest()) {
         self.entities = entities
+        self.network = network
     }
 }
 
@@ -309,10 +314,19 @@ public struct ManagementPlan: Sendable, Equatable {
     /// still matches but whose roles do not), so an entity's own `action` cannot carry
     /// both.
     public let bindingChanges: [BindingChange]
+    /// §27.6.2's `network` actions, in the contract's order: the policy, then the segments, then
+    /// the profiles (a profile follows its segment). Appended last, so a manifest without a
+    /// `network` section plans exactly as it did before 1.62.
+    public let networkChanges: [NetworkChange]
 
-    public init(changes: [PlannedChange], bindingChanges: [BindingChange] = []) {
+    public init(
+        changes: [PlannedChange],
+        bindingChanges: [BindingChange] = [],
+        networkChanges: [NetworkChange] = []
+    ) {
         self.changes = changes
         self.bindingChanges = bindingChanges
+        self.networkChanges = networkChanges
     }
 
     /// Only the entity changes that would actually send a request.
@@ -325,10 +339,17 @@ public struct ManagementPlan: Sendable, Equatable {
         bindingChanges.filter { $0.action != .unchanged }
     }
 
-    /// True when the tenant already matches and an apply would send nothing — entities
-    /// AND bindings both (§27.6 rule 6's idempotence test covers all three §27.6.1
-    /// additions at once).
-    public var isConverged: Bool { pending.isEmpty && pendingBindings.isEmpty }
+    /// Only the `network` changes that would actually send a request.
+    public var pendingNetwork: [NetworkChange] {
+        networkChanges.filter { $0.action != .unchanged }
+    }
+
+    /// True when the tenant already matches and an apply would send nothing — entities,
+    /// bindings AND `network` actions all (§27.6 rule 6's idempotence test covers all three
+    /// §27.6.1 additions and §27.6.2 at once).
+    public var isConverged: Bool {
+        pending.isEmpty && pendingBindings.isEmpty && pendingNetwork.isEmpty
+    }
 }
 
 /// What `apply` actually did — including, when it stopped early, what it had already done.
@@ -356,6 +377,32 @@ public struct ApplyReport: Sendable {
     public let bindingFailure: String
     /// Binding changes never attempted, because of `failedBinding`.
     public let remainingBindings: [BindingChange]
+    /// §27.6.2 `network` actions that succeeded, in order — run only once every entity change and
+    /// every binding has (§27.6.2 item 2 appends the namespace last). A created segment's
+    /// outcome carries its new id, and every write's outcome carries the `version` its response
+    /// returned (``NetworkChange/writtenVersion``).
+    public let appliedNetwork: [NetworkChange]
+    /// The `network` action that failed, if any. Entity and binding changes always run to
+    /// completion (or fail) before any `network` action is attempted.
+    public let failedNetwork: NetworkChange?
+    /// Why it failed: the server's refusal as it came, never adjusted and never retried (§27.6.2
+    /// item 4: a `409` or the `403` of a clamped profile above the cap is that action's failure).
+    public let networkFailure: String
+    /// The error `failedNetwork` raised, as the SDK's §2 taxonomy carries it — an
+    /// ``AuthzError`` for a `409` or a `403`, with its ``AuthzError/reasonCode`` for a `409`.
+    public let networkFailureError: AxiamError?
+    /// `network` actions never attempted, because an earlier action (or an earlier entity or
+    /// binding change) failed.
+    public let remainingNetwork: [NetworkChange]
+
+    /// The `409` sub-code of the failed `network` action (§36.4), when it was a `409` and the
+    /// server named one: `stale_version`, `strands_profile`, `duplicate_vlan`, ... Branch on
+    /// this, never on ``networkFailure``'s text. Open: a value this SDK does not name is
+    /// surfaced verbatim.
+    public var networkFailureReasonCode: String? {
+        if case .authz(let error)? = networkFailureError { return error.reasonCode }
+        return nil
+    }
 
     public init(
         applied: [PlannedChange],
@@ -365,7 +412,12 @@ public struct ApplyReport: Sendable {
         appliedBindings: [BindingOutcome] = [],
         failedBinding: BindingOutcome? = nil,
         bindingFailure: String = "",
-        remainingBindings: [BindingChange] = []
+        remainingBindings: [BindingChange] = [],
+        appliedNetwork: [NetworkChange] = [],
+        failedNetwork: NetworkChange? = nil,
+        networkFailure: String = "",
+        networkFailureError: AxiamError? = nil,
+        remainingNetwork: [NetworkChange] = []
     ) {
         self.applied = applied
         self.failed = failed
@@ -375,10 +427,15 @@ public struct ApplyReport: Sendable {
         self.failedBinding = failedBinding
         self.bindingFailure = bindingFailure
         self.remainingBindings = remainingBindings
+        self.appliedNetwork = appliedNetwork
+        self.failedNetwork = failedNetwork
+        self.networkFailure = networkFailure
+        self.networkFailureError = networkFailureError
+        self.remainingNetwork = remainingNetwork
     }
 
-    /// True when every planned change landed — entities AND bindings.
-    public var isComplete: Bool { failed == nil && failedBinding == nil }
+    /// True when every planned change landed — entities, bindings AND `network` actions.
+    public var isComplete: Bool { failed == nil && failedBinding == nil && failedNetwork == nil }
 
     /// A human-readable account of the run, for a log line or a CI summary.
     public var describe: [String] {
@@ -386,6 +443,7 @@ public struct ApplyReport: Sendable {
         if let failed {
             lines.append("FAILED   \(failed.describe): \(failure)")
             lines.append(contentsOf: remaining.map { "skipped  \($0.describe)" })
+            lines.append(contentsOf: remainingNetwork.map { "skipped  \($0.describe)" })
             return lines
         }
         lines.append(contentsOf: appliedBindings.map { "applied  \($0.change.describe)" })
@@ -395,6 +453,14 @@ public struct ApplyReport: Sendable {
                     : failedBinding.restored == false ? " (RESTORE ALSO FAILED — subject holds neither binding)"
                     : ""))
             lines.append(contentsOf: remainingBindings.map { "skipped  \($0.describe)" })
+            lines.append(contentsOf: remainingNetwork.map { "skipped  \($0.describe)" })
+            return lines
+        }
+        lines.append(contentsOf: appliedNetwork.map { "applied  \($0.describe)" })
+        if let failedNetwork {
+            lines.append("FAILED   \(failedNetwork.describe): \(networkFailure)"
+                + (networkFailureReasonCode.map { " (reason_code: \($0))" } ?? ""))
+            lines.append(contentsOf: remainingNetwork.map { "skipped  \($0.describe)" })
         }
         return lines
     }
@@ -564,8 +630,10 @@ public enum Declare {
 
 /// Plans and applies a §27.6 manifest.
 public struct ManifestApi: Sendable {
-    private let client: AxiamClient
-    private let scope: CallScope
+    // Internal rather than private: the `network` half of the manifest (§27.6.2) lives in its own
+    // file and is an extension of this type.
+    let client: AxiamClient
+    let scope: CallScope
 
     init(client: AxiamClient, scope: CallScope) {
         self.client = client
@@ -573,7 +641,7 @@ public struct ManifestApi: Sendable {
     }
 
     /// Page size used when reading existing state; large enough to make one call usual.
-    private static let scanLimit = 200
+    static let scanLimit = 200
 
     /// Compute what an apply would do. Sends only reads (§27.6).
     ///
@@ -663,7 +731,12 @@ public struct ManifestApi: Sendable {
             }
         }
 
-        return ManagementPlan(changes: changes, bindingChanges: bindingChanges)
+        // §27.6.2: the `network` namespace is appended last, so a manifest without one plans
+        // exactly as it did before contract 1.62. Its reads are `GET`s only (rule 1).
+        let networkChanges = try await planNetwork(manifest.network)
+
+        return ManagementPlan(
+            changes: changes, bindingChanges: bindingChanges, networkChanges: networkChanges)
     }
 
     /// `readExisting`, memoized across the one `plan` call it serves.
@@ -768,7 +841,8 @@ public struct ManifestApi: Sendable {
                     applied: applied,
                     failed: change,
                     failure: String(describing: error),
-                    remaining: Array(pending[(index + 1)...]))
+                    remaining: Array(pending[(index + 1)...]),
+                    remainingNetwork: computed.pendingNetwork)
             }
         }
 
@@ -782,16 +856,38 @@ public struct ManifestApi: Sendable {
                     applied: applied, appliedBindings: appliedBindings,
                     failedBinding: BindingOutcome(change: change, restored: error.restored),
                     bindingFailure: String(describing: error.underlying),
-                    remainingBindings: Array(pendingBindings[(index + 1)...]))
+                    remainingBindings: Array(pendingBindings[(index + 1)...]),
+                    remainingNetwork: computed.pendingNetwork)
             } catch {
                 return ApplyReport(
                     applied: applied, appliedBindings: appliedBindings,
                     failedBinding: BindingOutcome(change: change),
                     bindingFailure: String(describing: error),
-                    remainingBindings: Array(pendingBindings[(index + 1)...]))
+                    remainingBindings: Array(pendingBindings[(index + 1)...]),
+                    remainingNetwork: computed.pendingNetwork)
             }
         }
-        return ApplyReport(applied: applied, appliedBindings: appliedBindings)
+
+        // §27.6.2: the `network` namespace runs last — the policy, the segments, then the
+        // profiles — and stops at the first failure, as everything above does.
+        let pendingNetwork = computed.pendingNetwork
+        var appliedNetwork: [NetworkChange] = []
+        var networkState = NetworkApplyState(changes: computed.networkChanges)
+        for (index, change) in pendingNetwork.enumerated() {
+            do {
+                appliedNetwork.append(try await performNetwork(change, state: &networkState))
+            } catch {
+                return ApplyReport(
+                    applied: applied, appliedBindings: appliedBindings,
+                    appliedNetwork: appliedNetwork,
+                    failedNetwork: change,
+                    networkFailure: Self.networkFailureText(error),
+                    networkFailureError: error as? AxiamError,
+                    remainingNetwork: Array(pendingNetwork[(index + 1)...]))
+            }
+        }
+        return ApplyReport(
+            applied: applied, appliedBindings: appliedBindings, appliedNetwork: appliedNetwork)
     }
 
     /// Thrown by `performBinding` for a `.rebind` whose new assign failed, carrying
@@ -807,6 +903,10 @@ public struct ManifestApi: Sendable {
     /// `dependsOn` naming an entity nobody declares, or a dependency cycle. Exposed
     /// separately so a caller can check at start-up rather than at apply time.
     public static func validate(_ manifest: Manifest) throws {
+        // §27.6.2: the `network` section's own refusals — a duplicate natural key, a Filter-Id
+        // listed twice, a profile naming no segment of the manifest — all before any request.
+        try validateNetwork(manifest.network)
+
         // A duplicate key does not merge — one silently wins, and which one is an accident of
         // ordering. Since the key is also how an entity is referenced, the loser takes every
         // reference to it along.

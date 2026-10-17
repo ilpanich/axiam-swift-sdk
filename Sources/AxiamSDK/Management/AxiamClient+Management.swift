@@ -209,6 +209,7 @@ extension AxiamClient {
             status: response.status,
             message: "\(operation): \(detail)",
             action: errBody?.action,
-            resourceID: errBody?.resource_id)
+            resourceID: errBody?.resource_id,
+            reasonCode: errBody?.reason_code)
     }
 }
