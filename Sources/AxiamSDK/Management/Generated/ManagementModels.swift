@@ -1003,6 +1003,54 @@ public enum NameIdFormat: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// What a segment is for.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
+public enum NetworkSegmentKind: String, Codable, Sendable, CaseIterable {
+    case access = "access"
+    case quarantine = "quarantine"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = NetworkSegmentKind(rawValue: raw) ?? .unknown
+    }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "NetworkSegmentKind: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
 /// Events that can trigger an admin notification.
 ///
 /// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
@@ -1260,6 +1308,102 @@ public enum PgpKeyStatus: String, Codable, Sendable, CaseIterable {
         guard self != .unknown else {
             throw AxiamError.network(NetworkError(
                 "PgpKeyStatus: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+/// `Service-Type` (RFC 2865 §5.6). Option B accepts only `framed_user`; the administrative
+/// values are refused with a 400.
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
+public enum RadiusServiceType: String, Codable, Sendable, CaseIterable {
+    case framedUser = "framed_user"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = RadiusServiceType(rawValue: raw) ?? .unknown
+    }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "RadiusServiceType: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+/// `Termination-Action` (RFC 2865 §5.29).
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
+public enum RadiusTerminationAction: String, Codable, Sendable, CaseIterable {
+    case `default` = "default"
+    case radiusRequest = "radius_request"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = RadiusTerminationAction(rawValue: raw) ?? .unknown
+    }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "RadiusTerminationAction: a value this SDK does not know is never sent "
                     + "(CONTRACT.md §34.2 P12.2)",
                 statusCode: 400, isValidation: true))
         }
@@ -3281,7 +3425,9 @@ public struct CreateCaCertificateRequest: Codable, Sendable {
 
     /// The CA's common name, e.g. `ACME Corp Root CA`. A **common name**, not a distinguished
     /// name. A single `CN=` prefix is accepted and stripped; anything else containing `=` —
-    /// `O=Acme, CN=ACME Corp Root CA` — is refused with `400`.
+    /// `O=Acme, CN=ACME Corp Root CA` — is refused with `400`, as is a name of more than 64
+    /// characters (RFC 5280 `ub-common-name`) or one holding a control character, a tab or line
+    /// break, an invisible or bidirectional formatting character, or two spaces in a row.
     public let subject: String
 
     /// Validity duration in days.
@@ -3347,7 +3493,11 @@ public struct CreateCertificateRequest: Codable, Sendable {
     /// The server's `metadata` field.
     public let metadata: ManagementJSON?
 
-    /// The server's `subject` field.
+    /// The certificate's common name, e.g. `device-001`: a bare name or one `CN=` component, at
+    /// most 64 characters (RFC 5280 `ub-common-name`), printable — a control character, tab or
+    /// line break, an invisible or bidirectional formatting character, or two spaces in a row
+    /// is refused with `400`. A name that is to be written into another system's configuration
+    /// (a FreeRADIUS table, an ACL) should match `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`.
     public let subject: String
 
     /// The names a `Server` certificate is issued for, as `[{"dns": "api.lakeside.internal"},
@@ -3737,6 +3887,126 @@ public struct CreateIntermediateCaRequest: Codable, Sendable {
         try container.encode(parentCAID, forKey: .parentCAID)
         try container.encode(subject, forKey: .subject)
         try container.encode(validityDays, forKey: .validityDays)
+    }
+}
+
+/// The body of `POST /api/v1/network/profiles`.
+public struct CreateNetworkReplyProfileRequest: Codable, Sendable {
+    /// The profile: a typed record of the `axiam-radius-reply/1` dictionary. The VLAN is never
+    /// a field; it is the segment's.
+    public let profile: NetworkReplyProfileInput
+
+    /// The segment the profile belongs to (at most one profile per segment).
+    public let segmentID: String
+
+    /// The segment's `version` as the caller read it: the envelope the profile was written
+    /// against. A segment written since is `409`.
+    public let segmentVersion: Int
+
+    public init(
+        profile: NetworkReplyProfileInput,
+        segmentID: String,
+        segmentVersion: Int
+    ) {
+        self.profile = profile
+        self.segmentID = segmentID
+        self.segmentVersion = segmentVersion
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case profile = "profile"
+        case segmentID = "segment_id"
+        case segmentVersion = "segment_version"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.profile = try container.decode(NetworkReplyProfileInput.self, forKey: .profile)
+        self.segmentID = try container.decode(String.self, forKey: .segmentID)
+        self.segmentVersion = try container.decode(Int.self, forKey: .segmentVersion)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(profile, forKey: .profile)
+        try container.encode(segmentID, forKey: .segmentID)
+        try container.encode(segmentVersion, forKey: .segmentVersion)
+    }
+}
+
+/// The body of `POST /api/v1/network/segments`.
+public struct CreateNetworkSegmentRequest: Codable, Sendable {
+    /// Whether the segment starts as a placement candidate. Defaults to `true`.
+    public let enabled: Bool?
+
+    /// The `Filter-Id` names the segment's profile may choose from: its envelope. At most 32,
+    /// each matching the pattern above.
+    public let filterIds: [String]?
+
+    /// `access` or `quarantine`. Decides the branch the segment lives under.
+    public let kind: NetworkSegmentKind
+
+    /// The segment's name, same pattern, unique within the site.
+    public let name: String
+
+    /// The placement rank (unique within the site): required for `access`, absent for
+    /// `quarantine`.
+    public let rank: Int?
+
+    /// The site key (`^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`). A single-site tenant uses `default`.
+    public let siteKey: String
+
+    /// The VLAN (1 to 4094), unique within the site.
+    public let vlanID: Int
+
+    public init(
+        enabled: Bool? = nil,
+        filterIds: [String]? = nil,
+        kind: NetworkSegmentKind,
+        name: String,
+        rank: Int? = nil,
+        siteKey: String,
+        vlanID: Int
+    ) {
+        self.enabled = enabled
+        self.filterIds = filterIds
+        self.kind = kind
+        self.name = name
+        self.rank = rank
+        self.siteKey = siteKey
+        self.vlanID = vlanID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case filterIds = "filter_ids"
+        case kind = "kind"
+        case name = "name"
+        case rank = "rank"
+        case siteKey = "site_key"
+        case vlanID = "vlan_id"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
+        self.filterIds = try container.decodeIfPresent([String].self, forKey: .filterIds)
+        self.kind = try container.decode(NetworkSegmentKind.self, forKey: .kind)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.rank = try container.decodeIfPresent(Int.self, forKey: .rank)
+        self.siteKey = try container.decode(String.self, forKey: .siteKey)
+        self.vlanID = try container.decode(Int.self, forKey: .vlanID)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(enabled, forKey: .enabled)
+        try container.encodeIfPresent(filterIds, forKey: .filterIds)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(rank, forKey: .rank)
+        try container.encode(siteKey, forKey: .siteKey)
+        try container.encode(vlanID, forKey: .vlanID)
     }
 }
 
@@ -5799,9 +6069,12 @@ public struct GeneratedCaCertificate: Codable, Sendable {
     public let tenantID: String?
 
     /// PEM-encoded private key — returned only on generation, and only when there is one to
-    /// return. Absent under `vault_pki` custody, where the key was generated inside Vault and
-    /// no API exports it. The field is omitted rather than sent as `null` so a client that has
-    /// always read it keeps working unchanged for every custodian that does produce a key.
+    /// return. An unencrypted PKCS#8 `PRIVATE KEY` block. An Ed25519 key is RFC 8410 version 1
+    /// (`version` INTEGER 0, the 32-byte seed and no embedded public key), which OpenSSL 3.0
+    /// reads; an RSA-4096 key is the usual PKCS#8 `RSAPrivateKey`. Absent under `vault_pki`
+    /// custody, where the key was generated inside Vault and no API exports it. The field is
+    /// omitted rather than sent as `null` so a client that has always read it keeps working
+    /// unchanged for every custodian that does produce a key.
     public let privateKeyPEM: Sensitive<String>?
 
     public init(
@@ -5973,7 +6246,10 @@ public struct GeneratedCertificate: Codable, Sendable {
     /// omitted rather than restating it.
     public let chainPEM: String?
 
-    /// PEM-encoded private key — returned only on generation.
+    /// PEM-encoded private key — returned only on generation. An unencrypted PKCS#8 `PRIVATE
+    /// KEY` block. An Ed25519 key AXIAM generated is RFC 8410 version 1 (`version` INTEGER 0,
+    /// the 32-byte seed and no embedded public key), which OpenSSL 3.0 reads; the longer RFC
+    /// 5958 v2 form it does not. An RSA-4096 key is the usual PKCS#8 `RSAPrivateKey`.
     public let privateKeyPEM: Sensitive<String>
 
     public init(
@@ -6922,6 +7198,409 @@ public struct MtlsTrustAnchorResponse: Codable, Sendable {
         try container.encode(mtlsTrustAnchor, forKey: .mtlsTrustAnchor)
         try container.encode(restartRequired, forKey: .restartRequired)
         try container.encodeIfPresent(trustedAnchors, forKey: .trustedAnchors)
+    }
+}
+
+/// The tenant's network policy, as the management API returns it.
+public struct NetworkPolicyResponse: Codable, Sendable {
+    /// `network.session_timeout_max_secs`: the most a reply profile's `Session-Timeout` may be,
+    /// in seconds (300 to 86 400; 3600 until the tenant writes one). A stored profile above it
+    /// is clamped at read.
+    public let sessionTimeoutMaxSecs: Int
+
+    /// The owning tenant.
+    public let tenantID: String
+
+    /// Last write time; absent while it is the default.
+    public let updatedAt: String?
+
+    /// The administrator who last wrote it; absent while it is the default.
+    public let updatedBy: String?
+
+    /// The version the next `PUT` must name; `0` until the tenant first writes.
+    public let version: Int
+
+    public init(
+        sessionTimeoutMaxSecs: Int,
+        tenantID: String,
+        updatedAt: String? = nil,
+        updatedBy: String? = nil,
+        version: Int
+    ) {
+        self.sessionTimeoutMaxSecs = sessionTimeoutMaxSecs
+        self.tenantID = tenantID
+        self.updatedAt = updatedAt
+        self.updatedBy = updatedBy
+        self.version = version
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case sessionTimeoutMaxSecs = "session_timeout_max_secs"
+        case tenantID = "tenant_id"
+        case updatedAt = "updated_at"
+        case updatedBy = "updated_by"
+        case version = "version"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.sessionTimeoutMaxSecs = try container.decode(Int.self, forKey: .sessionTimeoutMaxSecs)
+        self.tenantID = try container.decode(String.self, forKey: .tenantID)
+        self.updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
+        self.updatedBy = try container.decodeIfPresent(String.self, forKey: .updatedBy)
+        self.version = try container.decode(Int.self, forKey: .version)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(sessionTimeoutMaxSecs, forKey: .sessionTimeoutMaxSecs)
+        try container.encode(tenantID, forKey: .tenantID)
+        try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
+        try container.encodeIfPresent(updatedBy, forKey: .updatedBy)
+        try container.encode(version, forKey: .version)
+    }
+}
+
+/// A segment's reply profile as read: **the effective one**, with the `Session-Timeout` already
+/// clamped to the tenant's current cap (design note §3.4) and `Idle-Timeout` kept within it.
+public struct NetworkReplyProfile: Codable, Sendable {
+    /// Creation time.
+    public let createdAt: String
+
+    /// The administrator who created it.
+    public let createdBy: String
+
+    /// The dictionary version the profile was validated against.
+    public let dictionary: String
+
+    /// `Filter-Id`, one of the segment's declared names.
+    public let filterID: String?
+
+    /// `Idle-Timeout`, seconds, never above the effective `Session-Timeout`.
+    public let idleTimeoutSecs: Int?
+
+    /// The owning segment, which is also this profile's id: one profile per segment, at most.
+    public let segmentID: String
+
+    /// The server's `service_type` field.
+    public let serviceType: RadiusServiceType?
+
+    /// Whether the stored value was above the cap and has been lowered.
+    public let sessionTimeoutClamped: Bool
+
+    /// `Session-Timeout`, seconds: the stored value lowered to the tenant's current cap. This
+    /// is the value a reply carries.
+    public let sessionTimeoutSecs: Int
+
+    /// The owning tenant.
+    public let tenantID: String
+
+    /// `Termination-Action`.
+    public let terminationAction: RadiusTerminationAction
+
+    /// Last write time.
+    public let updatedAt: String
+
+    /// The administrator who last wrote it.
+    public let updatedBy: String
+
+    /// The version the next replace or delete must name. Starts at 1.
+    public let version: Int
+
+    public init(
+        createdAt: String,
+        createdBy: String,
+        dictionary: String,
+        filterID: String? = nil,
+        idleTimeoutSecs: Int? = nil,
+        segmentID: String,
+        serviceType: RadiusServiceType? = nil,
+        sessionTimeoutClamped: Bool,
+        sessionTimeoutSecs: Int,
+        tenantID: String,
+        terminationAction: RadiusTerminationAction,
+        updatedAt: String,
+        updatedBy: String,
+        version: Int
+    ) {
+        self.createdAt = createdAt
+        self.createdBy = createdBy
+        self.dictionary = dictionary
+        self.filterID = filterID
+        self.idleTimeoutSecs = idleTimeoutSecs
+        self.segmentID = segmentID
+        self.serviceType = serviceType
+        self.sessionTimeoutClamped = sessionTimeoutClamped
+        self.sessionTimeoutSecs = sessionTimeoutSecs
+        self.tenantID = tenantID
+        self.terminationAction = terminationAction
+        self.updatedAt = updatedAt
+        self.updatedBy = updatedBy
+        self.version = version
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case createdAt = "created_at"
+        case createdBy = "created_by"
+        case dictionary = "dictionary"
+        case filterID = "filter_id"
+        case idleTimeoutSecs = "idle_timeout_secs"
+        case segmentID = "segment_id"
+        case serviceType = "service_type"
+        case sessionTimeoutClamped = "session_timeout_clamped"
+        case sessionTimeoutSecs = "session_timeout_secs"
+        case tenantID = "tenant_id"
+        case terminationAction = "termination_action"
+        case updatedAt = "updated_at"
+        case updatedBy = "updated_by"
+        case version = "version"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.createdAt = try container.decode(String.self, forKey: .createdAt)
+        self.createdBy = try container.decode(String.self, forKey: .createdBy)
+        self.dictionary = try container.decode(String.self, forKey: .dictionary)
+        self.filterID = try container.decodeIfPresent(String.self, forKey: .filterID)
+        self.idleTimeoutSecs = try container.decodeIfPresent(Int.self, forKey: .idleTimeoutSecs)
+        self.segmentID = try container.decode(String.self, forKey: .segmentID)
+        self.serviceType = try container.decodeIfPresent(RadiusServiceType.self, forKey: .serviceType)
+        self.sessionTimeoutClamped = try container.decode(Bool.self, forKey: .sessionTimeoutClamped)
+        self.sessionTimeoutSecs = try container.decode(Int.self, forKey: .sessionTimeoutSecs)
+        self.tenantID = try container.decode(String.self, forKey: .tenantID)
+        self.terminationAction = try container.decode(RadiusTerminationAction.self, forKey: .terminationAction)
+        self.updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        self.updatedBy = try container.decode(String.self, forKey: .updatedBy)
+        self.version = try container.decode(Int.self, forKey: .version)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(createdBy, forKey: .createdBy)
+        try container.encode(dictionary, forKey: .dictionary)
+        try container.encodeIfPresent(filterID, forKey: .filterID)
+        try container.encodeIfPresent(idleTimeoutSecs, forKey: .idleTimeoutSecs)
+        try container.encode(segmentID, forKey: .segmentID)
+        try container.encodeIfPresent(serviceType, forKey: .serviceType)
+        try container.encode(sessionTimeoutClamped, forKey: .sessionTimeoutClamped)
+        try container.encode(sessionTimeoutSecs, forKey: .sessionTimeoutSecs)
+        try container.encode(tenantID, forKey: .tenantID)
+        try container.encode(terminationAction, forKey: .terminationAction)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(updatedBy, forKey: .updatedBy)
+        try container.encode(version, forKey: .version)
+    }
+}
+
+/// What a writer supplies for a profile. Closed: an unknown key is a refusal naming it, never
+/// ignored (design note §3.4).
+public struct NetworkReplyProfileInput: Codable, Sendable {
+    /// The dictionary version the profile is written against; defaults to
+    /// [`REPLY_DICTIONARY_V1`]. An unknown version is refused.
+    public let dictionary: String?
+
+    /// `Filter-Id`: one of the owning segment's declared `filter_ids`.
+    public let filterID: String?
+
+    /// `Idle-Timeout`, seconds: [`IDLE_TIMEOUT_FLOOR_SECS`] up to `session_timeout_secs`.
+    public let idleTimeoutSecs: Int?
+
+    /// The server's `service_type` field.
+    public let serviceType: RadiusServiceType?
+
+    /// `Session-Timeout`, seconds: [`SESSION_TIMEOUT_FLOOR_SECS`] up to the tenant cap. Never
+    /// zero.
+    public let sessionTimeoutSecs: Int
+
+    /// `Termination-Action`; defaults to `RADIUS-Request`.
+    public let terminationAction: RadiusTerminationAction?
+
+    public init(
+        dictionary: String? = nil,
+        filterID: String? = nil,
+        idleTimeoutSecs: Int? = nil,
+        serviceType: RadiusServiceType? = nil,
+        sessionTimeoutSecs: Int,
+        terminationAction: RadiusTerminationAction? = nil
+    ) {
+        self.dictionary = dictionary
+        self.filterID = filterID
+        self.idleTimeoutSecs = idleTimeoutSecs
+        self.serviceType = serviceType
+        self.sessionTimeoutSecs = sessionTimeoutSecs
+        self.terminationAction = terminationAction
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case dictionary = "dictionary"
+        case filterID = "filter_id"
+        case idleTimeoutSecs = "idle_timeout_secs"
+        case serviceType = "service_type"
+        case sessionTimeoutSecs = "session_timeout_secs"
+        case terminationAction = "termination_action"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.dictionary = try container.decodeIfPresent(String.self, forKey: .dictionary)
+        self.filterID = try container.decodeIfPresent(String.self, forKey: .filterID)
+        self.idleTimeoutSecs = try container.decodeIfPresent(Int.self, forKey: .idleTimeoutSecs)
+        self.serviceType = try container.decodeIfPresent(RadiusServiceType.self, forKey: .serviceType)
+        self.sessionTimeoutSecs = try container.decode(Int.self, forKey: .sessionTimeoutSecs)
+        self.terminationAction = try container.decodeIfPresent(RadiusTerminationAction.self, forKey: .terminationAction)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(dictionary, forKey: .dictionary)
+        try container.encodeIfPresent(filterID, forKey: .filterID)
+        try container.encodeIfPresent(idleTimeoutSecs, forKey: .idleTimeoutSecs)
+        try container.encodeIfPresent(serviceType, forKey: .serviceType)
+        try container.encode(sessionTimeoutSecs, forKey: .sessionTimeoutSecs)
+        try container.encodeIfPresent(terminationAction, forKey: .terminationAction)
+    }
+}
+
+/// A network segment, as the management API returns it.
+public struct NetworkSegmentResponse: Codable, Sendable {
+    /// Creation time.
+    public let createdAt: String
+
+    /// The administrator who created it.
+    public let createdBy: String
+
+    /// Whether the segment is a placement candidate.
+    public let enabled: Bool
+
+    /// The `Filter-Id` names the segment's profile may choose from.
+    public let filterIds: [String]
+
+    /// The segment id; also the id of its resource node, which `check_access` is asked about,
+    /// and of its reply profile.
+    public let id: String
+
+    /// `access` (under `/network/zones`) or `quarantine` (under `/network/quarantine`); fixed
+    /// for the segment's life.
+    public let kind: NetworkSegmentKind
+
+    /// The segment's name, unique within its site.
+    public let name: String
+
+    /// The segment's place in the reserved subtree,
+    /// `/network/{zones|quarantine}/<site_key>/<name>`.
+    public let path: String
+
+    /// The placement rank among a site's `access` segments (lowest wins); absent for a
+    /// quarantine segment.
+    public let rank: Int?
+
+    /// The site key.
+    public let siteKey: String
+
+    /// The owning tenant.
+    public let tenantID: String
+
+    /// Last write time.
+    public let updatedAt: String
+
+    /// The administrator who last wrote it.
+    public let updatedBy: String
+
+    /// The version the next replace or delete must name.
+    public let version: Int
+
+    /// The VLAN the tunnel attributes carry (1 to 4094), unique per site.
+    public let vlanID: Int
+
+    public init(
+        createdAt: String,
+        createdBy: String,
+        enabled: Bool,
+        filterIds: [String],
+        id: String,
+        kind: NetworkSegmentKind,
+        name: String,
+        path: String,
+        rank: Int? = nil,
+        siteKey: String,
+        tenantID: String,
+        updatedAt: String,
+        updatedBy: String,
+        version: Int,
+        vlanID: Int
+    ) {
+        self.createdAt = createdAt
+        self.createdBy = createdBy
+        self.enabled = enabled
+        self.filterIds = filterIds
+        self.id = id
+        self.kind = kind
+        self.name = name
+        self.path = path
+        self.rank = rank
+        self.siteKey = siteKey
+        self.tenantID = tenantID
+        self.updatedAt = updatedAt
+        self.updatedBy = updatedBy
+        self.version = version
+        self.vlanID = vlanID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case createdAt = "created_at"
+        case createdBy = "created_by"
+        case enabled = "enabled"
+        case filterIds = "filter_ids"
+        case id = "id"
+        case kind = "kind"
+        case name = "name"
+        case path = "path"
+        case rank = "rank"
+        case siteKey = "site_key"
+        case tenantID = "tenant_id"
+        case updatedAt = "updated_at"
+        case updatedBy = "updated_by"
+        case version = "version"
+        case vlanID = "vlan_id"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.createdAt = try container.decode(String.self, forKey: .createdAt)
+        self.createdBy = try container.decode(String.self, forKey: .createdBy)
+        self.enabled = try container.decode(Bool.self, forKey: .enabled)
+        self.filterIds = try container.decode([String].self, forKey: .filterIds)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.kind = try container.decode(NetworkSegmentKind.self, forKey: .kind)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.path = try container.decode(String.self, forKey: .path)
+        self.rank = try container.decodeIfPresent(Int.self, forKey: .rank)
+        self.siteKey = try container.decode(String.self, forKey: .siteKey)
+        self.tenantID = try container.decode(String.self, forKey: .tenantID)
+        self.updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        self.updatedBy = try container.decode(String.self, forKey: .updatedBy)
+        self.version = try container.decode(Int.self, forKey: .version)
+        self.vlanID = try container.decode(Int.self, forKey: .vlanID)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(createdBy, forKey: .createdBy)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encode(filterIds, forKey: .filterIds)
+        try container.encode(id, forKey: .id)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(name, forKey: .name)
+        try container.encode(path, forKey: .path)
+        try container.encodeIfPresent(rank, forKey: .rank)
+        try container.encode(siteKey, forKey: .siteKey)
+        try container.encode(tenantID, forKey: .tenantID)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(updatedBy, forKey: .updatedBy)
+        try container.encode(version, forKey: .version)
+        try container.encode(vlanID, forKey: .vlanID)
     }
 }
 
@@ -8727,6 +9406,146 @@ public struct RegistrationTokenResponse: Codable, Sendable {
         try container.encode(tenantID, forKey: .tenantID)
         try container.encodeIfPresent(usedAt, forKey: .usedAt)
         try container.encodeIfPresent(usedByClientID, forKey: .usedByClientID)
+    }
+}
+
+/// The body of `PUT /api/v1/network/policy`: a **replacement** of the policy.
+public struct ReplaceNetworkPolicyRequest: Codable, Sendable {
+    /// The new cap on a reply profile's `Session-Timeout`, in seconds: 300 to 86 400. Lowering
+    /// it below an existing profile's value is fine (reads clamp); raising it is allowed and
+    /// audited as a raise.
+    public let sessionTimeoutMaxSecs: Int
+
+    /// The policy's `version` as the caller read it (`0` for a tenant that has never written
+    /// one). A stale one is `409`.
+    public let version: Int
+
+    public init(
+        sessionTimeoutMaxSecs: Int,
+        version: Int
+    ) {
+        self.sessionTimeoutMaxSecs = sessionTimeoutMaxSecs
+        self.version = version
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case sessionTimeoutMaxSecs = "session_timeout_max_secs"
+        case version = "version"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.sessionTimeoutMaxSecs = try container.decode(Int.self, forKey: .sessionTimeoutMaxSecs)
+        self.version = try container.decode(Int.self, forKey: .version)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(sessionTimeoutMaxSecs, forKey: .sessionTimeoutMaxSecs)
+        try container.encode(version, forKey: .version)
+    }
+}
+
+/// The body of `PUT /api/v1/network/profiles/{segment_id}`.
+public struct ReplaceNetworkReplyProfileRequest: Codable, Sendable {
+    /// The profile.
+    public let profile: NetworkReplyProfileInput
+
+    /// The segment's `version` as the caller read it, as for
+    /// [`CreateReplyProfileRequest::segment_version`].
+    public let segmentVersion: Int
+
+    /// The profile's `version` as the caller read it. A stale one is `409`.
+    public let version: Int
+
+    public init(
+        profile: NetworkReplyProfileInput,
+        segmentVersion: Int,
+        version: Int
+    ) {
+        self.profile = profile
+        self.segmentVersion = segmentVersion
+        self.version = version
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case profile = "profile"
+        case segmentVersion = "segment_version"
+        case version = "version"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.profile = try container.decode(NetworkReplyProfileInput.self, forKey: .profile)
+        self.segmentVersion = try container.decode(Int.self, forKey: .segmentVersion)
+        self.version = try container.decode(Int.self, forKey: .version)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(profile, forKey: .profile)
+        try container.encode(segmentVersion, forKey: .segmentVersion)
+        try container.encode(version, forKey: .version)
+    }
+}
+
+/// The body of `PUT /api/v1/network/segments/{id}`: a **replacement** of the envelope. The kind
+/// and the place in the tree do not change.
+public struct ReplaceNetworkSegmentRequest: Codable, Sendable {
+    /// Whether the segment is a placement candidate.
+    public let enabled: Bool
+
+    /// The `Filter-Id` names the segment's profile may choose from. Removing the one the
+    /// profile uses is `409`, naming the profile.
+    public let filterIds: [String]
+
+    /// The placement rank: required for an `access` segment, absent for a `quarantine` one.
+    public let rank: Int?
+
+    /// The segment's `version` as the caller read it. A stale one is `409`.
+    public let version: Int
+
+    /// The VLAN (1 to 4094).
+    public let vlanID: Int
+
+    public init(
+        enabled: Bool,
+        filterIds: [String],
+        rank: Int? = nil,
+        version: Int,
+        vlanID: Int
+    ) {
+        self.enabled = enabled
+        self.filterIds = filterIds
+        self.rank = rank
+        self.version = version
+        self.vlanID = vlanID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case filterIds = "filter_ids"
+        case rank = "rank"
+        case version = "version"
+        case vlanID = "vlan_id"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.enabled = try container.decode(Bool.self, forKey: .enabled)
+        self.filterIds = try container.decode([String].self, forKey: .filterIds)
+        self.rank = try container.decodeIfPresent(Int.self, forKey: .rank)
+        self.version = try container.decode(Int.self, forKey: .version)
+        self.vlanID = try container.decode(Int.self, forKey: .vlanID)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encode(filterIds, forKey: .filterIds)
+        try container.encodeIfPresent(rank, forKey: .rank)
+        try container.encode(version, forKey: .version)
+        try container.encode(vlanID, forKey: .vlanID)
     }
 }
 
@@ -11566,7 +12385,10 @@ public struct SignAuditBatchRequest: Codable, Sendable {
 /// Body of `POST /api/v1/certificates/sign-csr`. No `subject` and no `key_algorithm`: both are
 /// read out of the CSR, which is the only place they can be stated without the row and the
 /// certificate being able to disagree. No key is returned, so there is no key field anywhere on
-/// this exchange.
+/// this exchange. The CSR's common name meets the rules of `subject` on `POST
+/// /api/v1/certificates` (printable, at most 64 characters) and is refused, not rewritten, when
+/// it does not. So does the value of every other attribute of the CSR's subject, and a subject
+/// with more than one common name is refused.
 public struct SignCertificateCsrRequest: Codable, Sendable {
     /// The server's `cert_type` field.
     public let certType: CertificateType
@@ -13415,7 +14237,9 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
     /// The server's `require_par` field.
     public let requirePar: Bool?
 
-    /// The server's `scopes` field.
+    /// Replace the client's scopes. On a `managed_by: dcr | cimd` client a scope the request
+    /// adds that is outside the tenant's effective `dcr_allowed_scopes` is refused with `422`
+    /// (#636); an administrator-managed client is not bounded.
     public let scopes: [String]?
 
     /// The server's `self_signed_tls_client_auth_thumbprints` field.

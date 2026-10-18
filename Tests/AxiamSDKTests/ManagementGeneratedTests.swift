@@ -93,6 +93,16 @@ final class ManagementGeneratedTests: XCTestCase {
         "{\"key_algorithm\": \"Rsa4096\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"subject\": \"example\", \"validity_days\": 1}",
         "CreateIntermediateCaRequest")
 
+    static let fixtureCreateNetworkReplyProfileRequest: CreateNetworkReplyProfileRequest = decodeFixture(
+        CreateNetworkReplyProfileRequest.self,
+        "{\"profile\": {\"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"service_type\": \"framed_user\", \"session_timeout_secs\": 1, \"termination_action\": \"default\"}, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"segment_version\": 1}",
+        "CreateNetworkReplyProfileRequest")
+
+    static let fixtureCreateNetworkSegmentRequest: CreateNetworkSegmentRequest = decodeFixture(
+        CreateNetworkSegmentRequest.self,
+        "{\"enabled\": true, \"filter_ids\": [\"example\"], \"kind\": \"access\", \"name\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"vlan_id\": 1}",
+        "CreateNetworkSegmentRequest")
+
     static let fixtureCreateNotificationRuleRequest: CreateNotificationRuleRequest = decodeFixture(
         CreateNotificationRuleRequest.self,
         "{\"description\": \"example\", \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"], \"window_minutes\": 1}",
@@ -212,6 +222,21 @@ final class ManagementGeneratedTests: XCTestCase {
         ParseSamlSpMetadata.self,
         "{\"metadata_url\": \"https://sp.example/metadata\"}",
         "ParseSamlSpMetadata")
+
+    static let fixtureReplaceNetworkPolicyRequest: ReplaceNetworkPolicyRequest = decodeFixture(
+        ReplaceNetworkPolicyRequest.self,
+        "{\"session_timeout_max_secs\": 1, \"version\": 1}",
+        "ReplaceNetworkPolicyRequest")
+
+    static let fixtureReplaceNetworkReplyProfileRequest: ReplaceNetworkReplyProfileRequest = decodeFixture(
+        ReplaceNetworkReplyProfileRequest.self,
+        "{\"profile\": {\"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"service_type\": \"framed_user\", \"session_timeout_secs\": 1, \"termination_action\": \"default\"}, \"segment_version\": 1, \"version\": 1}",
+        "ReplaceNetworkReplyProfileRequest")
+
+    static let fixtureReplaceNetworkSegmentRequest: ReplaceNetworkSegmentRequest = decodeFixture(
+        ReplaceNetworkSegmentRequest.self,
+        "{\"enabled\": true, \"filter_ids\": [\"example\"], \"rank\": 1, \"version\": 1, \"vlan_id\": 1}",
+        "ReplaceNetworkSegmentRequest")
 
     static let fixtureSamlServiceProviderInput: SamlServiceProviderInput = decodeFixture(
         SamlServiceProviderInput.self,
@@ -1928,6 +1953,126 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(transport.last?.path, "/api/v1/scim-targets/11111111-1111-4111-8111-111111111111/reconcile")
     }
 
+    func testNetworkListSegmentsReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"enabled\": true, \"filter_ids\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"access\", \"name\": \"example\", \"path\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1, \"vlan_id\": 1}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+        _ = try await client.network.listSegments()
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/network/segments")
+    }
+
+    func testNetworkCreateSegmentReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"enabled\": true, \"filter_ids\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"access\", \"name\": \"example\", \"path\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1, \"vlan_id\": 1}")])
+        _ = try await client.network.createSegment(body: Self.fixtureCreateNetworkSegmentRequest)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/network/segments")
+    }
+
+    func testNetworkGetSegmentReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"enabled\": true, \"filter_ids\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"access\", \"name\": \"example\", \"path\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1, \"vlan_id\": 1}")])
+        _ = try await client.network.getSegment(id: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/network/segments/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testNetworkReplaceSegmentReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"enabled\": true, \"filter_ids\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"access\", \"name\": \"example\", \"path\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1, \"vlan_id\": 1}")])
+        _ = try await client.network.replaceSegment(id: "11111111-1111-4111-8111-111111111111", body: Self.fixtureReplaceNetworkSegmentRequest)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "PUT")
+        XCTAssertEqual(transport.last?.path, "/api/v1/network/segments/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testNetworkDeleteSegmentReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 204, body: "")])
+        _ = try await client.network.deleteSegment(id: "11111111-1111-4111-8111-111111111111", version: "example")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "DELETE")
+        XCTAssertEqual(transport.last?.path, "/api/v1/network/segments/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testNetworkListProfilesReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"service_type\": \"framed_user\", \"session_timeout_clamped\": true, \"session_timeout_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"termination_action\": \"default\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+        _ = try await client.network.listProfiles()
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/network/profiles")
+    }
+
+    func testNetworkCreateProfileReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"service_type\": \"framed_user\", \"session_timeout_clamped\": true, \"session_timeout_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"termination_action\": \"default\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}")])
+        _ = try await client.network.createProfile(body: Self.fixtureCreateNetworkReplyProfileRequest)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "POST")
+        XCTAssertEqual(transport.last?.path, "/api/v1/network/profiles")
+    }
+
+    func testNetworkGetProfileReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"service_type\": \"framed_user\", \"session_timeout_clamped\": true, \"session_timeout_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"termination_action\": \"default\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}")])
+        _ = try await client.network.getProfile(segmentID: "11111111-1111-4111-8111-111111111111")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/network/profiles/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testNetworkReplaceProfileReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"service_type\": \"framed_user\", \"session_timeout_clamped\": true, \"session_timeout_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"termination_action\": \"default\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}")])
+        _ = try await client.network.replaceProfile(segmentID: "11111111-1111-4111-8111-111111111111", body: Self.fixtureReplaceNetworkReplyProfileRequest)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "PUT")
+        XCTAssertEqual(transport.last?.path, "/api/v1/network/profiles/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testNetworkDeleteProfileReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 204, body: "")])
+        _ = try await client.network.deleteProfile(segmentID: "11111111-1111-4111-8111-111111111111", version: "example")
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "DELETE")
+        XCTAssertEqual(transport.last?.path, "/api/v1/network/profiles/11111111-1111-4111-8111-111111111111")
+    }
+
+    func testNetworkGetPolicyReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"session_timeout_max_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}")])
+        _ = try await client.network.getPolicy()
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "GET")
+        XCTAssertEqual(transport.last?.path, "/api/v1/network/policy")
+    }
+
+    func testNetworkReplacePolicyReachesItsRoute() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            [(status: 200, body: "{\"session_timeout_max_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}")])
+        _ = try await client.network.replacePolicy(body: Self.fixtureReplaceNetworkPolicyRequest)
+
+        XCTAssertEqual(transport.count, 1)
+        XCTAssertEqual(transport.last?.method, "PUT")
+        XCTAssertEqual(transport.last?.path, "/api/v1/network/policy")
+    }
+
     func testSettingsGetOrgReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
             [(status: 200, body: "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}")])
@@ -2788,6 +2933,58 @@ final class ManagementGeneratedTests: XCTestCase {
         // And encoding is a fixed point — a second pass changes nothing.
         let twice = try JSONEncoder().encode(
             try JSONDecoder().decode(CreateIntermediateCaRequest.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testCreateNetworkReplyProfileRequestRoundTripsWithoutLosingAField() throws {
+        let json = "{\"profile\": {\"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"service_type\": \"framed_user\", \"session_timeout_secs\": 1, \"termination_action\": \"default\"}, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"segment_version\": 1}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(CreateNetworkReplyProfileRequest.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(CreateNetworkReplyProfileRequest.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testCreateNetworkSegmentRequestRoundTripsWithoutLosingAField() throws {
+        let json = "{\"enabled\": true, \"filter_ids\": [\"example\"], \"kind\": \"access\", \"name\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"vlan_id\": 1}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(CreateNetworkSegmentRequest.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(CreateNetworkSegmentRequest.self, from: encoded))
         let third = try XCTUnwrap(
             JSONSerialization.jsonObject(with: twice) as? [String: Any])
         XCTAssertEqual(
@@ -3990,6 +4187,110 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: third), NSDictionary(dictionary: again))
     }
 
+    func testNetworkPolicyResponseRoundTripsWithoutLosingAField() throws {
+        let json = "{\"session_timeout_max_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(NetworkPolicyResponse.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(NetworkPolicyResponse.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testNetworkReplyProfileRoundTripsWithoutLosingAField() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"service_type\": \"framed_user\", \"session_timeout_clamped\": true, \"session_timeout_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"termination_action\": \"default\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(NetworkReplyProfile.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(NetworkReplyProfile.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testNetworkReplyProfileInputRoundTripsWithoutLosingAField() throws {
+        let json = "{\"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"service_type\": \"framed_user\", \"session_timeout_secs\": 1, \"termination_action\": \"default\"}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(NetworkReplyProfileInput.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(NetworkReplyProfileInput.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testNetworkSegmentResponseRoundTripsWithoutLosingAField() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"enabled\": true, \"filter_ids\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"access\", \"name\": \"example\", \"path\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1, \"vlan_id\": 1}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(NetworkSegmentResponse.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(NetworkSegmentResponse.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
     func testNotificationPolicyRoundTripsWithoutLosingAField() throws {
         let json = "{\"admin_notifications_enabled\": true}"
         let wire = try XCTUnwrap(
@@ -4582,6 +4883,84 @@ final class ManagementGeneratedTests: XCTestCase {
         // And encoding is a fixed point — a second pass changes nothing.
         let twice = try JSONEncoder().encode(
             try JSONDecoder().decode(RegistrationTokenResponse.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testReplaceNetworkPolicyRequestRoundTripsWithoutLosingAField() throws {
+        let json = "{\"session_timeout_max_secs\": 1, \"version\": 1}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(ReplaceNetworkPolicyRequest.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(ReplaceNetworkPolicyRequest.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testReplaceNetworkReplyProfileRequestRoundTripsWithoutLosingAField() throws {
+        let json = "{\"profile\": {\"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"service_type\": \"framed_user\", \"session_timeout_secs\": 1, \"termination_action\": \"default\"}, \"segment_version\": 1, \"version\": 1}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(ReplaceNetworkReplyProfileRequest.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(ReplaceNetworkReplyProfileRequest.self, from: encoded))
+        let third = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: twice) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: third), NSDictionary(dictionary: again))
+    }
+
+    func testReplaceNetworkSegmentRequestRoundTripsWithoutLosingAField() throws {
+        let json = "{\"enabled\": true, \"filter_ids\": [\"example\"], \"rank\": 1, \"version\": 1, \"vlan_id\": 1}"
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+
+        let value = try JSONDecoder().decode(ReplaceNetworkSegmentRequest.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(value)
+        let again = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        // Key-for-key, not "the fields I remembered to check". The wire object above carries
+        // every property the spec declares, so a dropped field and an invented one both fail
+        // here.
+        XCTAssertEqual(Set(again.keys), Set(wire.keys))
+        XCTAssertEqual(
+            NSDictionary(dictionary: again), NSDictionary(dictionary: wire))
+
+        // And encoding is a fixed point — a second pass changes nothing.
+        let twice = try JSONEncoder().encode(
+            try JSONDecoder().decode(ReplaceNetworkSegmentRequest.self, from: encoded))
         let third = try XCTUnwrap(
             JSONSerialization.jsonObject(with: twice) as? [String: Any])
         XCTAssertEqual(
@@ -6756,6 +7135,54 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: fromDecoded))
     }
 
+    func testCreateNetworkReplyProfileRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"profile\": {\"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"service_type\": \"framed_user\", \"session_timeout_secs\": 1, \"termination_action\": \"default\"}, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"segment_version\": 1}"
+        let decoded = try JSONDecoder().decode(CreateNetworkReplyProfileRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateNetworkReplyProfileRequest(
+            profile: decoded.profile,
+            segmentID: decoded.segmentID,
+            segmentVersion: decoded.segmentVersion)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testCreateNetworkSegmentRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"enabled\": true, \"filter_ids\": [\"example\"], \"kind\": \"access\", \"name\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"vlan_id\": 1}"
+        let decoded = try JSONDecoder().decode(CreateNetworkSegmentRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = CreateNetworkSegmentRequest(
+            enabled: decoded.enabled,
+            filterIds: decoded.filterIds,
+            kind: decoded.kind,
+            name: decoded.name,
+            rank: decoded.rank,
+            siteKey: decoded.siteKey,
+            vlanID: decoded.vlanID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
     func testCreateNotificationRuleRequestMemberwiseInitializerAssignsEveryProperty() throws {
         let json = "{\"description\": \"example\", \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"], \"window_minutes\": 1}"
         let decoded = try JSONDecoder().decode(CreateNotificationRuleRequest.self, from: Data(json.utf8))
@@ -7901,6 +8328,122 @@ final class ManagementGeneratedTests: XCTestCase {
             NSDictionary(dictionary: fromDecoded))
     }
 
+    func testNetworkPolicyResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"session_timeout_max_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}"
+        let decoded = try JSONDecoder().decode(NetworkPolicyResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = NetworkPolicyResponse(
+            sessionTimeoutMaxSecs: decoded.sessionTimeoutMaxSecs,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt,
+            updatedBy: decoded.updatedBy,
+            version: decoded.version)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testNetworkReplyProfileMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"service_type\": \"framed_user\", \"session_timeout_clamped\": true, \"session_timeout_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"termination_action\": \"default\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}"
+        let decoded = try JSONDecoder().decode(NetworkReplyProfile.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = NetworkReplyProfile(
+            createdAt: decoded.createdAt,
+            createdBy: decoded.createdBy,
+            dictionary: decoded.dictionary,
+            filterID: decoded.filterID,
+            idleTimeoutSecs: decoded.idleTimeoutSecs,
+            segmentID: decoded.segmentID,
+            serviceType: decoded.serviceType,
+            sessionTimeoutClamped: decoded.sessionTimeoutClamped,
+            sessionTimeoutSecs: decoded.sessionTimeoutSecs,
+            tenantID: decoded.tenantID,
+            terminationAction: decoded.terminationAction,
+            updatedAt: decoded.updatedAt,
+            updatedBy: decoded.updatedBy,
+            version: decoded.version)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testNetworkReplyProfileInputMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"service_type\": \"framed_user\", \"session_timeout_secs\": 1, \"termination_action\": \"default\"}"
+        let decoded = try JSONDecoder().decode(NetworkReplyProfileInput.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = NetworkReplyProfileInput(
+            dictionary: decoded.dictionary,
+            filterID: decoded.filterID,
+            idleTimeoutSecs: decoded.idleTimeoutSecs,
+            serviceType: decoded.serviceType,
+            sessionTimeoutSecs: decoded.sessionTimeoutSecs,
+            terminationAction: decoded.terminationAction)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testNetworkSegmentResponseMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"enabled\": true, \"filter_ids\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"access\", \"name\": \"example\", \"path\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1, \"vlan_id\": 1}"
+        let decoded = try JSONDecoder().decode(NetworkSegmentResponse.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = NetworkSegmentResponse(
+            createdAt: decoded.createdAt,
+            createdBy: decoded.createdBy,
+            enabled: decoded.enabled,
+            filterIds: decoded.filterIds,
+            id: decoded.id,
+            kind: decoded.kind,
+            name: decoded.name,
+            path: decoded.path,
+            rank: decoded.rank,
+            siteKey: decoded.siteKey,
+            tenantID: decoded.tenantID,
+            updatedAt: decoded.updatedAt,
+            updatedBy: decoded.updatedBy,
+            version: decoded.version,
+            vlanID: decoded.vlanID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
     func testNotificationPolicyMemberwiseInitializerAssignsEveryProperty() throws {
         let json = "{\"admin_notifications_enabled\": true}"
         let decoded = try JSONDecoder().decode(NotificationPolicy.self, from: Data(json.utf8))
@@ -8480,6 +9023,73 @@ final class ManagementGeneratedTests: XCTestCase {
             tenantID: decoded.tenantID,
             usedAt: decoded.usedAt,
             usedByClientID: decoded.usedByClientID)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testReplaceNetworkPolicyRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"session_timeout_max_secs\": 1, \"version\": 1}"
+        let decoded = try JSONDecoder().decode(ReplaceNetworkPolicyRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ReplaceNetworkPolicyRequest(
+            sessionTimeoutMaxSecs: decoded.sessionTimeoutMaxSecs,
+            version: decoded.version)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testReplaceNetworkReplyProfileRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"profile\": {\"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"service_type\": \"framed_user\", \"session_timeout_secs\": 1, \"termination_action\": \"default\"}, \"segment_version\": 1, \"version\": 1}"
+        let decoded = try JSONDecoder().decode(ReplaceNetworkReplyProfileRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ReplaceNetworkReplyProfileRequest(
+            profile: decoded.profile,
+            segmentVersion: decoded.segmentVersion,
+            version: decoded.version)
+
+        let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(decoded)) as? [String: Any])
+        let fromRebuilt = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(rebuilt)) as? [String: Any])
+        XCTAssertEqual(
+            NSDictionary(dictionary: fromRebuilt),
+            NSDictionary(dictionary: fromDecoded))
+    }
+
+    func testReplaceNetworkSegmentRequestMemberwiseInitializerAssignsEveryProperty() throws {
+        let json = "{\"enabled\": true, \"filter_ids\": [\"example\"], \"rank\": 1, \"version\": 1, \"vlan_id\": 1}"
+        let decoded = try JSONDecoder().decode(ReplaceNetworkSegmentRequest.self, from: Data(json.utf8))
+
+        // Every property handed straight back through the memberwise initializer. Two
+        // same-typed properties assigned to each other's stored property is a defect a
+        // decode-only test cannot see -- the JSON round trip above would pass, because it never
+        // constructs one by hand.
+        let rebuilt = ReplaceNetworkSegmentRequest(
+            enabled: decoded.enabled,
+            filterIds: decoded.filterIds,
+            rank: decoded.rank,
+            version: decoded.version,
+            vlanID: decoded.vlanID)
 
         let fromDecoded = try XCTUnwrap(JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(decoded)) as? [String: Any])
@@ -10990,6 +11600,44 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"persistent\"]")
     }
 
+    func testNetworkSegmentKindMapsEveryValueBothWays() throws {
+        XCTAssertEqual(NetworkSegmentKind.allCases.count, 3)
+        XCTAssertEqual(NetworkSegmentKind.access.rawValue, "access")
+        XCTAssertEqual(NetworkSegmentKind(rawValue: "access"), NetworkSegmentKind.access)
+        XCTAssertEqual(NetworkSegmentKind.quarantine.rawValue, "quarantine")
+        XCTAssertEqual(NetworkSegmentKind(rawValue: "quarantine"), NetworkSegmentKind.quarantine)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(NetworkSegmentKind(rawValue: "__not_a_network_segment_kind__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [NetworkSegmentKind].self,
+            from: Data("[\"__not_a_network_segment_kind__\"]".utf8))
+        XCTAssertEqual(stranger, [NetworkSegmentKind.unknown])
+        XCTAssertNotEqual(NetworkSegmentKind.unknown, NetworkSegmentKind.access)
+        XCTAssertNotEqual(NetworkSegmentKind.unknown, NetworkSegmentKind.quarantine)
+        XCTAssertEqual(NetworkSegmentKind.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([NetworkSegmentKind.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([NetworkSegmentKind.access])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"access\"]")
+    }
+
     func testNotificationEventTypeMapsEveryValueBothWays() throws {
         XCTAssertEqual(NotificationEventType.allCases.count, 19)
         XCTAssertEqual(NotificationEventType.loginFailure.rawValue, "login_failure")
@@ -11226,6 +11874,79 @@ final class ManagementGeneratedTests: XCTestCase {
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode([PgpKeyStatus.active])
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
+    }
+
+    func testRadiusServiceTypeMapsEveryValueBothWays() throws {
+        XCTAssertEqual(RadiusServiceType.allCases.count, 2)
+        XCTAssertEqual(RadiusServiceType.framedUser.rawValue, "framed_user")
+        XCTAssertEqual(RadiusServiceType(rawValue: "framed_user"), RadiusServiceType.framedUser)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(RadiusServiceType(rawValue: "__not_a_radius_service_type__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [RadiusServiceType].self,
+            from: Data("[\"__not_a_radius_service_type__\"]".utf8))
+        XCTAssertEqual(stranger, [RadiusServiceType.unknown])
+        XCTAssertNotEqual(RadiusServiceType.unknown, RadiusServiceType.framedUser)
+        XCTAssertEqual(RadiusServiceType.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([RadiusServiceType.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([RadiusServiceType.framedUser])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"framed_user\"]")
+    }
+
+    func testRadiusTerminationActionMapsEveryValueBothWays() throws {
+        XCTAssertEqual(RadiusTerminationAction.allCases.count, 3)
+        XCTAssertEqual(RadiusTerminationAction.`default`.rawValue, "default")
+        XCTAssertEqual(RadiusTerminationAction(rawValue: "default"), RadiusTerminationAction.`default`)
+        XCTAssertEqual(RadiusTerminationAction.radiusRequest.rawValue, "radius_request")
+        XCTAssertEqual(RadiusTerminationAction(rawValue: "radius_request"), RadiusTerminationAction.radiusRequest)
+
+        // The raw-value initializer stays STRICT: an unrecognised value is nil, never whichever
+        // case happens to be first. Code that parses a raw string keeps its check.
+        XCTAssertNil(RadiusTerminationAction(rawValue: "__not_a_radius_termination_action__"))
+
+        // DECODING is the lenient direction, and only it (§27.11 rule 1). Throwing here would
+        // fail the whole response the value arrived in, so one field of one record would take
+        // down the page it was on. `.unknown` is a case of its own and is never one of the
+        // known ones.
+        let stranger = try JSONDecoder().decode(
+            [RadiusTerminationAction].self,
+            from: Data("[\"__not_a_radius_termination_action__\"]".utf8))
+        XCTAssertEqual(stranger, [RadiusTerminationAction.unknown])
+        XCTAssertNotEqual(RadiusTerminationAction.unknown, RadiusTerminationAction.`default`)
+        XCTAssertNotEqual(RadiusTerminationAction.unknown, RadiusTerminationAction.radiusRequest)
+        XCTAssertEqual(RadiusTerminationAction.unknown.rawValue, "")
+
+        // ENCODING is the strict direction (contract 1.60 A4, §34.2 P12.2): `.unknown` is never
+        // written -- not as `""`, and not left to the server to refuse. It is refused before a
+        // byte is produced, as the validation failure.
+        XCTAssertThrowsError(try JSONEncoder().encode([RadiusTerminationAction.unknown])) { error in
+            guard case AxiamError.network(let refusal) = error else {
+                return XCTFail("a local refusal is the validation failure")
+            }
+            XCTAssertTrue(refusal.isValidation)
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode([RadiusTerminationAction.`default`])
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"default\"]")
     }
 
     func testReactorModeMapsEveryValueBothWays() throws {
@@ -11855,8 +12576,8 @@ final class ManagementGeneratedTests: XCTestCase {
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "[\"Active\"]")
     }
 
-    // §27.9: this file covers 190 operations, 153 models (153 of them also through their
-    // memberwise initializer) and 40 enums.
+    // §27.9: this file covers 202 operations, 162 models (162 of them also through their
+    // memberwise initializer) and 43 enums.
     //
     // The counts above are literals THIS generator wrote, so comparing them to each other would
     // be a tautology a bad regeneration still satisfies. They are compared against the vendored
@@ -11877,8 +12598,8 @@ final class ManagementGeneratedTests: XCTestCase {
         let declared = namespaces.values.reduce(into: 0) { total, namespace in
             total += (namespace["operations"] as? [String: Any])?.count ?? 0
         }
-        XCTAssertEqual(declared, 190,
+        XCTAssertEqual(declared, 202,
                        "the registry declares a different number of operations than this file covers — regenerate with Scripts/gen_management.py")
-        XCTAssertEqual(namespaces.count, 28)
+        XCTAssertEqual(namespaces.count, 29)
     }
 }

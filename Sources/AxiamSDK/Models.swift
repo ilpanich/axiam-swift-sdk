@@ -272,4 +272,7 @@ struct ErrorBody: Decodable {
     let message: String?
     let action: String?
     let resource_id: String?
+    /// The `409` sub-code (§36.4, contract 1.62): which conflict this is. Absent from a server
+    /// that predates it, and from every other status.
+    let reason_code: String?
 }

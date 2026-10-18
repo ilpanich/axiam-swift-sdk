@@ -7,16 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.1] - 2026-10-13
+## [1.1.0] - 2026-10-16
 
-Contract 1.61 (§34.5, the 1.0.1 fields): additive, with no new operation, no changed status
-code and no breaking change. `CONTRACT.md`, `openapi.json` and `management-registry.json` are
-re-vendored from ilpanich/axiam `058d8e0` (branch `claude/release-1.0.1`; `proto/` is
-unchanged) and the §27 surface regenerated with `Scripts/gen_management.py`. The README states
-conformance at contract 1.61.
+Contract 1.62 (§34.6, the 1.1.0 release) on top of contract 1.61 (§34.5, the fields of the
+never-tagged 1.0.1, merged into this release): every change is additive, and **there is no
+source-breaking change in this SDK**. `CONTRACT.md`, `openapi.json` and
+`management-registry.json` are re-vendored from ilpanich/axiam `e8722b668` (branch
+`claude/release-1.1.0`; `proto/` and `opaque-test-vectors.json` are unchanged) and the §27 surface
+regenerated with `Scripts/gen_management.py` — 202 operations in 29 namespaces. (Contract 1.61's
+fields were first vendored from ilpanich/axiam `058d8e0`, branch `claude/release-1.0.1`, with no new
+operation, no changed status code and no breaking change; that section is merged here.) The README states
+conformance at contract 1.62 and its SemVer promise now says that a contract record may add a
+member or widen a type in a minor release, and that a removal waits for 2.0.0.
+
+The 1.62 items that name the Swift SDK and where each landed: **(l)** the `network` namespace,
+**(n), (u), (v), (w)** `network` in the §27.6 manifest, **(m), (t)** the device grant's client
+authentication, **(e), (h)** the SSF change-taking form and the `updateStream` call-site text.
+**(f), (g), (i)** needed no change: an assigned `nil` on `userID` or `expectedUpdatedAt` was
+already "none" (the key is omitted, `null` never sent), `SsfStream.updatedAt` is already the
+server's own string (this SDK's models hold timestamps as `String`), and the request `userID` was
+already an untyped `String?` since 1.61. **(a)–(d), (j), (k), (o)–(s)** are informative or
+contract-side, with no SDK work.
 
 ### Added
 
+- **The `network` management namespace** (contract 1.62, §36, item (l)): twelve operations on
+  `client.network` — `listSegments`, `createSegment`, `getSegment`, `replaceSegment`,
+  `deleteSegment`, `listProfiles`, `createProfile`, `getProfile`, `replaceProfile`,
+  `deleteProfile`, `getPolicy` and `replacePolicy` — with the models `NetworkSegmentResponse`,
+  `NetworkReplyProfile`, `NetworkReplyProfileInput`, `NetworkPolicyResponse`, the create and
+  replace requests, and the open enums `NetworkSegmentKind`, `RadiusTerminationAction` and
+  `RadiusServiceType`; both lists have their `…All(page:)` auto-pager, `listSegments` carrying
+  `site`. The decision route `POST /api/v1/network/decide` is not SDK work and has no method
+  (§27.0, §36.11).
+- `AuthzError.reasonCode`: the `reason_code` a `409` of a management write carried
+  (`stale_version`, `strands_profile`, `has_children`, `site_gone`, `duplicate_name`,
+  `duplicate_vlan`, `duplicate_rank`, `profile_exists`, `other`) verbatim — the vocabulary is
+  open — and `nil` when the server omits it or for any status but `409` (§36.3 rule 2, §36.4).
+- **`network` in the declarative manifest** (§27.6.2, items (n), (u), (v), (w)):
+  `Manifest(entities:network:)` with `NetworkManifest`, `NetworkSegmentSpec`, `NetworkProfileSpec`,
+  `NetworkPolicySpec` and `NetworkMember` (`.unstated` / `.null` / `.value`), the `Declare`
+  factories, and `ManagementPlan.networkChanges` / `pendingNetwork` and the `ApplyReport`
+  members `appliedNetwork`, `failedNetwork`, `networkFailure`, `networkFailureError`,
+  `networkFailureReasonCode` and `remainingNetwork`. A segment is keyed by site + kind (the wire
+  spelling `access` | `quarantine`) + name, a profile by its segment, the policy is a singleton;
+  the order is the policy, the segments, the profiles. `plan` judges every stated member on the
+  read (a profile's *effective*, clamped timeout; `filter_ids` as a set) and refuses a
+  duplicate natural key, a repeated Filter-Id and a dangling profile with zero wire calls;
+  `apply` builds each version-conditional `replace_*` from the read (a stated null is left out of
+  the body), sends the segment write's response version as a profile's `segment_version`, never
+  retries, and stops at a `409` (with its `reason_code`) or at the server's `403` for a stated
+  timeout above the cap. This SDK's manifest has no pruning, so §27.6.2 item 6 is not offered.
+- **`SsfStreamInput.changing(_:_:)`**, the change-taking read-modify-write form (§32.2, item
+  (e)): it sends `eventsRequested` and `expectedUpdatedAt` as read and cuts `eventsRequested` to
+  the new `eventsAllowed`. The plain converter `init(copying:)` stays, and its documentation names
+  the caller's duty to cut.
 - `userID` (`user_id`, `String?`) on `Certificate` and `GeneratedCertificate`: a UUID, `null`
   and an absent member (a server before 1.0.1) decode, the last two as `nil`, "no account
   named" — never coalesced or synthesised. Contract 1.61, §27.11 rule 5.
@@ -27,19 +72,53 @@ conformance at contract 1.61.
 
 ### Changed
 
+- **Contract 1.62 corrections re-vendored** (the 1.1.0 fix pass): `CONTRACT.md`,
+  `openapi.json` (version `1.1.0`, digest
+  `sha256:7c3a5091d9d515b1aa3e157e74d342faf64a2c88e735f3c873b66951b3fac8a1`) and
+  `management-registry.json` now come from axiam `e8722b668`; `proto/` is unchanged and
+  `Scripts/gen_management.py --check` is clean. The README's conformance statement names §36 in
+  the form the contract's Conformance Statement gives and states that manifest pruning is not
+  offered in any namespace (§27.10). No SDK source changed; a regression test pins that no
+  session or adopted credential reaches an `/oauth2/*` request.
+- **`deviceAuthorize` sends the client's credential** (§14.1 rule 2, items (m) and (t)). A client
+  configured with `oidcClientSecret` sends it as `client_secret` in the form body at
+  `deviceAuthorize` — it already did at `devicePoll` — never as `Authorization: Basic`,
+  whichever of `client_secret_post` and `client_secret_basic` it is registered for. A public
+  client (no secret, no certificate) still sends `client_id` only and is not refused client-side;
+  an mTLS client presents its §6.1 certificate and sends no secret. *Behaviour, not source:* a
+  confidential client that relied on 1.0.x not sending its secret here, against a server that
+  refused it, now authenticates, as the 1.1.0 server requires. This SDK generates no
+  `private_key_jwt` assertion (§21.8) and no DPoP proof (§21.9), so a client registered for
+  either cannot be driven through the device grant from here; its poll is refused `401
+  invalid_client` and surfaces as an `AuthError` with that `oauthError`, once, with no §9 refresh.
+- The documentation of `ssf.updateStream` states the three meanings of `eventsRequested` (absent
+  resets, `[]` is none, a list is stored as given and refused `400` outside `eventsAllowed`) and
+  the caller's duty with the plain converter (§32.2, item (h)). A raw API client is bound by the
+  same meaning.
 - `SsfStreamInput(copying:)` also sets `expectedUpdatedAt` to the read's `updatedAt`, verbatim,
   and keeps the `eventsRequested` it read (`[]` as `[]`, never omitted), so an edit built from
   a read can neither silently overwrite a write that landed since (a `409`, not retried) nor
   widen what the receiver narrowed. Contract 1.61, §32.2, §32.3 rule 4, §32.8 test 1.
 - `CibaPendingList.total_pending` and `truncated` (§33.3 rule 16) are not modelled: this SDK
   generates the models a registry operation reaches, and none returns the console's
-  pending-request list.
+  pending-request list (contract 1.62 item (d): "not modelled" is conformant).
+- The package version is **1.1.0** (`AxiamSDK.podspec`, the README's install lines).
 
 ### Tests
 
+- `NetworkManagementTests` (§36.8's five tests), `NetworkManifestTests` (§27.9 "Manifest,
+  `network`"), `Contract162DeviceGrantTests` (§14.6 as amended: confidential, public and mTLS
+  clients at both endpoints, no `Authorization` header, `client_id` on every poll, `401
+  invalid_client` once), and §32.8 test 7 in `SsfManagementTests` (the cut, as read, `[]` as
+  `[]`, the nine-digit `+00:00` string byte for byte, an assigned `nil`, the documentation
+  check).
 - `Contract161ManagementTests` (§27.11 rule 5's required test) and three cases in
   `SsfManagementTests` (§32.8 test 1's contract 1.61 assertions, the `409` that is not
   retried, and `init(copying:)`).
+- `Contract162Oauth2NoSessionCredentialTests` (review finding C162-05): a client holding a login
+  session (cookie and CSRF token) or an adopted device bearer sends none of `Authorization`,
+  `Cookie` or `X-CSRF-Token` to any `/oauth2/*` request (device authorization, poll, introspect,
+  revoke, client credentials).
 
 ## [1.0.0] - 2026-10-10
 
