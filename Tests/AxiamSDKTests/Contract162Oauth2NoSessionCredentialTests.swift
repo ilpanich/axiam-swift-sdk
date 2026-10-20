@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 @testable import AxiamSDK
 
-/// CONTRACT.md §14.6 and §12.1 rule 3 (contract 1.62, review finding C162-05): no session or
+/// CONTRACT.md §14.6 and §12.1 rule 3 (contract 1.62, review finding C162-05; contract 1.63 item (a)): no session or
 /// adopted credential reaches an `/oauth2/*` request.
 ///
 /// The `/oauth2/*` endpoints authenticate the **client**, through the form body. A client that

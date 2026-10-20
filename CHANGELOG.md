@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-20
+
+Contract 1.63 (§34.7, the 1.1.1 release). **No source-breaking change in this SDK.**
+`CONTRACT.md`, `openapi.json` and `management-registry.json` are re-vendored byte for byte from
+ilpanich/axiam `a6cd10eba` (branch `claude/release-1.1.1`; `proto/` and `opaque-test-vectors.json`
+are unchanged) and the §27 surface regenerated with `Scripts/gen_management.py` (doc comments
+only; no new operation). The README states conformance at contract 1.63.
+
+- **Item (a)** (`/oauth2/*` carries no `axiam_*` session cookie and no `X-CSRF-Token`; §6.1
+  rule 11, §12.1 rule 3): already withheld here. The §14.6 test is
+  `Contract162Oauth2NoSessionCredentialTests` (a login session holding the cookie and CSRF token,
+  then device authorization, device poll, token request, introspection and revocation: none of
+  `Authorization`, `Cookie`, `X-CSRF-Token` is sent).
+- **`DeviceAuthorizationRequest.client_id`** is now optional in `openapi.json`; this SDK does not
+  model that request body (the device grant builds the form itself), so nothing changes.
+- **Issue #75 (C162-17):** the doc comment of `SsfStreamInput.changing(_:_:)` states that an
+  `eventsRequested` set to exactly the value read is treated as not named and is cut to the new
+  `eventsAllowed`, unlike §32.2 read literally; the behaviour is unchanged.
+- §21.7.4: this SDK verifies DPoP proofs but generates none, so the key-retention and terminal
+  `invalid_grant` duty does not apply.
+- (b) and (c) do not apply (no AMQP producer; (b) is for Java, Kotlin and C).
+
 ## [1.1.0] - 2026-10-16
 
 Contract 1.62 (§34.6, the 1.1.0 release) on top of contract 1.61 (§34.5, the fields of the
