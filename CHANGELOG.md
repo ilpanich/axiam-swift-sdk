@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Contract 1.63 (§34.7, the 1.1.1 release). **No source-breaking change in this SDK.**
 `CONTRACT.md`, `openapi.json` and `management-registry.json` are re-vendored byte for byte from
-ilpanich/axiam `a6cd10eba` (branch `claude/release-1.1.1`; `proto/` and `opaque-test-vectors.json`
+ilpanich/axiam `d919ba0cc` (branch `claude/release-1.1.1`; `proto/` and `opaque-test-vectors.json`
 are unchanged) and the §27 surface regenerated with `Scripts/gen_management.py` (doc comments
 only; no new operation). The README states conformance at contract 1.63.
 
