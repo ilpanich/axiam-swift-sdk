@@ -27,7 +27,14 @@ only; no new operation). The README states conformance at contract 1.63.
   `eventsAllowed`, unlike §32.2 read literally; the behaviour is unchanged.
 - §21.7.4: this SDK verifies DPoP proofs but generates none, so the key-retention and terminal
   `invalid_grant` duty does not apply.
-- (b) and (c) do not apply (no AMQP producer; (b) is for Java, Kotlin and C).
+- (b) and (c) do not apply (Swift ships no AMQP producer; (b) is for Java, Kotlin and C).
+- **C162-07 / C163-02 (§27.6.2 item 4):** `plan` (and so `apply`) now refuses, before any write, a
+  profile update that would carry a `termination_action` or `service_type` this SDK does not know
+  (the manifest leaves it unstated, the server returned a value outside the spec) — it raised
+  only inside `apply`, from the generated `encode(to:)`, after earlier writes. The error is
+  `AxiamError.network` with `statusCode: 400`, `isValidation: true`, naming the member and the
+  server's value. The profile list is read through a wrapper that keeps the wire text of both
+  members. Stating the member, or nothing differing, is unchanged.
 
 ## [1.1.0] - 2026-10-16
 

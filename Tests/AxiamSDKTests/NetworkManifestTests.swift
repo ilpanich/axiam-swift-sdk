@@ -475,6 +475,96 @@ final class NetworkManifestTests: XCTestCase {
             "reported as given: the SDK did not adjust the value to the cap")
     }
 
+    // MARK: - An open-enum value the SDK cannot name (C162-07, §27.6.2 item 4)
+
+    /// A profile whose two open-enum members carry values this SDK does not list.
+    private static func futureProfile() -> [String: Any] {
+        NetworkManagementTests.profileObject([
+            "segment_id": segA, "session_timeout_secs": 3600, "filter_id": "corp",
+            "termination_action": "future", "service_type": "future_service", "version": 5,
+        ])
+    }
+
+    private func assertRefusal(
+        _ error: Error, member: String, value: String, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        guard case AxiamError.network(let failure) = error else {
+            return XCTFail("expected AxiamError.network, got \(error)", file: file, line: line)
+        }
+        XCTAssertTrue(failure.isValidation, file: file, line: line)
+        XCTAssertEqual(failure.statusCode, 400, file: file, line: line)
+        XCTAssertTrue(failure.message.contains(member), "names the member", file: file, line: line)
+        XCTAssertTrue(failure.message.contains("\"\(value)\""), "names the value", file: file, line: line)
+    }
+
+    func testAnUpdateThatWouldCarryAnUnknownEnumValueIsRefusedAtPlanAndApplyBeforeAnyWrite() async throws {
+        let manifest = Self.manifest(
+            segments: [Self.lab()],
+            profiles: [NetworkProfileSpec(segment: "lab", sessionTimeoutSecs: 1800)])
+
+        let (planClient, planTransport) = try await ManagementFixture.signedIn(
+            Self.reads(segments: [Self.segment()], profiles: [Self.futureProfile()]))
+        do {
+            _ = try await planClient.manifest.plan(manifest)
+            XCTFail("plan must refuse")
+        } catch {
+            assertRefusal(error, member: "termination_action", value: "future")
+        }
+        XCTAssertEqual(planTransport.requests.map(\.method).filter { $0 != "GET" }, [])
+
+        let (applyClient, applyTransport) = try await ManagementFixture.signedIn(
+            Self.reads(segments: [Self.segment()], profiles: [Self.futureProfile()]))
+        do {
+            _ = try await applyClient.manifest.apply(manifest)
+            XCTFail("apply must refuse")
+        } catch {
+            assertRefusal(error, member: "termination_action", value: "future")
+        }
+        XCTAssertEqual(applyTransport.requests.map(\.method).filter { $0 != "GET" }, [], "zero writes")
+
+        // service_type alone, with termination_action stated, is refused the same way.
+        let (serviceClient, _) = try await ManagementFixture.signedIn(
+            Self.reads(segments: [Self.segment()], profiles: [Self.futureProfile()]))
+        do {
+            _ = try await serviceClient.manifest.plan(Self.manifest(
+                segments: [Self.lab()],
+                profiles: [NetworkProfileSpec(
+                    segment: "lab", sessionTimeoutSecs: 1800, terminationAction: .radiusRequest)]))
+            XCTFail("plan must refuse")
+        } catch {
+            assertRefusal(error, member: "service_type", value: "future_service")
+        }
+    }
+
+    func testStatingTheUnknownMembersGivesAnUpdateWhoseWriteNeverCarriesTheUnknownValue() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            Self.reads(segments: [Self.segment()], profiles: [Self.futureProfile()])
+                + [(status: 200, body: Self.json(Self.profile(timeout: 1800, version: 6)))])
+        let report = try await client.manifest.apply(Self.manifest(
+            segments: [Self.lab()],
+            profiles: [NetworkProfileSpec(
+                segment: "lab", sessionTimeoutSecs: 1800, terminationAction: .radiusRequest,
+                serviceType: .value(.framedUser))]))
+        XCTAssertTrue(report.isComplete)
+        let writes = transport.requests.filter { $0.method == "PUT" }
+        XCTAssertEqual(writes.count, 1)
+        let profile = writes[0].jsonBody?["profile"] as? [String: Any]
+        XCTAssertEqual(profile?["termination_action"] as? String, "radius_request")
+        XCTAssertEqual(profile?["service_type"] as? String, "framed_user")
+        XCTAssertFalse(String(describing: writes[0].jsonBody ?? [:]).contains("future"))
+    }
+
+    func testNothingDifferingIsNoChangeAndWritesNothingWhateverTheUnknownValues() async throws {
+        let (client, transport) = try await ManagementFixture.signedIn(
+            Self.reads(segments: [Self.segment()], profiles: [Self.futureProfile()]))
+        let report = try await client.manifest.apply(Self.manifest(
+            segments: [Self.lab()],
+            profiles: [NetworkProfileSpec(segment: "lab", sessionTimeoutSecs: 3600)]))
+        XCTAssertTrue(report.isComplete)
+        XCTAssertEqual(report.appliedNetwork.count, 0)
+        XCTAssertEqual(transport.requests.map(\.method).filter { $0 != "GET" }, [])
+    }
+
     // MARK: - The policy
 
     func testThePolicyIsNeverACreateAndIsNoChangeAtTheStatedCap() async throws {
