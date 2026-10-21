@@ -471,10 +471,10 @@ extension ManifestApi {
         guard !network.profiles.isEmpty else { return changes }
 
         // 3. The profiles, in the segments' order, each matched to its segment by `segment_id`.
-        let readProfiles = try await api.listProfilesAll(page: page).collect()
-        var readBySegmentID: [String: NetworkReplyProfile] = [:]
-        for item in readProfiles where readBySegmentID[item.segmentID] == nil {
-            readBySegmentID[item.segmentID] = item
+        let readProfiles = try await Self.listProfilesKeepingText(client: client, scope: scope, page: page)
+        var readBySegmentID: [String: ProfileRead] = [:]
+        for item in readProfiles where readBySegmentID[item.profile.segmentID] == nil {
+            readBySegmentID[item.profile.segmentID] = item
         }
         for spec in network.profiles.sorted(by: { $0.segment < $1.segment }) {
             // A segment this apply creates has no profile yet, and no id.
@@ -483,15 +483,30 @@ extension ManifestApi {
                     kind: .profile, key: spec.segment, action: .create, profile: spec))
                 continue
             }
-            guard let found = readBySegmentID[segment.id] else {
+            guard let read = readBySegmentID[segment.id] else {
                 changes.append(NetworkChange(
                     kind: .profile, key: spec.segment, action: .create,
                     segmentID: segment.id, segmentVersion: segment.version, profile: spec))
                 continue
             }
+            let found = read.profile
+            let drifted = Self.profileDrifted(spec, read: found)
+            // A replacement carries every member the manifest leaves unstated, and an open-enum
+            // value this SDK cannot name can neither be carried nor sent (§34.2 P12.2). Refuse it
+            // here, before any write of the apply (§27.6.2 item 4), naming member and value.
+            if drifted {
+                if spec.terminationAction == nil, found.terminationAction == .unknown {
+                    throw Self.unwritableProfileMember(
+                        "termination_action", value: read.terminationAction, segment: spec.segment)
+                }
+                if case .unstated = spec.serviceType, found.serviceType == .unknown {
+                    throw Self.unwritableProfileMember(
+                        "service_type", value: read.serviceType, segment: spec.segment)
+                }
+            }
             changes.append(NetworkChange(
                 kind: .profile, key: spec.segment,
-                action: Self.profileDrifted(spec, read: found) ? .update : .unchanged,
+                action: drifted ? .update : .unchanged,
                 segmentID: segment.id, version: found.version, segmentVersion: segment.version,
                 profile: spec,
                 readProfile: NetworkProfileRead(
@@ -500,6 +515,55 @@ extension ManifestApi {
                     serviceType: found.serviceType)))
         }
         return changes
+    }
+
+    /// A profile as read, with the wire text of its two open-enum members kept: the decoded
+    /// `.unknown` has no spelling of its own, and a refusal has to name the value.
+    struct ProfileRead: Decodable, Sendable {
+        let profile: NetworkReplyProfile
+        let terminationAction: String?
+        let serviceType: String?
+
+        private enum Keys: String, CodingKey {
+            case terminationAction = "termination_action"
+            case serviceType = "service_type"
+        }
+
+        init(from decoder: any Decoder) throws {
+            profile = try NetworkReplyProfile(from: decoder)
+            let container = try decoder.container(keyedBy: Keys.self)
+            terminationAction = try container.decodeIfPresent(String.self, forKey: .terminationAction)
+            serviceType = try container.decodeIfPresent(String.self, forKey: .serviceType)
+        }
+    }
+
+    /// `list_profiles` walked to exhaustion, as ``NetworkApi/listProfilesAll(page:)`` does it —
+    /// the same request — but keeping the text of each profile's open-enum members.
+    static func listProfilesKeepingText(
+        client: AxiamClient, scope: CallScope, page: PageRequest
+    ) async throws -> [ProfileRead] {
+        try await ManagementPager<ProfileRead>(start: page) { request in
+            let data = try await client.managementSend(
+                operation: "network.list_profiles",
+                method: .get,
+                template: "/api/v1/network/profiles",
+                pathParameters: [:],
+                query: request.queryPairs,
+                body: nil,
+                scope: scope,
+                implicitTenant: false)
+            return try ManagementCodec.decodePage(ProfileRead.self, from: data, request: request)
+        }.collect()
+    }
+
+    /// The §27.6.2 item 4 refusal: the validation error (P12.2), as a local `400`.
+    static func unwritableProfileMember(_ member: String, value: String?, segment: String) -> AxiamError {
+        AxiamError.network(NetworkError(
+            "network profile of segment \"\(segment)\": the server returned \(member) "
+                + "\"\(value ?? "")\", a value this SDK does not know, and this update would carry it "
+                + "into the replacement — state \(member) in the manifest, or update the SDK "
+                + "(CONTRACT.md §27.6.2 item 4, §34.2 P12.2). No request was sent.",
+            statusCode: 400, isValidation: true))
     }
 
     /// Whether a STATED member of a segment differs from the read. `site`, `kind` and `name` are

@@ -246,7 +246,11 @@ extension SsfStreamInput {
     ///   the new `eventsAllowed`, in their order (a request outside the ceiling is `400`). An
     ///   `eventsRequested` that `changes` sets to anything other than what was read — a list, `[]`
     ///   or `nil` (absent: a reset) — is sent as given: the server judges it. Setting it to the
-    ///   very value that was read is the same as not naming it, and is cut like the rest.
+    ///   very value that was read is the same as not naming it, and is cut like the rest. This
+    ///   differs from §32.2 read literally, which would send a value set to the one read as
+    ///   given (the server then answering `400` if it lies outside the new ceiling): here the
+    ///   cut is applied instead, which is benign. To send the read list uncut, build the body
+    ///   with ``init(copying:)`` and edit it yourself.
     /// - **`expectedUpdatedAt`, as read.** The `updatedAt` string of the stream you read, byte for
     ///   byte — never parsed and rendered again, because the comparison is of the instant and a
     ///   timestamp rounded to fewer fraction digits than the server stored does not match. The
