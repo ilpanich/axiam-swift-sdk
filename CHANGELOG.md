@@ -13,7 +13,8 @@ Contract 1.64 (§34.8, the 1.1.2 release). **No source-breaking change in this S
 patch release under the repository's rule: no public type, member or signature changes, and the
 one behaviour change (item (b)) turns an error the device loop used to raise into a wait. The
 contract adds no operation (202 in 29 namespaces). `CONTRACT.md` is re-vendored byte for byte from
-ilpanich/axiam `21beda0` (contract 1.64 as amended 2026-10-23; branch `claude/release-1.1.2-w7`),
+ilpanich/axiam `b3f8687` (contract 1.64 as amended twice on 2026-10-23; branch
+`claude/release-1.1.2-w7`),
 `openapi.json` and `management-registry.json` from `fb92ec4` (unchanged since); `proto/` and
 `opaque-test-vectors.json` are unchanged; `Scripts/gen_management.py --check` finds the committed §27 surface current. The
 README states conformance at contract 1.64.
@@ -37,6 +38,14 @@ README states conformance at contract 1.64.
     interval, and a bodiless `429` (a proxy's) honours its `Retry-After` as a floor. A single
     `devicePoll` throws a `429` with an OAuth body as `rate_limit_exceeded`, and one without as
     the §2 `NetworkError` with `statusCode: 429`.
+- **C164-25 / C164-33** (addendum round 1): a `5xx` or transport failure on the device poll is
+  now retried **inside the attempt** under §16 (three attempts in all, 200 ms base, full jitter,
+  `Retry-After` a floor, a `retry` telemetry event per retry; off with `retryEnabled: false`),
+  as §14.2 rule 6 and §16.2 require; before, the poll was one request and only the loop's next
+  interval retried it. A `429` is never retried inside the poll (it is rule 9's wait), and an
+  in-poll wait that would pass the `expires_in` deadline is not taken. A single `devicePoll`
+  therefore makes up to three requests on a `5xx`. A single `devicePoll` on a `429 slow_down` is
+  covered by a test (it surfaces `rate_limit_exceeded`). The README's §16 text lists the poll.
 - **C164-14** (review of this PR): the adopted-device-bearer run of
   `Contract162Oauth2NoSessionCredentialTests` now ends with the management `POST` control and
   asserts `Authorization: Bearer …`.

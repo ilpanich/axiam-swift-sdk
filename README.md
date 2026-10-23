@@ -877,7 +877,9 @@ about *reporting*, not enforcement.
 ## Retry, memo, shutdown and telemetry (§16–§19)
 
 Retry is **on by default** and applies only to operations that change no server state —
-`checkAccess`, `can`, `batchCheck` and the JWKS fetch. That is not the same as "HTTP GET": the
+`checkAccess`, `can`, `batchCheck`, the JWKS fetch and the device-grant poll (`devicePoll`, on a
+transport failure or a `5xx` only — a `429` is the polling loop's wait, never retried inside the
+poll; see the device grant section). That is not the same as "HTTP GET": the
 authorization check is a `POST` with a body and is the operation this policy exists for. `login`,
 `verifyMfa`, `logout` and `refresh` are never retried automatically, both because they change
 state and because their credentials are single-use.
@@ -1103,7 +1105,9 @@ Polling follows §14.2 exactly, and four of its rules are the ones implementatio
   one means a human said no, the other that nobody answered, and only the second is worth
   retrying.
 - **The status decides on a poll** (contract 1.64, rules 6 and 9). A `5xx` is a transport
-  failure whatever its body — AXIAM's own `500 {"error":"server_error"}` included — and
+  failure whatever its body — AXIAM's own `500 {"error":"server_error"}` included. It is
+  retried inside the poll under §16 (three attempts in all, jittered backoff, `Retry-After` a
+  floor, off with `retryEnabled: false`, and never past the deadline); when that budget is spent
   `deviceLogin` keeps polling at the same interval. Any `429` is waited out, whatever its body
   names: `deviceLogin` waits `Retry-After` (a minimum, so a longer interval still wins) in place
   of that one interval, does **not** raise the interval for it (a `429 slow_down` included), and
