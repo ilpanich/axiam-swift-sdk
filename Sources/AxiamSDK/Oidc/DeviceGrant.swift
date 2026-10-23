@@ -14,6 +14,21 @@ import Foundation
 //   - `access_denied` and `expired_token` are DISTINCT. One means a human said no; the other
 //     means nobody answered. Collapsing them loses the only thing the device can act on.
 //   - Polling stops at `expires_in`, whether or not the server has said `expired_token` yet.
+//   - A `429 rate_limit_exceeded` on a poll is waited out (contract 1.64, rule 9): the loop waits
+//     `Retry-After` as a minimum, capped at the deadline, counts that wait as one interval, does
+//     NOT raise the interval for it, and polls again. Only the `400 slow_down` raises it.
+
+/// A poll answered `rate_limit_exceeded` (§14.2 rule 9), with the `Retry-After` it carried.
+///
+/// Internal on purpose: ``AxiamClient/devicePoll(deviceCode:tenantID:configuration:)`` still
+/// throws the plain ``AuthError`` (`oauthError == "rate_limit_exceeded"`) the rule requires of
+/// the single call; this wrapper only lets
+/// ``AxiamClient/deviceLogin(scope:tenantID:configuration:onAuthorization:)`` read the header
+/// without widening ``AuthError``.
+struct DevicePollRateLimited: Error {
+    let error: AxiamError
+    let retryAfter: TimeInterval?
+}
 
 extension AxiamClient {
 
@@ -109,6 +124,21 @@ extension AxiamClient {
         configuration: OidcConfiguration? = nil
     ) async throws -> OidcTokenSet {
         let document = try await oidcConfiguration(configuration)
+        do {
+            return try await devicePollOnce(
+                deviceCode: deviceCode, tenantID: tenantID, document: document)
+        } catch let limited as DevicePollRateLimited {
+            // The single call raises the §2 `OAuthProtocolError` of rule 9; only the loop waits.
+            throw limited.error
+        }
+    }
+
+    /// One poll, keeping the `Retry-After` of a `429 rate_limit_exceeded` for the loop.
+    func devicePollOnce(
+        deviceCode: Sensitive<String>,
+        tenantID: String?,
+        document: OidcConfiguration
+    ) async throws -> OidcTokenSet {
         var form = [
             "grant_type": Self.deviceCodeGrantType,
             "device_code": deviceCode.wrapped,
@@ -119,7 +149,19 @@ extension AxiamClient {
         // certificate on the connection for an mTLS one. Never `Authorization: Basic`.
         if let secret = config.oidcClientSecret { form["client_secret"] = secret.wrapped }
 
-        let wire = try await oidcTokenGrant(form, document: document, tenantID: tenantID)
+        let endpoint = try preferredEndpoint(document, { $0.tokenEndpoint }, required: document.tokenEndpoint)
+        let response = try await oidcFormPost(endpoint, form: form, tenantID: tenantID)
+        guard (200..<300).contains(response.status) else {
+            let error = oidcMapGrantError(response)
+            // §14.2 rule 5: dispatch on the `error` field, whatever the status.
+            if case let .auth(authError) = error, authError.oauthError == "rate_limit_exceeded" {
+                throw DevicePollRateLimited(
+                    error: error,
+                    retryAfter: Retry.retryAfter(response.firstHeader("retry-after")))
+            }
+            throw error
+        }
+        let wire = try oidcDecode(TokenResponseWire.self, response.body, "token response")
         // §12.4 rules 1–5 and 7 apply to any id_token; rule 6 is skipped — there was no
         // authorization request in this flow to carry a nonce.
         return try await oidcTokenSet(wire, document: document, expectedNonce: nil)
@@ -138,6 +180,10 @@ extension AxiamClient {
     ///
     /// Polling follows §14.2 exactly: the interval starts at the server's, `slow_down` adds 5 s
     /// permanently, and the loop stops at `expires_in` even if the server has not yet said so.
+    /// A `429 rate_limit_exceeded` (contract 1.64, rule 9) is not terminal and is not a
+    /// `slow_down`: the next wait is the longer of the interval and `Retry-After`, it stands in
+    /// for that one interval, the interval itself is unchanged, and when the wait would pass the
+    /// deadline the loop raises `expired_token` at once and sends nothing after it.
     public func deviceLogin(
         scope: String? = nil,
         tenantID: String? = nil,
@@ -152,6 +198,8 @@ extension AxiamClient {
         onAuthorization(authorization)
 
         var interval = authorization.interval
+        // A `Retry-After` from a `429` poll, a minimum for the next wait only (rule 9).
+        var retryAfter: TimeInterval = 0
         let deadline = Date().addingTimeInterval(TimeInterval(authorization.expiresIn))
 
         while true {
@@ -160,17 +208,25 @@ extension AxiamClient {
             // looks equivalent and is not: after a `slow_down` takes the interval past the time
             // remaining, that check passes, the loop sleeps through the deadline, and polls
             // anyway. That request is exactly the "pure load" this rule exists to prevent.
-            let nextAttempt = Date().addingTimeInterval(TimeInterval(interval))
+            // Rule 9: after a `429` the wait is the interval or `Retry-After`, whichever is longer
+            // — one interval slot, not two, and `interval` itself is untouched.
+            let wait = max(TimeInterval(interval), retryAfter)
+            retryAfter = 0
+            let nextAttempt = Date().addingTimeInterval(wait)
             guard nextAttempt < deadline else {
                 throw AxiamError.auth(AuthError(
                     "expired_token: the device grant expired before the user approved it",
                     oauthError: "expired_token"))
             }
-            try await Task.sleep(nanoseconds: UInt64(interval) * 1_000_000_000)
+            try await _sleep(wait)
 
             do {
-                return try await devicePoll(
-                    deviceCode: authorization.deviceCode, tenantID: tenantID, configuration: document)
+                return try await devicePollOnce(
+                    deviceCode: authorization.deviceCode, tenantID: tenantID, document: document)
+            } catch let limited as DevicePollRateLimited {
+                // Rule 9 (contract 1.64): not terminal, and never the polling signal.
+                retryAfter = limited.retryAfter ?? 0
+                continue
             } catch let error as AxiamError {
                 guard case let .auth(authError) = error, let code = authError.oauthError else {
                     // §14.2 rule 6: a 5xx or transport failure is not terminal — it already went

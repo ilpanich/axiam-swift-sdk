@@ -1092,7 +1092,7 @@ with a §6.1 certificate presents it on the connection and sends no secret. The 
 generate `private_key_jwt` assertions (§21.8) or DPoP proofs (§21.9), so a client registered for
 either cannot be driven from here: its poll is refused `invalid_client` and surfaces that way.
 
-Polling follows §14.2 exactly, and three of its rules are the ones implementations get wrong:
+Polling follows §14.2 exactly, and four of its rules are the ones implementations get wrong:
 
 - **`slow_down` raises the interval permanently**, by 5 s, and never resets it. Backing off for
   one round and returning to the original interval earns another `slow_down`, forever.
@@ -1102,6 +1102,12 @@ Polling follows §14.2 exactly, and three of its rules are the ones implementati
   merely when the clock has already run out. `access_denied` and `expired_token` stay distinct:
   one means a human said no, the other that nobody answered, and only the second is worth
   retrying.
+- **A `429 rate_limit_exceeded` is waited out** (contract 1.64, rule 9). `deviceLogin` waits
+  `Retry-After` — a minimum, so a longer interval still wins — in place of that one interval,
+  does **not** raise the interval for it, and polls again; a wait that would pass the
+  `expires_in` deadline ends the grant with `expired_token` before anything more is sent. Only
+  the `400 slow_down` raises the interval. A single `devicePoll` call still throws the
+  `rate_limit_exceeded` `AuthError`; the loop is what waits.
 
 Runnable: [`Examples/DeviceLogin`](Examples/DeviceLogin/main.swift).
 
