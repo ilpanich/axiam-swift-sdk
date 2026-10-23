@@ -12,10 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Contract 1.64 (§34.8, the 1.1.2 release). **No source-breaking change in this SDK**, so this is a
 patch release under the repository's rule: no public type, member or signature changes, and the
 one behaviour change (item (b)) turns an error the device loop used to raise into a wait. The
-contract adds no operation (202 in 29 namespaces). `CONTRACT.md`, `openapi.json`,
-`management-registry.json` and `proto/` are re-vendored byte for byte from ilpanich/axiam
-`fb92ec4` (branch `claude/release-1.1.2-w7`; `proto/` is unchanged, `opaque-test-vectors.json` is
-unchanged); `Scripts/gen_management.py --check` finds the committed §27 surface current. The
+contract adds no operation (202 in 29 namespaces). `CONTRACT.md` is re-vendored byte for byte from
+ilpanich/axiam `21beda0` (contract 1.64 as amended 2026-10-23; branch `claude/release-1.1.2-w7`),
+`openapi.json` and `management-registry.json` from `fb92ec4` (unchanged since); `proto/` and
+`opaque-test-vectors.json` are unchanged; `Scripts/gen_management.py --check` finds the committed §27 surface current. The
 README states conformance at contract 1.64.
 
 - **Item (b)** (§14.2 rule 9, last paragraph; §14.6): a `429 rate_limit_exceeded` on a poll is no
@@ -26,6 +26,20 @@ README states conformance at contract 1.64.
   the `rate_limit_exceeded` `AuthError`. The wait goes through the client's existing sleep seam, so
   the new tests (`Contract164DeviceGrantRateLimitTests`) assert the recorded schedule, not a
   stopwatch. The 1.63 §14.6 tests are unchanged.
+- **Contract 1.64 (amended): the status decides on a device poll** (§14.2 rules 6 and 9;
+  C164-03, C164-04, C164-17). Behaviour changes, none of them a signature change:
+  - A `5xx` on a poll is a transport failure whatever its body. `500 {"error":"server_error"}`
+    used to end `deviceLogin` with a terminal `AuthError`; it now keeps polling at the unchanged
+    interval. A single `devicePoll` that meets a `5xx` throws the §2 `NetworkError` (with its
+    `statusCode`) where it threw an `AuthError` with `oauthError == "server_error"` for a `5xx`
+    carrying an OAuth body; a caller driving its own loop should treat both as "keep going".
+  - Any `429` on a poll is the rule-9 wait. `429 {"error":"slow_down"}` no longer raises the
+    interval, and a bodiless `429` (a proxy's) honours its `Retry-After` as a floor. A single
+    `devicePoll` throws a `429` with an OAuth body as `rate_limit_exceeded`, and one without as
+    the §2 `NetworkError` with `statusCode: 429`.
+- **C164-14** (review of this PR): the adopted-device-bearer run of
+  `Contract162Oauth2NoSessionCredentialTests` now ends with the management `POST` control and
+  asserts `Authorization: Bearer …`.
 - **Item (c)** (the refusal at `plan` names the member, and the value where the SDK keeps it): no
   port. §34.8 lists Swift among the SDKs with a text-less `Unknown`, but this SDK's
   `ProfileRead` keeps the wire text of both open-enum members, so the refusal names the member
