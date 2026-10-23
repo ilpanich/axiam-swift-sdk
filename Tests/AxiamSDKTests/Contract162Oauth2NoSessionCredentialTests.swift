@@ -51,12 +51,20 @@ final class Contract162Oauth2NoSessionCredentialTests: XCTestCase {
                         status: 200,
                         headers: json + [
                             ("Set-Cookie", "axiam_access=session-cookie-tok; Path=/; HttpOnly"),
+                            ("Set-Cookie", "axiam_csrf=csrf-cookie-1; Path=/"),
                             ("X-CSRF-Token", "csrf-1"),
                         ],
                         body: (try? JSONSerialization.data(withJSONObject: TestKit.loginSuccessBody())) ?? Data())
                 }
                 if path.hasSuffix("/auth/device") {
                     return answer(["access_token": "device-bearer-tok", "token_type": "Bearer", "expires_in": 900])
+                }
+                if path.hasSuffix("/api/v1/groups") {
+                    return answer([
+                        "id": "g-1", "name": "ops", "description": "", "metadata": [String: Any](),
+                        "tenant_id": "22222222-2222-2222-2222-222222222222",
+                        "created_at": "2026-10-23T00:00:00Z", "updated_at": "2026-10-23T00:00:00Z",
+                    ], status: 201)
                 }
                 if path.hasSuffix("/oauth2/device_authorization") {
                     return answer([
@@ -115,6 +123,25 @@ final class Contract162Oauth2NoSessionCredentialTests: XCTestCase {
         _ = try await client.login(email: "alice@example.com", password: "pw")
         try await exerciseOauth2(client)
         assertNoSessionCredential(transport)
+    }
+
+    /// C163-08, the control: the login set `axiam_csrf` and `X-CSRF-Token`, and the same
+    /// client's next management `POST` carries both the session cookies and the CSRF echo — so
+    /// the absence asserted above is the `/oauth2/*` rule, not a session that never existed.
+    func testTheSameClientsManagementPostStillCarriesTheSessionAndTheCsrfEcho() async throws {
+        let transport = RecordingTransport()
+        let client = try makeClient(transport)
+        _ = try await client.login(email: "alice@example.com", password: "pw")
+        try await exerciseOauth2(client)
+        assertNoSessionCredential(transport)
+
+        _ = try await client.groups.create(body: CreateGroupRequest(description: "", name: "ops"))
+        let post = try XCTUnwrap(transport.requests.last { $0.path.hasSuffix("/api/v1/groups") })
+        let cookie = post.headers.first { $0.0.caseInsensitiveCompare("Cookie") == .orderedSame }?.1
+        XCTAssertTrue(cookie?.contains("axiam_access=session-cookie-tok") == true, "session cookie: \(cookie ?? "none")")
+        XCTAssertTrue(cookie?.contains("axiam_csrf=csrf-cookie-1") == true, "CSRF cookie: \(cookie ?? "none")")
+        let csrf = post.headers.first { $0.0.caseInsensitiveCompare("X-CSRF-Token") == .orderedSame }?.1
+        XCTAssertEqual(csrf, "csrf-1")
     }
 
     /// An adopted device bearer (`authenticateDevice()`) is held when the calls are made. This
