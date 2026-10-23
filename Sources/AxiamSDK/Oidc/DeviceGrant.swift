@@ -20,14 +20,15 @@ import Foundation
 //     `Retry-After` as a minimum, capped at the deadline, counts that wait as one interval, does
 //     NOT raise the interval for it, and polls again. Only the `400 slow_down` raises it.
 
-/// A poll answered `rate_limit_exceeded` (§14.2 rule 9), with the `Retry-After` it carried.
+/// A poll answered with a `429` (§14.2 rule 9) or left as a `5xx` after §16's budget (rule 6),
+/// with the `Retry-After` it carried.
 ///
 /// Internal on purpose: ``AxiamClient/devicePoll(deviceCode:tenantID:configuration:)`` still
-/// throws the plain ``AuthError`` (`oauthError == "rate_limit_exceeded"`) the rule requires of
-/// the single call; this wrapper only lets
-/// ``AxiamClient/deviceLogin(scope:tenantID:configuration:onAuthorization:)`` read the header
-/// without widening ``AuthError``.
-struct DevicePollRateLimited: Error {
+/// throws the plain ``AuthError`` (`oauthError == "rate_limit_exceeded"`) or ``NetworkError`` the
+/// rules require of the single call; this wrapper only lets
+/// ``AxiamClient/deviceLogin(scope:tenantID:configuration:onAuthorization:)`` read the header, as
+/// the floor of its next wait, without widening ``AuthError``.
+struct DevicePollDeferred: Error {
     let error: AxiamError
     let retryAfter: TimeInterval?
 }
@@ -134,7 +135,7 @@ extension AxiamClient {
         do {
             return try await devicePollOnce(
                 deviceCode: deviceCode, tenantID: tenantID, document: document, deadline: nil)
-        } catch let limited as DevicePollRateLimited {
+        } catch let limited as DevicePollDeferred {
             // The single call raises the §2 `OAuthProtocolError` of rule 9; only the loop waits.
             throw limited.error
         }
@@ -179,7 +180,15 @@ extension AxiamClient {
             // body. The status is read BEFORE the body — AXIAM answers an internal failure
             // `500 {"error":"server_error"}`, which rule 5's dispatch on `error` would otherwise
             // turn into a terminal `AuthError` and lose a grant the user already approved.
-            if response.status >= 500 { throw oidcMapError(response) }
+            //
+            // The server's `Retry-After` on that `5xx` is a floor (§16.1) even when §16's budget
+            // is spent or the deadline refused an in-poll wait: the loop carries it to its next
+            // wait, so a server that asked for 120 s is not polled every interval.
+            if response.status >= 500 {
+                throw DevicePollDeferred(
+                    error: oidcMapError(response),
+                    retryAfter: Retry.retryAfter(response.firstHeader("retry-after")))
+            }
 
             var error = oidcMapGrantError(response)
             // §14.2 rule 9 (contract 1.64, amended): the STATUS decides. Any `429` on a poll is
@@ -194,7 +203,7 @@ extension AxiamClient {
                         oauthError: "rate_limit_exceeded",
                         oauthErrorDescription: authError.oauthErrorDescription))
                 }
-                throw DevicePollRateLimited(
+                throw DevicePollDeferred(
                     error: error,
                     retryAfter: Retry.retryAfter(response.firstHeader("retry-after")))
             }
@@ -263,8 +272,9 @@ extension AxiamClient {
                 return try await devicePollOnce(
                     deviceCode: authorization.deviceCode, tenantID: tenantID, document: document,
                     deadline: deadline)
-            } catch let limited as DevicePollRateLimited {
-                // Rule 9 (contract 1.64): not terminal, and never the polling signal.
+            } catch let limited as DevicePollDeferred {
+                // Rule 9 (a 429) and rule 6 (a 5xx left after §16): not terminal, never the
+                // polling signal, and its `Retry-After` is the floor of the next wait.
                 retryAfter = limited.retryAfter ?? 0
                 continue
             } catch let error as AxiamError {
