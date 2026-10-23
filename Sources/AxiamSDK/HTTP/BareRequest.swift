@@ -52,7 +52,8 @@ extension AxiamClient {
         headers: [(String, String)],
         body: Data?,
         retry: BareRetry,
-        deadline: Date? = nil
+        deadline: Date? = nil,
+        now: @Sendable () -> Date = { Date() }
     ) async throws -> HTTPResponseData {
         try ensureOpen()
         let retryable: Bool
@@ -99,7 +100,8 @@ extension AxiamClient {
                 // §14.2 rule 4: a wait inside a poll must not carry the next request past the
                 // grant's deadline. Surface this failure instead of sleeping into it, and let
                 // the loop decide (it ends with `expired_token` and sends nothing more).
-                if let deadline, Date().addingTimeInterval(wait) >= deadline {
+                // `now` is the caller's injected clock when it has one (CIBA's, §34.2 P10).
+                if let deadline, now().addingTimeInterval(wait) >= deadline {
                     if let thrown { throw thrown }
                     guard let response else {
                         throw AxiamError.network(NetworkError("no response from transport"))

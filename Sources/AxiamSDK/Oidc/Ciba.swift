@@ -431,7 +431,19 @@ extension AxiamClient {
                 authReqID: authReqID, tenantID: tenantID, configuration: configuration)
         } catch let failure as CibaRedeemedFailure {
             throw failure.error
+        } catch let deferred as CibaPollDeferred {
+            // A bare poll has no deadline: it keeps §16's bounded budget and raises the error.
+            throw deferred.error
         }
+    }
+
+    /// A `5xx` or `429` poll answer, with the `Retry-After` it carried, for the
+    /// ``cibaAwait(_:tenantID:configuration:clock:)`` loop: the floor of its next wait (§16.1),
+    /// kept even when §16's budget is spent or the deadline refused an in-poll wait (§34.2 P10).
+    /// Internal; ``cibaPoll(authReqID:tenantID:configuration:)`` unwraps it.
+    struct CibaPollDeferred: Error {
+        let error: AxiamError
+        let retryAfter: TimeInterval?
     }
 
     /// A failure after the token endpoint answered `2xx`: the redemption is spent, so the
@@ -445,7 +457,9 @@ extension AxiamClient {
     func cibaPollOnce(
         authReqID: Sensitive<String>,
         tenantID: String?,
-        configuration: OidcConfiguration?
+        configuration: OidcConfiguration?,
+        deadline: Date? = nil,
+        now: @Sendable () -> Date = { Date() }
     ) async throws -> OidcTokenSet {
         try ensureOpen()
         var form = try cibaClientAuthentication("cibaPoll")
@@ -466,15 +480,22 @@ extension AxiamClient {
                 ("Accept", "application/json"),
             ],
             body: Data(Self.oidcFormEncode(form).utf8),
-            retry: .section16UnlessOAuthError)
+            retry: .section16UnlessOAuthError,
+            // §34.2 P10: under `cibaAwait` a §16 wait never carries a request past the deadline.
+            deadline: deadline,
+            now: now)
         guard (200..<300).contains(response.status) else {
             // §34.2 P8: a 5xx is never the answer, whatever its body — it stays transient.
-            if response.status >= 500 {
-                throw AxiamError.network(NetworkError(
+            let error: AxiamError = response.status >= 500
+                ? AxiamError.network(NetworkError(
                     "ciba_poll: HTTP \(response.status) from the token endpoint",
                     statusCode: response.status))
+                : oidcMapGrantError(response)
+            if response.status >= 500 || response.status == 429 {
+                throw CibaPollDeferred(
+                    error: error, retryAfter: Retry.retryAfter(response.firstHeader("retry-after")))
             }
-            throw oidcMapGrantError(response)
+            throw error
         }
         // §33.7 rule 7: the 200 is consumed before anything else — and never re-requested: the
         // server may already have redeemed the request. Whatever fails from here on is
@@ -521,21 +542,38 @@ extension AxiamClient {
         let deadline = initiated.receivedAt.addingTimeInterval(TimeInterval(initiated.expiresIn))
         var interval = initiated.interval > 0 ? initiated.interval : Self.cibaDefaultIntervalSeconds
 
+        // A `Retry-After` from a `5xx` or `429` poll: a floor for the next wait only (§16.1).
+        var retryAfter = 0
+
         while true {
-            // §33.7 rule 4: it is the NEXT attempt that must fall inside the deadline.
-            if clock.now().addingTimeInterval(TimeInterval(interval)) >= deadline {
+            // §33.7 rule 4: it is the NEXT attempt that must fall inside the deadline — and the
+            // wait is the interval or the server's `Retry-After`, whichever is longer.
+            let wait = max(interval, retryAfter)
+            retryAfter = 0
+            if clock.now().addingTimeInterval(TimeInterval(wait)) >= deadline {
                 throw AxiamError.auth(AuthError(
                     "expired_token: the CIBA request expired before it was decided (client-side "
                         + "deadline from expires_in; CONTRACT.md §33.7 rule 4)",
                     oauthError: "expired_token"))
             }
-            try await clock.sleep(seconds: interval)
+            try await clock.sleep(seconds: wait)
             do {
                 return try await cibaPollOnce(
-                    authReqID: initiated.authReqID, tenantID: tenantID, configuration: document)
+                    authReqID: initiated.authReqID, tenantID: tenantID, configuration: document,
+                    deadline: deadline, now: { clock.now() })
             } catch let failure as CibaRedeemedFailure {
                 // §34.2 P9: after the 2xx, terminal — never another poll.
                 throw failure.error
+            } catch let deferred as CibaPollDeferred {
+                if let hint = deferred.retryAfter { retryAfter = Int(hint.rounded(.up)) }
+                switch Self.cibaStep(deferred.error) {
+                case .pending, .transient:
+                    continue
+                case .slowDown:
+                    interval += Self.cibaSlowDownIncrementSeconds
+                case .terminal:
+                    throw deferred.error
+                }
             } catch let error as AxiamError {
                 switch Self.cibaStep(error) {
                 case .pending, .transient:

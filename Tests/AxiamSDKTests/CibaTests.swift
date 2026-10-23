@@ -41,7 +41,8 @@ final class CibaTests: XCTestCase {
     private func makeClient(
         _ transport: RoutedTransport,
         secret: String? = SecretKit.random(),
-        certificate: Bool = false
+        certificate: Bool = false,
+        recorder: EventRecorder? = nil
     ) async throws -> AxiamClient {
         let config = try AxiamConfig(
             baseURL: URL(string: Self.base)!,
@@ -52,6 +53,7 @@ final class CibaTests: XCTestCase {
                     privateKey: Data(SecretKit.random().utf8))
                 : nil,
             retryEnabled: true,
+            telemetryHook: recorder?.hook,
             oidcClientID: Self.clientID,
             oidcClientSecret: secret.map { Sensitive($0) })
         let client = AxiamClient(config: config, transport: transport)
@@ -379,6 +381,74 @@ final class CibaTests: XCTestCase {
         XCTAssertEqual(
             transport.requests("/oauth2/token").map(\.stamp), [5, 10],
             "nothing at 15 s, past the 12 s deadline")
+    }
+
+    /// §33.8 test 7, the P10 half (§34.2 P10, C164-43): a §16 retry inside the poll that
+    /// `cibaAwait` makes never waits past the deadline. Every poll is answered `503` with
+    /// `Retry-After: 120` against a 30 s request: the in-poll wait is refused (5 + 120 > 30), so
+    /// the one request goes at 5 s, no `retry` event is emitted, the 503's `Retry-After` is the
+    /// floor of the loop's next wait, which would pass the deadline, and `expired_token` is
+    /// raised locally at once — nothing is sent at or after 30 s.
+    func testT07BNoRetryWaitCarriesARequestPastTheDeadline() async throws {
+        let clock = TestCibaClock()
+        let recorder = EventRecorder()
+        let transport = RoutedTransport(stamp: { clock.elapsed })
+        transport.route("POST", "/oauth2/token", [
+            .json(503, object: ["error": "temporarily_unavailable"], headers: [("Retry-After", "120")]),
+        ])
+        let client = try await makeClient(transport, recorder: recorder)
+
+        do {
+            _ = try await client.cibaAwait(
+                Self.response(expiresIn: 30, interval: 5, at: clock.start),
+                configuration: Self.configuration(),
+                clock: clock)
+            XCTFail("the deadline must end the loop")
+        } catch let error as AxiamError {
+            XCTAssertTrue(error.isExpiredToken)
+        }
+        XCTAssertEqual(transport.requests("/oauth2/token").map(\.stamp), [5])
+        XCTAssertEqual(clock.sleeps, [5])
+        XCTAssertTrue(recorder.kinds.filter { $0 == "retry" }.isEmpty, "no retry wait was taken")
+    }
+
+    /// The same `503` + `Retry-After: 20` far from the deadline: §16 spends its budget inside
+    /// the poll (waits of 20 and 20), and the server's floor then also governs the loop's next
+    /// wait — 20 s, not the 5 s interval — before the fourth request gets the tokens.
+    func testT07BA503RetryAfterIsTheFloorOfTheLoopsNextWait() async throws {
+        let clock = TestCibaClock()
+        let transport = RoutedTransport(stamp: { clock.elapsed })
+        let client = try await makeClient(transport)
+        let tokens = Self.tokens(transport)
+        let busy = RoutedTransport.Reply.json(
+            503, object: ["error": "temporarily_unavailable"], headers: [("Retry-After", "20")])
+        transport.route("POST", "/oauth2/token", [busy, busy, busy, tokens])
+
+        _ = try await client.cibaAwait(
+            Self.response(expiresIn: 600, interval: 5, at: clock.start),
+            configuration: Self.configuration(),
+            clock: clock)
+        XCTAssertEqual(transport.requests("/oauth2/token").count, 4)
+        XCTAssertEqual(clock.sleeps, [5, 20])
+    }
+
+    /// A bare `cibaPoll` has no deadline: it keeps §16's bounded budget (three requests) and
+    /// raises the 503 — P10 binds only the poll `cibaAwait` calls.
+    func testABareCibaPollKeepsItsBoundedBudgetAndHasNoDeadline() async throws {
+        let transport = RoutedTransport()
+        transport.route("POST", "/oauth2/token", [
+            .json(503, object: ["error": "temporarily_unavailable"], headers: [("Retry-After", "120")]),
+        ])
+        let client = try await makeClient(transport)
+        do {
+            _ = try await client.cibaPoll(
+                authReqID: Sensitive(SecretKit.random()), configuration: Self.configuration())
+            XCTFail("expected the exhausted budget to surface")
+        } catch let error as AxiamError {
+            guard case .network(let network) = error else { return XCTFail("expected a NetworkError") }
+            XCTAssertEqual(network.statusCode, 503)
+        }
+        XCTAssertEqual(transport.requests("/oauth2/token").count, 3)
     }
 
     // MARK: - 8. Transient failure is not terminal
