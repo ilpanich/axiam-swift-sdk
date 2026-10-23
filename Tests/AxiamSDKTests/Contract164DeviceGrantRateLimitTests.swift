@@ -23,16 +23,21 @@ final class Contract164DeviceGrantRateLimitTests: XCTestCase {
 
     /// Computed properties: the test target builds in Swift 6 language mode, where a `static
     /// let` holding `[String: Any]` is a concurrency error.
-    private static var rateLimited: (Int, [(String, String)], [String: Any]) {
-        (429, [("Retry-After", "7")], ["error": "rate_limit_exceeded"])
+    private typealias Answer = (Int, [(String, String)], Data)
+
+    private static func answer(_ status: Int, _ headers: [(String, String)] = [], _ body: [String: Any]) -> Answer {
+        (status, headers, TestResponse.jsonBody(body))
     }
 
-    private static var pending: (Int, [(String, String)], [String: Any]) {
-        (400, [], ["error": "authorization_pending"])
+    /// The server's own `429` body: no `error_description` (§14.6, contract 1.64 amended).
+    private static var rateLimited: Answer {
+        answer(429, [("Retry-After", "7")], ["error": "rate_limit_exceeded"])
     }
 
-    private static var success: (Int, [(String, String)], [String: Any]) {
-        (200, [], ["access_token": "the-access-token", "token_type": "Bearer", "expires_in": 900])
+    private static var pending: Answer { answer(400, [], ["error": "authorization_pending"]) }
+
+    private static var success: Answer {
+        answer(200, [], ["access_token": "the-access-token", "token_type": "Bearer", "expires_in": 900])
     }
 
     /// Discovery, an authorize answer (`interval` and `expires_in` as given) and a scripted poll;
@@ -40,7 +45,7 @@ final class Contract164DeviceGrantRateLimitTests: XCTestCase {
     private static func makeRouter(
         interval: Int,
         expiresIn: Int,
-        pollAnswers: [(Int, [(String, String)], [String: Any])]
+        pollAnswers: [Answer]
     ) -> TestRouter {
         let authorize = TestResponse.jsonBody([
             "device_code": "the-device-code",
@@ -49,9 +54,7 @@ final class Contract164DeviceGrantRateLimitTests: XCTestCase {
             "expires_in": expiresIn,
             "interval": interval,
         ])
-        let answers: [(Int, [(String, String)], Data)] = pollAnswers.map {
-            ($0.0, $0.1, TestResponse.jsonBody($0.2))
-        }
+        let answers = pollAnswers
         return { request, state in
             if request.uri.contains("/.well-known/openid-configuration") {
                 let base = "http://\(request.header("Host") ?? "127.0.0.1")"
@@ -134,7 +137,7 @@ final class Contract164DeviceGrantRateLimitTests: XCTestCase {
         let sleeps = Sleeps()
         let router = Self.makeRouter(
             interval: 1, expiresIn: 600,
-            pollAnswers: [(429, [("Retry-After", "3600")], ["error": "rate_limit_exceeded"]), Self.success])
+            pollAnswers: [Self.answer(429, [("Retry-After", "3600")], ["error": "rate_limit_exceeded"]), Self.success])
         try await withDeviceClient(router: router, sleeps: sleeps) { client, server in
             do {
                 _ = try await client.deviceLogin { _ in }
@@ -158,6 +161,77 @@ final class Contract164DeviceGrantRateLimitTests: XCTestCase {
             } catch let error as AxiamError {
                 guard case let .auth(authError) = error else { return XCTFail("expected an AuthError") }
                 XCTAssertEqual(authError.oauthError, "rate_limit_exceeded")
+            }
+        }
+    }
+
+    // MARK: - §14.6, contract 1.64 (amended): the status decides
+
+    func testA429SlowDownIsTheWaitAndDoesNotRaiseTheInterval() async throws {
+        // C164-04: a `429` whose body says `slow_down` (a server before 1.1.2, or an
+        // intermediary) is the rule-9 wait. Interval 1, `Retry-After: 1`: the waits stay at the
+        // interval — a `slow_down` read from the body would give `[1, 1, 6]`.
+        let sleeps = Sleeps()
+        let router = Self.makeRouter(
+            interval: 1, expiresIn: 600,
+            pollAnswers: [
+                Self.answer(429, [("Retry-After", "1")], ["error": "slow_down"]),
+                Self.pending,
+                Self.success,
+            ])
+        try await withDeviceClient(router: router, sleeps: sleeps) { client, server in
+            _ = try await client.deviceLogin { _ in }
+            XCTAssertEqual(server.state.count("poll"), 3)
+            XCTAssertEqual(sleeps.values, [1, 1, 1])
+        }
+    }
+
+    func testABodilessA429StillHonoursItsRetryAfterAsAFloor() async throws {
+        // C164-17: a proxy's `429` names no OAuth error. The status still decides, so the
+        // `Retry-After` is the floor of the next wait: `[interval, 7]`.
+        let sleeps = Sleeps()
+        let router = Self.makeRouter(
+            interval: 1, expiresIn: 600,
+            pollAnswers: [(429, [("Retry-After", "7")], Data("<html>slow down</html>".utf8)), Self.success])
+        try await withDeviceClient(router: router, sleeps: sleeps) { client, _ in
+            _ = try await client.deviceLogin { _ in }
+            XCTAssertEqual(sleeps.values, [1, 7])
+        }
+    }
+
+    // MARK: - §14.2 rule 6: a 5xx is a transport failure whatever its body
+
+    func testA500WithTheServersOwnBodyMidPollIsNotTerminal() async throws {
+        // C164-03: AXIAM answers a datastore fault `500 {"error":"server_error",…}`. The status
+        // is read before the body, so the loop keeps polling at the unchanged interval and the
+        // approved grant is not lost.
+        let sleeps = Sleeps()
+        let serverError = Self.answer(
+            500, [], ["error": "server_error", "error_description": "db"])
+        let router = Self.makeRouter(
+            interval: 1, expiresIn: 600,
+            pollAnswers: [Self.pending, serverError, serverError, Self.success])
+        try await withDeviceClient(router: router, sleeps: sleeps) { client, server in
+            let tokens = try await client.deviceLogin { _ in }
+            XCTAssertEqual(tokens.accessToken.expose(), "the-access-token")
+            XCTAssertEqual(server.state.count("poll"), 4)
+            XCTAssertEqual(sleeps.values, [1, 1, 1, 1])
+        }
+    }
+
+    func testASingleA500PollIsANetworkErrorWhateverItsBody() async throws {
+        let router = Self.makeRouter(
+            interval: 1, expiresIn: 600,
+            pollAnswers: [Self.answer(503, [], ["error": "temporarily_unavailable"])])
+        try await withDeviceClient(router: router, sleeps: Sleeps()) { client, _ in
+            do {
+                _ = try await client.devicePoll(deviceCode: Sensitive("the-device-code"))
+                XCTFail("expected a transport failure")
+            } catch let error as AxiamError {
+                guard case let .network(networkError) = error else {
+                    return XCTFail("a 5xx is the §2 NetworkError, not an AuthError")
+                }
+                XCTAssertEqual(networkError.statusCode, 503)
             }
         }
     }
