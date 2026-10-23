@@ -432,6 +432,53 @@ final class CibaTests: XCTestCase {
         XCTAssertEqual(clock.sleeps, [5, 20])
     }
 
+    /// C164-54: a `429 rate_limit_exceeded` (an OAuth body, so §16 does not retry it in the
+    /// poll) carries its `Retry-After` to the loop as the floor of the next wait: `[5, 20]`.
+    /// Without the 429 deferral the loop would wait the 5 s interval again.
+    func testT07BA429RateLimitRetryAfterIsTheFloorOfTheLoopsNextWait() async throws {
+        let clock = TestCibaClock()
+        let transport = RoutedTransport(stamp: { clock.elapsed })
+        let client = try await makeClient(transport)
+        let tokens = Self.tokens(transport)
+        transport.route("POST", "/oauth2/token", [
+            .json(429, object: ["error": "rate_limit_exceeded"], headers: [("Retry-After", "20")]),
+            tokens,
+        ])
+
+        _ = try await client.cibaAwait(
+            Self.response(expiresIn: 600, interval: 5, at: clock.start),
+            configuration: Self.configuration(),
+            clock: clock)
+        XCTAssertEqual(transport.requests("/oauth2/token").map(\.stamp), [5, 25])
+        XCTAssertEqual(clock.sleeps, [5, 20])
+    }
+
+    /// C164-54, the boundary: a `Retry-After` that lands exactly ON `receivedAt + expiresIn`
+    /// is not taken ("nothing at or after the deadline"). `expires_in` 25, interval 5,
+    /// `Retry-After: 20`: the in-poll wait is refused (5 + 20 = 25, not less), no `retry` event,
+    /// and the loop raises `expired_token` rather than polling at stamp 25.
+    func testT07BAWaitThatLandsExactlyOnTheDeadlineIsNotTaken() async throws {
+        let clock = TestCibaClock()
+        let recorder = EventRecorder()
+        let transport = RoutedTransport(stamp: { clock.elapsed })
+        transport.route("POST", "/oauth2/token", [
+            .json(503, object: ["error": "temporarily_unavailable"], headers: [("Retry-After", "20")]),
+        ])
+        let client = try await makeClient(transport, recorder: recorder)
+
+        do {
+            _ = try await client.cibaAwait(
+                Self.response(expiresIn: 25, interval: 5, at: clock.start),
+                configuration: Self.configuration(),
+                clock: clock)
+            XCTFail("the deadline must end the loop")
+        } catch let error as AxiamError {
+            XCTAssertTrue(error.isExpiredToken)
+        }
+        XCTAssertEqual(transport.requests("/oauth2/token").map(\.stamp), [5])
+        XCTAssertTrue(recorder.kinds.filter { $0 == "retry" }.isEmpty)
+    }
+
     /// A bare `cibaPoll` has no deadline: it keeps §16's bounded budget (three requests) and
     /// raises the 503 — P10 binds only the poll `cibaAwait` calls.
     func testABareCibaPollKeepsItsBoundedBudgetAndHasNoDeadline() async throws {
