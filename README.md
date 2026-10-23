@@ -1108,7 +1108,8 @@ Polling follows §14.2 exactly, and four of its rules are the ones implementatio
   failure whatever its body — AXIAM's own `500 {"error":"server_error"}` included. It is
   retried inside the poll under §16 (three attempts in all, jittered backoff, `Retry-After` a
   floor, off with `retryEnabled: false`, and never past the deadline); when that budget is spent
-  `deviceLogin` keeps polling at the same interval. Any `429` is waited out, whatever its body
+  `deviceLogin` keeps polling, waiting at least the 5xx's `Retry-After` and otherwise the same
+  interval. Any `429` is waited out, whatever its body
   names: `deviceLogin` waits `Retry-After` (a minimum, so a longer interval still wins) in place
   of that one interval, does **not** raise the interval for it (a `429 slow_down` included), and
   polls again; a wait that would pass the `expires_in` deadline ends the grant with

@@ -46,6 +46,16 @@ README states conformance at contract 1.64.
   in-poll wait that would pass the `expires_in` deadline is not taken. A single `devicePoll`
   therefore makes up to three requests on a `5xx`. A single `devicePoll` on a `429 slow_down` is
   covered by a test (it surfaces `rate_limit_exceeded`). The README's §16 text lists the poll.
+- **C164-38 / C164-41** (addendum round 2; tests, and one behaviour): transport failures on the
+  device poll are covered like 5xx (two failures then a `200` is three requests and the tokens;
+  three exhaust the cap; retry off is one request per poll; inside `deviceLogin` they complete
+  within one interval). `deviceLogin` is tested to pass its deadline into the poll (an in-poll
+  wait past `expires_in` is not taken, no `retry` event), a bodiless `429` is tested to be one
+  request with no in-poll retry, and a single `devicePoll` on one throws `NetworkError(429)`.
+  Behaviour: a `5xx`'s `Retry-After` is no longer dropped when §16's budget is spent or the
+  deadline refused an in-poll wait; it is the floor of `deviceLogin`'s next wait (which ends the
+  grant with `expired_token` at once if that wait would pass the deadline), as a `429`'s already
+  was.
 - **C164-14** (review of this PR): the adopted-device-bearer run of
   `Contract162Oauth2NoSessionCredentialTests` now ends with the management `POST` control and
   asserts `Authorization: Bearer …`.
