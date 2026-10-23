@@ -1102,12 +1102,16 @@ Polling follows §14.2 exactly, and four of its rules are the ones implementatio
   merely when the clock has already run out. `access_denied` and `expired_token` stay distinct:
   one means a human said no, the other that nobody answered, and only the second is worth
   retrying.
-- **A `429 rate_limit_exceeded` is waited out** (contract 1.64, rule 9). `deviceLogin` waits
-  `Retry-After` — a minimum, so a longer interval still wins — in place of that one interval,
-  does **not** raise the interval for it, and polls again; a wait that would pass the
-  `expires_in` deadline ends the grant with `expired_token` before anything more is sent. Only
-  the `400 slow_down` raises the interval. A single `devicePoll` call still throws the
-  `rate_limit_exceeded` `AuthError`; the loop is what waits.
+- **The status decides on a poll** (contract 1.64, rules 6 and 9). A `5xx` is a transport
+  failure whatever its body — AXIAM's own `500 {"error":"server_error"}` included — and
+  `deviceLogin` keeps polling at the same interval. Any `429` is waited out, whatever its body
+  names: `deviceLogin` waits `Retry-After` (a minimum, so a longer interval still wins) in place
+  of that one interval, does **not** raise the interval for it (a `429 slow_down` included), and
+  polls again; a wait that would pass the `expires_in` deadline ends the grant with
+  `expired_token` before anything more is sent. Only the `400 slow_down` raises the interval. A
+  single `devicePoll` call throws instead: a `5xx` as the `NetworkError`, a `429` with an OAuth
+  body as the `rate_limit_exceeded` `AuthError` (a `429` without one as the `NetworkError`); the
+  loop is what waits.
 
 Runnable: [`Examples/DeviceLogin`](Examples/DeviceLogin/main.swift).
 
