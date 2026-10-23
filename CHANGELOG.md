@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-23
+
+Contract 1.64 (§34.8, the 1.1.2 release). **No source-breaking change in this SDK**, so this is a
+patch release under the repository's rule: no public type, member or signature changes, and the
+one behaviour change (item (b)) turns an error the device loop used to raise into a wait. The
+contract adds no operation (202 in 29 namespaces). `CONTRACT.md`, `openapi.json`,
+`management-registry.json` and `proto/` are re-vendored byte for byte from ilpanich/axiam
+`fb92ec4` (branch `claude/release-1.1.2-w7`; `proto/` is unchanged, `opaque-test-vectors.json` is
+unchanged); `Scripts/gen_management.py --check` finds the committed §27 surface current. The
+README states conformance at contract 1.64.
+
+- **Item (b)** (§14.2 rule 9, last paragraph; §14.6): a `429 rate_limit_exceeded` on a poll is no
+  longer terminal in `deviceLogin`. The loop waits `Retry-After` (a minimum: the wait is the longer
+  of the interval and the header; capped by the deadline check, so a wait past `expires_in` raises
+  `expired_token` at once and sends nothing after it), counts that wait as one interval, does not
+  raise the interval, and polls again. The single `devicePoll` call is unchanged and still throws
+  the `rate_limit_exceeded` `AuthError`. The wait goes through the client's existing sleep seam, so
+  the new tests (`Contract164DeviceGrantRateLimitTests`) assert the recorded schedule, not a
+  stopwatch. The 1.63 §14.6 tests are unchanged.
+- **Item (c)** (the refusal at `plan` names the member, and the value where the SDK keeps it): no
+  port. §34.8 lists Swift among the SDKs with a text-less `Unknown`, but this SDK's
+  `ProfileRead` keeps the wire text of both open-enum members, so the refusal names the member
+  **and** the server's value, which the relaxed wording allows.
+- Items (a), (d) to (j) are informative and need no SDK change.
+- **C163-08** (issue #77): `Contract162Oauth2NoSessionCredentialTests` now sets
+  `Set-Cookie: axiam_csrf=…` on the login mock and, after the `/oauth2/*` calls, sends a
+  management `POST` (`groups.create`) asserted to carry the session `Cookie` (both cookies) and
+  `X-CSRF-Token`, so the absence asserted on `/oauth2/*` cannot pass for want of a session.
+- **C163-18** (issue #77): the README install snippets state the current version, 1.1.2
+  (`AxiamSDK.podspec` too).
+
 ## [1.1.1] - 2026-10-20
 
 Contract 1.63 (§34.7, the 1.1.1 release). **No source-breaking change in this SDK.**
