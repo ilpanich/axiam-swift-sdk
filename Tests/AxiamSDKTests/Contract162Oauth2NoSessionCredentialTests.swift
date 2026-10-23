@@ -152,6 +152,13 @@ final class Contract162Oauth2NoSessionCredentialTests: XCTestCase {
         _ = try await client.authenticateDevice()
         try await exerciseOauth2(client)
         assertNoSessionCredential(transport)
+
+        // C164-14, the control: the same client's next management request carries the adopted
+        // bearer, so the absence asserted above is the rule and not a credential never adopted.
+        _ = try await client.groups.create(body: CreateGroupRequest(description: "", name: "ops"))
+        let post = try XCTUnwrap(transport.requests.last { $0.path.hasSuffix("/api/v1/groups") })
+        let auth = post.headers.first { $0.0.caseInsensitiveCompare("Authorization") == .orderedSame }?.1
+        XCTAssertEqual(auth, "Bearer device-bearer-tok")
     }
 
     private func exerciseOauth2(_ client: AxiamClient) async throws {
