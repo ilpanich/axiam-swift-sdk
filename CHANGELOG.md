@@ -56,6 +56,13 @@ README states conformance at contract 1.64.
   deadline refused an in-poll wait; it is the floor of `deviceLogin`'s next wait (which ends the
   grant with `expired_token` at once if that wait would pass the deadline), as a `429`'s already
   was.
+- **C164-43** (addendum round 3; §33.7 rule 5, §34.2 P10, §33.8 test 7; pre-existing): the §16
+  retry inside the poll that `cibaAwait` makes no longer waits past the request's deadline. With
+  `expires_in` 30 and every poll answered `503` + `Retry-After: 120`, requests used to go at 125 s
+  and 245 s; now one goes at the first interval, no retry is slept, and `expired_token` is raised
+  at once. `cibaAwait` passes its deadline and its injected clock into the poll's retry, and a
+  `5xx` or `429`'s `Retry-After` is the floor of the loop's next wait (as for the device grant). A
+  bare `cibaPoll` has no deadline and keeps §16's bounded budget. No public signature changes.
 - **C164-14** (review of this PR): the adopted-device-bearer run of
   `Contract162Oauth2NoSessionCredentialTests` now ends with the management `POST` control and
   asserts `Authorization: Bearer …`.
