@@ -515,8 +515,11 @@ extension AxiamClient {
     /// - `slow_down` adds 5 s to the interval, cumulatively and permanently;
     ///   `authorization_pending` never lowers it.
     /// - A transport failure, `408`, `429` or `5xx` (with or without an `error` member) that
-    ///   outlived §16 is not terminal: the loop waits the interval and polls again. A `4xx`
-    ///   without an `error` member is decisive and ends the loop.
+    ///   outlived §16 is not terminal: the loop waits the interval or the answer's
+    ///   `Retry-After`, whichever is longer, and polls again. A §16 wait or a loop wait that
+    ///   would reach `receivedAt + expiresIn` is not taken: nothing more is sent and
+    ///   `expired_token` is raised at once (§34.2 P10). A `4xx` without an `error` member is
+    ///   decisive and ends the loop.
     /// - **Anything that fails after a `2xx`** — a body that does not decode, an ID token that
     ///   does not validate, the key fetch validation needs — ends the loop with that failure:
     ///   the request is already redeemed, and polling again could only earn `invalid_grant`
@@ -651,7 +654,8 @@ extension AxiamClient {
         case pending
         /// `slow_down` — add 5 s to the interval, for good.
         case slowDown
-        /// A transport failure, `5xx`, `408` or `429` that outlived §16 — wait one interval.
+        /// A transport failure, `5xx`, `408` or `429` that outlived §16 — wait one interval (or
+        /// the answer's `Retry-After`, if longer).
         case transient
         /// Anything else is the answer.
         case terminal

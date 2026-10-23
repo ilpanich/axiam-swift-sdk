@@ -63,6 +63,12 @@ README states conformance at contract 1.64.
   at once. `cibaAwait` passes its deadline and its injected clock into the poll's retry, and a
   `5xx` or `429`'s `Retry-After` is the floor of the loop's next wait (as for the device grant). A
   bare `cibaPoll` has no deadline and keeps §16's bounded budget. No public signature changes.
+- **C164-54** (addendum round 4; text and test strength, no behaviour change): the `cibaAwait`
+  doc comment and the README's CIBA paragraph now say that the next wait is the interval or the
+  answer's `Retry-After`, whichever is longer, and that a §16 or loop wait that would reach
+  `receivedAt + expiresIn` is never taken (`expired_token` at once, §34.2 P10). New tests pin
+  the two surviving mutants: a `429 rate_limit_exceeded` + `Retry-After` is the floor of the
+  loop's wait (`[5, 20]`), and a wait that lands exactly on the deadline is not taken.
 - **C164-14** (review of this PR): the adopted-device-bearer run of
   `Contract162Oauth2NoSessionCredentialTests` now ends with the management `POST` control and
   asserts `Authorization: Bearer …`.

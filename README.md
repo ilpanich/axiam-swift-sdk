@@ -2531,7 +2531,10 @@ _ = try await client.cibaInitiate(CibaInitiateRequest(
 
 `cibaAwait` treats a transport failure, `408`, `429` and any `5xx` — with or without an
 `error` member, AXIAM's own `500 {"error":"server_error"}` included — as transient, and a
-`4xx` without an `error` member as decisive (contract 1.59, §34.2 P8, P9). **Anything that
+`4xx` without an `error` member as decisive (contract 1.59, §34.2 P8, P9). The next wait is the
+interval or the answer's `Retry-After`, whichever is longer, and a §16 retry wait or a loop
+wait that would reach `receivedAt + expiresIn` is never taken: nothing more is sent and
+`expired_token` is raised at once (§34.2 P10; a bare `cibaPoll` has no deadline). **Anything that
 fails after the `200`** — a body that does not decode, an ID token that does not validate, the
 key fetch validation needs — ends the loop with that failure: the request is already
 redeemed, so polling again could only earn `invalid_grant`. Start a new request.
