@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-23
+
+Contract 1.64 (§34.8, the 1.1.2 release). **No source-breaking change in this SDK**, so this is a
+patch release under the repository's rule: no public type, member or signature changes, and the
+one behaviour change (item (b)) turns an error the device loop used to raise into a wait. The
+contract adds no operation (202 in 29 namespaces). `CONTRACT.md` is re-vendored byte for byte from
+ilpanich/axiam `b3f8687` (contract 1.64 as amended twice on 2026-10-23; branch
+`claude/release-1.1.2-w7`),
+`openapi.json` and `management-registry.json` from `356a6da` (platform PR #793 merge); `proto/` and
+`opaque-test-vectors.json` are unchanged; `Scripts/gen_management.py --check` finds the committed §27 surface current. The
+README states conformance at contract 1.64.
+
+- **Item (b)** (§14.2 rule 9, last paragraph; §14.6): a `429 rate_limit_exceeded` on a poll is no
+  longer terminal in `deviceLogin`. The loop waits `Retry-After` (a minimum: the wait is the longer
+  of the interval and the header; capped by the deadline check, so a wait past `expires_in` raises
+  `expired_token` at once and sends nothing after it), counts that wait as one interval, does not
+  raise the interval, and polls again. The single `devicePoll` call is unchanged and still throws
+  the `rate_limit_exceeded` `AuthError`. The wait goes through the client's existing sleep seam, so
+  the new tests (`Contract164DeviceGrantRateLimitTests`) assert the recorded schedule, not a
+  stopwatch. The 1.63 §14.6 tests are unchanged.
+- **Contract 1.64 (amended): the status decides on a device poll** (§14.2 rules 6 and 9;
+  C164-03, C164-04, C164-17). Behaviour changes, none of them a signature change:
+  - A `5xx` on a poll is a transport failure whatever its body. `500 {"error":"server_error"}`
+    used to end `deviceLogin` with a terminal `AuthError`; it now keeps polling at the unchanged
+    interval. A single `devicePoll` that meets a `5xx` throws the §2 `NetworkError` (with its
+    `statusCode`) where it threw an `AuthError` with `oauthError == "server_error"` for a `5xx`
+    carrying an OAuth body; a caller driving its own loop should treat both as "keep going".
+  - Any `429` on a poll is the rule-9 wait. `429 {"error":"slow_down"}` no longer raises the
+    interval, and a bodiless `429` (a proxy's) honours its `Retry-After` as a floor. A single
+    `devicePoll` throws a `429` with an OAuth body as `rate_limit_exceeded`, and one without as
+    the §2 `NetworkError` with `statusCode: 429`.
+- **C164-25 / C164-33** (addendum round 1): a `5xx` or transport failure on the device poll is
+  now retried **inside the attempt** under §16 (three attempts in all, 200 ms base, full jitter,
+  `Retry-After` a floor, a `retry` telemetry event per retry; off with `retryEnabled: false`),
+  as §14.2 rule 6 and §16.2 require; before, the poll was one request and only the loop's next
+  interval retried it. A `429` is never retried inside the poll (it is rule 9's wait), and an
+  in-poll wait that would pass the `expires_in` deadline is not taken. A single `devicePoll`
+  therefore makes up to three requests on a `5xx`. A single `devicePoll` on a `429 slow_down` is
+  covered by a test (it surfaces `rate_limit_exceeded`). The README's §16 text lists the poll.
+- **C164-38 / C164-41** (addendum round 2; tests, and one behaviour): transport failures on the
+  device poll are covered like 5xx (two failures then a `200` is three requests and the tokens;
+  three exhaust the cap; retry off is one request per poll; inside `deviceLogin` they complete
+  within one interval). `deviceLogin` is tested to pass its deadline into the poll (an in-poll
+  wait past `expires_in` is not taken, no `retry` event), a bodiless `429` is tested to be one
+  request with no in-poll retry, and a single `devicePoll` on one throws `NetworkError(429)`.
+  Behaviour: a `5xx`'s `Retry-After` is no longer dropped when §16's budget is spent or the
+  deadline refused an in-poll wait; it is the floor of `deviceLogin`'s next wait (which ends the
+  grant with `expired_token` at once if that wait would pass the deadline), as a `429`'s already
+  was.
+- **C164-43** (addendum round 3; §33.7 rule 5, §34.2 P10, §33.8 test 7; pre-existing): the §16
+  retry inside the poll that `cibaAwait` makes no longer waits past the request's deadline. With
+  `expires_in` 30 and every poll answered `503` + `Retry-After: 120`, requests used to go at 125 s
+  and 245 s; now one goes at the first interval, no retry is slept, and `expired_token` is raised
+  at once. `cibaAwait` passes its deadline and its injected clock into the poll's retry, and a
+  `5xx` or `429`'s `Retry-After` is the floor of the loop's next wait (as for the device grant). A
+  bare `cibaPoll` has no deadline and keeps §16's bounded budget. No public signature changes.
+- **C164-54** (addendum round 4; text and test strength, no behaviour change): the `cibaAwait`
+  doc comment and the README's CIBA paragraph now say that the next wait is the interval or the
+  answer's `Retry-After`, whichever is longer, and that a §16 or loop wait that would reach
+  `receivedAt + expiresIn` is never taken (`expired_token` at once, §34.2 P10). New tests pin
+  the two surviving mutants: a `429 rate_limit_exceeded` + `Retry-After` is the floor of the
+  loop's wait (`[5, 20]`), and a wait that lands exactly on the deadline is not taken.
+- **C164-14** (review of this PR): the adopted-device-bearer run of
+  `Contract162Oauth2NoSessionCredentialTests` now ends with the management `POST` control and
+  asserts `Authorization: Bearer …`.
+- **Item (c)** (the refusal at `plan` names the member, and the value where the SDK keeps it): no
+  port. §34.8 lists Swift among the SDKs with a text-less `Unknown`, but this SDK's
+  `ProfileRead` keeps the wire text of both open-enum members, so the refusal names the member
+  **and** the server's value, which the relaxed wording allows.
+- Items (a), (d) to (j) are informative and need no SDK change.
+- **C163-08** (issue #77): `Contract162Oauth2NoSessionCredentialTests` now sets
+  `Set-Cookie: axiam_csrf=…` on the login mock and, after the `/oauth2/*` calls, sends a
+  management `POST` (`groups.create`) asserted to carry the session `Cookie` (both cookies) and
+  `X-CSRF-Token`, so the absence asserted on `/oauth2/*` cannot pass for want of a session.
+- **C163-18** (issue #77): the README install snippets state the current version, 1.1.2
+  (`AxiamSDK.podspec` too).
+
 ## [1.1.1] - 2026-10-20
 
 Contract 1.63 (§34.7, the 1.1.1 release). **No source-breaking change in this SDK.**

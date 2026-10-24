@@ -31,6 +31,10 @@ enum BareRetry: Sendable {
     /// A `5xx` is retried with or without an `error` member: AXIAM answers an internal failure
     /// `500 {"error":"server_error"}` (CONTRACT.md §34.2 P8).
     case section16UnlessOAuthError
+    /// §16 for a transport failure or a `5xx` ONLY (§16.2's `device_poll` row, §14.2 rule 6): a
+    /// `408` or `429` is decisive here. A `429` on a device poll is rule 9's wait, taken by the
+    /// polling loop; retrying it inside the poll as well would wait twice.
+    case section16TransportOnly
 }
 
 extension AxiamClient {
@@ -47,13 +51,16 @@ extension AxiamClient {
         url: URL,
         headers: [(String, String)],
         body: Data?,
-        retry: BareRetry
+        retry: BareRetry,
+        deadline: Date? = nil,
+        now: @Sendable () -> Date = { Date() }
     ) async throws -> HTTPResponseData {
         try ensureOpen()
         let retryable: Bool
         switch retry {
         case .never: retryable = false
-        case .section16, .section16UnlessOAuthError: retryable = config.retryEnabled
+        case .section16, .section16UnlessOAuthError, .section16TransportOnly:
+            retryable = config.retryEnabled
         }
         let budget = retryable ? Retry.maxAttempts : 1
 
@@ -90,6 +97,17 @@ extension AxiamClient {
             if !isLast, Self.bareShouldRetry(response, retry: retry) {
                 let hint = Retry.retryAfter(response?.firstHeader("retry-after"))
                 let wait = Retry.delay(attempt: attempt, retryAfter: hint, fraction: _jitter())
+                // §14.2 rule 4: a wait inside a poll must not carry the next request past the
+                // grant's deadline. Surface this failure instead of sleeping into it, and let
+                // the loop decide (it ends with `expired_token` and sends nothing more).
+                // `now` is the caller's injected clock when it has one (CIBA's, §34.2 P10).
+                if let deadline, now().addingTimeInterval(wait) >= deadline {
+                    if let thrown { throw thrown }
+                    guard let response else {
+                        throw AxiamError.network(NetworkError("no response from transport"))
+                    }
+                    return response
+                }
                 telemetry.emit(.retry(
                     operation: operation, attempt: attempt, delay: wait,
                     reason: status.map { "HTTP \($0)" } ?? "transport failure"))
@@ -115,6 +133,9 @@ extension AxiamClient {
             return false
         case .section16:
             return Retry.shouldRetry(status: response?.status)
+        case .section16TransportOnly:
+            guard let response else { return true }
+            return response.status >= 500
         case .section16UnlessOAuthError:
             guard Retry.shouldRetry(status: response?.status) else { return false }
             guard let response else { return true }

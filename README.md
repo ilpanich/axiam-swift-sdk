@@ -12,7 +12,7 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to contract 1.63 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
+> **This SDK conforms to contract 1.64 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
 > §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33
 > and §36, with §32.7 and §33.2 signed (including §6.1 mTLS —
 > now including rules 6–10, the mTLS device login `authenticateDevice()` — §5.2 rule 1's
@@ -163,7 +163,7 @@ mutual TLS work on **Linux** as well as Apple platforms) and
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ilpanich/axiam-swift-sdk.git", from: "1.1.1")
+    .package(url: "https://github.com/ilpanich/axiam-swift-sdk.git", from: "1.1.2")
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
@@ -175,7 +175,7 @@ targets: [
 ### CocoaPods
 
 ```ruby
-pod 'AxiamSDK', '~> 1.1.1'
+pod 'AxiamSDK', '~> 1.1.2'
 ```
 
 ## Supported Swift versions
@@ -877,7 +877,9 @@ about *reporting*, not enforcement.
 ## Retry, memo, shutdown and telemetry (§16–§19)
 
 Retry is **on by default** and applies only to operations that change no server state —
-`checkAccess`, `can`, `batchCheck` and the JWKS fetch. That is not the same as "HTTP GET": the
+`checkAccess`, `can`, `batchCheck`, the JWKS fetch and the device-grant poll (`devicePoll`, on a
+transport failure or a `5xx` only — a `429` is the polling loop's wait, never retried inside the
+poll; see the device grant section). That is not the same as "HTTP GET": the
 authorization check is a `POST` with a body and is the operation this policy exists for. `login`,
 `verifyMfa`, `logout` and `refresh` are never retried automatically, both because they change
 state and because their credentials are single-use.
@@ -1092,7 +1094,7 @@ with a §6.1 certificate presents it on the connection and sends no secret. The 
 generate `private_key_jwt` assertions (§21.8) or DPoP proofs (§21.9), so a client registered for
 either cannot be driven from here: its poll is refused `invalid_client` and surfaces that way.
 
-Polling follows §14.2 exactly, and three of its rules are the ones implementations get wrong:
+Polling follows §14.2 exactly, and four of its rules are the ones implementations get wrong:
 
 - **`slow_down` raises the interval permanently**, by 5 s, and never resets it. Backing off for
   one round and returning to the original interval earns another `slow_down`, forever.
@@ -1102,6 +1104,19 @@ Polling follows §14.2 exactly, and three of its rules are the ones implementati
   merely when the clock has already run out. `access_denied` and `expired_token` stay distinct:
   one means a human said no, the other that nobody answered, and only the second is worth
   retrying.
+- **The status decides on a poll** (contract 1.64, rules 6 and 9). A `5xx` is a transport
+  failure whatever its body — AXIAM's own `500 {"error":"server_error"}` included. It is
+  retried inside the poll under §16 (three attempts in all, jittered backoff, `Retry-After` a
+  floor, off with `retryEnabled: false`, and never past the deadline); when that budget is spent
+  `deviceLogin` keeps polling, waiting at least the 5xx's `Retry-After` and otherwise the same
+  interval. Any `429` is waited out, whatever its body
+  names: `deviceLogin` waits `Retry-After` (a minimum, so a longer interval still wins) in place
+  of that one interval, does **not** raise the interval for it (a `429 slow_down` included), and
+  polls again; a wait that would pass the `expires_in` deadline ends the grant with
+  `expired_token` before anything more is sent. Only the `400 slow_down` raises the interval. A
+  single `devicePoll` call throws instead: a `5xx` as the `NetworkError`, a `429` with an OAuth
+  body as the `rate_limit_exceeded` `AuthError` (a `429` without one as the `NetworkError`); the
+  loop is what waits.
 
 Runnable: [`Examples/DeviceLogin`](Examples/DeviceLogin/main.swift).
 
@@ -2516,7 +2531,10 @@ _ = try await client.cibaInitiate(CibaInitiateRequest(
 
 `cibaAwait` treats a transport failure, `408`, `429` and any `5xx` — with or without an
 `error` member, AXIAM's own `500 {"error":"server_error"}` included — as transient, and a
-`4xx` without an `error` member as decisive (contract 1.59, §34.2 P8, P9). **Anything that
+`4xx` without an `error` member as decisive (contract 1.59, §34.2 P8, P9). The next wait is the
+interval or the answer's `Retry-After`, whichever is longer, and a §16 retry wait or a loop
+wait that would reach `receivedAt + expiresIn` is never taken: nothing more is sent and
+`expired_token` is raised at once (§34.2 P10; a bare `cibaPoll` has no deadline). **Anything that
 fails after the `200`** — a body that does not decode, an ID token that does not validate, the
 key fetch validation needs — ends the loop with that failure: the request is already
 redeemed, so polling again could only earn `invalid_grant`. Start a new request.
