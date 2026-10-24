@@ -15,7 +15,7 @@ one behaviour change (item (b)) turns an error the device loop used to raise int
 contract adds no operation (202 in 29 namespaces). `CONTRACT.md` is re-vendored byte for byte from
 ilpanich/axiam `b3f8687` (contract 1.64 as amended twice on 2026-10-23; branch
 `claude/release-1.1.2-w7`),
-`openapi.json` and `management-registry.json` from `fb92ec4` (unchanged since); `proto/` and
+`openapi.json` and `management-registry.json` from `356a6da` (platform PR #793 merge); `proto/` and
 `opaque-test-vectors.json` are unchanged; `Scripts/gen_management.py --check` finds the committed §27 surface current. The
 README states conformance at contract 1.64.
 
