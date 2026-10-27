@@ -286,9 +286,9 @@ extension AxiamClient {
         document: OidcConfiguration,
         expectedNonce: String?
     ) async throws -> IdTokenClaims {
-        let verified: VerifiedToken
+        // Only the throw matters here: the claims are re-read below from the token itself.
         do {
-            verified = try await jwks.verifySignatureOnlyUnchecked(token: idToken)
+            _ = try await jwks.verifySignatureOnlyUnchecked(token: idToken)
         } catch {
             // The verifier's failures are already the rule 1/2 set; it distinguishes them in its
             // message. Mapping them here would need a second classification of the same failure.
