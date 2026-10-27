@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Dependency and toolchain refresh. **The Swift floor moves from 5.9 to 6.2**, which is a
+consumer-visible change: a Swift 5.9/5.10 toolchain (Xcode 15) can no longer resolve the package.
+No public type, member or signature of the SDK changes.
+
+### Changed
+
+- **Swift floor 5.9 → 6.2** (`swift-tools-version` in `Package.swift`,
+  `SupportedVersions.minimumSwiftToolsVersion`, the lower CI leg, the podspec). 6.2 is the Swift in
+  Xcode 26, the oldest Xcode App Store Connect accepts since 2026-04-28, and the oldest Swift the
+  current swift-crypto (5.x) and async-http-client (1.36.x) releases support. A 5.9 toolchain was
+  already resolving dependency releases from 2024 (swift-nio has required 6.1 since 2.98.0).
+- **Newest tested Swift 6.3 → 6.4** (`SupportedVersions.newestTestedSwift`, the upper CI leg). 6.4
+  now has an official Linux image; the coverage and docs workflows move from `swift:5.10-jammy`
+  to `swift:6.4-jammy` with it.
+- **One manifest.** `Package@swift-6.0.swift` is removed. It existed only to carry
+  `.swiftLanguageMode(.v6)` while the floor was 5.9; at a 6.2 floor `Package.swift` carries the
+  setting on every target itself, and a version-specific manifest would only shadow it. Every
+  target is still built in Swift 6 language mode. `VersionPolicyTests` drops the manifest-parity
+  checks and now fails if any `Package@swift-*.swift` reappears, and checks that the coverage and
+  docs workflow containers sit inside the supported range.
+- **Dependencies** (lower bounds, `Package.swift` and the podspec): async-http-client 1.21.0 →
+  1.36.2, swift-nio-ssl 2.25.0 → 2.37.5, swift-nio 2.62.0 → 2.104.0, swift-docc-plugin 1.3.0 →
+  1.5.0, and swift-crypto `from: "3.2.0"` (3.x only) → `"4.0.0"..<"6.0.0"` (resolves 5.0.3).
+  swift-crypto 4 and 5 change no API this SDK uses; the range follows swift-crypto's own guidance
+  and matches swift-certificates'.
+- **`_CryptoExtras` → `CryptoExtras`.** swift-crypto 4.0 renamed the product; the SDK and its tests
+  now import the non-underscored module. The old name is a compatibility alias upstream, so
+  nothing changes for consumers.
+- Platforms are unchanged: macOS 13+, iOS 16+, Linux.
+
+### CI
+
+- The coverage workflow's lcov export also accepts `AxiamSDKTests.so`, the test object
+  swiftbuild (SwiftPM's default build system since Swift 6.4) emits in place of an `.xctest`, and
+  fails with a message if it finds neither. The 92% line-coverage floor is unchanged (95.20%
+  locally on 6.4.1).
+- The docs workflow builds DocC with `--build-system native`: under swiftbuild the DocC plugin's
+  symbol extraction fails in swift-nio-extras' bundled zlib headers.
+
+### Fixed
+
+- An unused `verified` binding in id_token validation that Swift 6.4 reports as a warning. Only
+  the verifier's throw was ever used; behaviour is unchanged.
+
 ## [1.1.2] - 2026-10-23
 
 Contract 1.64 (§34.8, the 1.1.2 release). **No source-breaking change in this SDK**, so this is a
