@@ -1,6 +1,6 @@
 import Crypto
 import Foundation
-import _CryptoExtras
+import CryptoExtras
 
 /// What the caller proved about **this** connection and **this** request, for
 /// ``AxiamRequestAuthenticator/verifyTokenBinding(_:proofs:)``.

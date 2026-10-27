@@ -9,7 +9,7 @@ jobs:
   coverage:
     name: code coverage → Coveralls
     runs-on: ubuntu-latest
-    container: swift:5.10-jammy
+    container: swift:6.4-jammy
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
@@ -27,8 +27,15 @@ jobs:
           set -euo pipefail
           BIN_PATH="$(swift build --show-bin-path)"
           PROFDATA="$(find .build -name 'default.profdata' | head -n1)"
-          XCTEST="$(find "$BIN_PATH" -name '*.xctest' -type f | head -n1)"
+          # The instrumented test object. SwiftPM's native build system emits a
+          # `<Package>PackageTests.xctest` executable; swiftbuild — the default
+          # since Swift 6.4 — emits `<Target>.so` plus a separate test runner, and
+          # no .xctest at all. Accept either, and fail loudly on neither, rather
+          # than hand llvm-cov an empty path.
+          XCTEST="$(find "$BIN_PATH" -maxdepth 1 -type f \( -name '*.xctest' -o -name 'AxiamSDKTests.so' \) | head -n1)"
           echo "bin=$BIN_PATH profdata=$PROFDATA xctest=$XCTEST"
+          test -n "$PROFDATA" || { echo "::error::no default.profdata under .build"; exit 1; }
+          test -n "$XCTEST" || { echo "::error::no instrumented test object in $BIN_PATH"; exit 1; }
 
           # The full report — what Coveralls and the artifact get. Nothing is
           # hidden from it.

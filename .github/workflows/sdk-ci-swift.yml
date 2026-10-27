@@ -15,36 +15,33 @@ jobs:
       fail-fast: false
       matrix:
         # The gating matrix is floor + newest. The floor is the
-        # `swift-tools-version` in Package.swift (5.9); the newest is the
-        # latest Swift with an official Linux image (6.3 — 6.4 exists for
-        # Apple platforms but has no Linux container yet).
+        # `swift-tools-version` in Package.swift (6.2 — the Swift in Xcode 26,
+        # the oldest Xcode App Store Connect accepts, and the oldest Swift the
+        # current swift-crypto and async-http-client releases support); the
+        # newest is the latest GA Swift with an official Linux image (6.4).
         #
-        # These two legs do NOT compile the same way, and that is the point.
-        # SwiftPM picks the manifest by toolchain: 5.9 sees only Package.swift
-        # and builds in Swift 5 language mode, while 6.3 picks up
-        # Package@swift-6.0.swift and builds this package's targets in **Swift 6
-        # language mode**, where the strict-concurrency rules are errors rather
-        # than warnings. So the floor leg proves the SDK still builds for
-        # consumers on 5.9, and the newest leg proves it is actually
-        # data-race-safe rather than merely un-analysed.
+        # Both legs build every target in Swift 6 language mode from the one
+        # Package.swift. The floor leg proves the SDK still resolves and builds
+        # for consumers on the oldest supported toolchain; the newest leg
+        # proves it keeps compiling clean as the compiler's concurrency
+        # checking tightens. 6.3 sits between two green legs.
         #
-        # 5.10 sits between two green legs. PackageManifestParityTests fails
-        # the build if the two manifests ever describe different packages.
-        swift: ['5.9', '6.3']
+        # VersionPolicyTests asserts this list against Package.swift and
+        # SupportedVersions.
+        swift: ['6.2', '6.4']
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
       - name: Swift version
         run: swift --version
 
-      # Says out loud which manifest SwiftPM selected — 5.9 on the floor leg,
-      # 6.0 on the newest — so a leg that silently fell back to Package.swift,
-      # and therefore tested nothing it was added to test, is visible in the log
+      # Says out loud which tools-version SwiftPM read, so a stray
+      # version-specific manifest shadowing Package.swift is visible in the log
       # rather than just green.
       #
       # A bare command, not a script: these containers run steps under `sh -e`
       # (dash), where `set -o pipefail` is an error.
-      - name: Manifest in effect (tools-version selected by this toolchain)
+      - name: Manifest in effect (tools-version read by this toolchain)
         run: swift package tools-version
 
       - name: Build

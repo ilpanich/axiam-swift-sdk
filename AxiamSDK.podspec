@@ -14,13 +14,15 @@ Pod::Spec.new do |s|
   s.author           = { 'AXIAM' => 'noreply@axiam.dev' }
   s.source           = { :git => 'https://github.com/ilpanich/axiam-swift-sdk.git', :tag => "v#{s.version}" }
 
-  s.swift_version    = '5.9'
+  # The Swift *language* version CocoaPods builds the sources in; SwiftPM's floor is
+  # tools-version 6.2 (Package.swift), and every target there is in Swift 6 mode.
+  s.swift_version    = '6.0'
   s.osx.deployment_target = '13.0'
   s.ios.deployment_target = '16.0'
 
   s.source_files     = 'Sources/AxiamSDK/**/*.swift'
 
-  s.dependency 'AsyncHTTPClient', '~> 1.21'
-  s.dependency 'SwiftNIOSSL', '~> 2.25'
-  s.dependency 'swift-crypto', '~> 3.2'
+  s.dependency 'AsyncHTTPClient', '~> 1.36', '>= 1.36.2'
+  s.dependency 'SwiftNIOSSL', '~> 2.37', '>= 2.37.5'
+  s.dependency 'swift-crypto', '>= 4.0', '< 6.0'
 end

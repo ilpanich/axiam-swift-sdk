@@ -1,6 +1,6 @@
 import Foundation
 import Crypto
-import _CryptoExtras
+import CryptoExtras
 
 // CONTRACT.md §33 — CIBA, client-initiated backchannel authentication (contract 1.58; CIBA
 // Core 1.0, poll and ping modes).
