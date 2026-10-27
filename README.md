@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/ilpanich/axiam-swift-sdk/actions/workflows/sdk-ci-swift.yml/badge.svg?branch=main)](https://github.com/ilpanich/axiam-swift-sdk/actions/workflows/sdk-ci-swift.yml)
 [![Coverage Status](https://coveralls.io/repos/github/ilpanich/axiam-swift-sdk/badge.svg?branch=main)](https://coveralls.io/github/ilpanich/axiam-swift-sdk?branch=main)
-[![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
+[![Swift](https://img.shields.io/badge/Swift-6.2%2B-orange.svg)](https://swift.org)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20iOS%20%7C%20Linux-lightgrey.svg)](https://swift.org)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![SPM](https://img.shields.io/badge/SwiftPM-compatible-brightgreen.svg)](https://swift.org/package-manager)
@@ -55,7 +55,7 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 > read-modify-write helpers. Two sections are **MAY** for Swift and ship anyway: §32.7's SSF
 > receiver helper (`SsfReceiver`) and §33's CIBA helpers (`cibaInitiate`, `cibaPoll`,
 > `cibaAwait`, `cibaHandlePing`), including the §33.2 signed request under **all three**
-> algorithms — PS256 (`_CryptoExtras`, already a dependency for DPoP), ES256 and EdDSA. No
+> algorithms — PS256 (`CryptoExtras`, already a dependency for DPoP), ES256 and EdDSA. No
 > carve-out: nothing in these sections is declined. All three algorithms are round-tripped end
 > to end by the suite (signed by the SDK, verified with the caller's public key).
 >
@@ -182,34 +182,39 @@ pod 'AxiamSDK', '~> 1.1.2'
 
 | | Version | Why this one |
 |---|---|---|
-| **Floor** | 5.9 | The `swift-tools-version` in `Package.swift`. SwiftPM refuses to resolve the package on anything older. Exported as `SupportedVersions.minimumSwiftToolsVersion`. |
-| **Newest** | 6.3 | The newest Swift with an official Linux container image, which is what CI runs. (6.4 exists for Apple platforms but has no Linux image yet.) |
+| **Floor** | 6.2 | The `swift-tools-version` in `Package.swift`. SwiftPM refuses to resolve the package on anything older. It is the Swift in Xcode 26 — the oldest Xcode App Store Connect accepts since April 2026 — and the oldest Swift the current swift-crypto (5.x) and async-http-client (1.36) releases support. Exported as `SupportedVersions.minimumSwiftToolsVersion`. |
+| **Newest** | 6.4 | The newest GA Swift (Xcode 27), with an official Linux container image, which is what CI runs. Exported as `SupportedVersions.newestTestedSwift`. |
 
-Swift 5.10 sits between the two and is supported — it also runs the full suite
-under the Coverage and docs workflows.
+Swift 6.3 sits between the two and is supported. The coverage and docs workflows
+run on 6.4.
+
+**Platforms:** macOS 13+, iOS 16+ and Linux, unchanged. Xcode 26 and 27 still build
+for those deployment targets.
+
+> **The floor moved from 5.9 to 6.2 after 1.1.x.** Swift 5.9/5.10 toolchains (Xcode
+> 15) can no longer resolve the package. Those toolchains were already stuck on
+> dependency releases from 2024: swift-nio has required 6.1 since 2.98.0, and
+> swift-crypto 6.2 since 5.0.0. Stay on AxiamSDK 1.1.x if you cannot move.
 
 **The floor enforces itself; the ceiling does not.** SwiftPM reads
 `swift-tools-version` before resolving anything, so an old toolchain refuses the
 package with a clear message. Nothing does the equivalent at the top: a package
-declaring tools-version 5.9 resolves and builds on a Swift 6 toolchain whether
-or not anybody ever compiled it there — and the differences that matter there
-(strict concurrency, `Sendable` inference, isolation checking) are exactly the
-ones that surface as errors only when someone tries.
+resolves and builds on a newer toolchain whether or not anybody ever compiled it
+there — and the differences that matter there (strict concurrency, `Sendable`
+inference, isolation checking) are exactly the ones that surface as errors only
+when someone tries.
 
-### Two manifests, and Swift 6 language mode
+### One manifest, and Swift 6 language mode
 
-The package ships **both** `Package.swift` (tools-version 5.9) and
-`Package@swift-6.0.swift` (tools-version 6.0). SwiftPM selects by toolchain
-automatically:
+The package ships a single `Package.swift` at tools-version 6.2, and every target
+in it sets `.swiftLanguageMode(.v6)`: **full strict-concurrency checking** on every
+supported toolchain — data-race safety enforced as errors, not deferred as warnings.
 
-| Your toolchain | Manifest selected | Language mode |
-|---|---|---|
-| 5.9, 5.10 | `Package.swift` | Swift 5 |
-| 6.0+ | `Package@swift-6.0.swift` | **Swift 6** |
-
-That is what lets the SDK keep a 5.9 floor while compiling under **full
-strict-concurrency checking** wherever a 6.x toolchain is present — data-race safety
-enforced as errors, not deferred as warnings.
+Up to 1.1.x the floor was 5.9, which cannot express `.swiftLanguageMode`, so a
+second, version-specific `Package@swift-6.0.swift` carried the language mode for 6.x
+toolchains and a test kept the two manifests identical by hand. With the floor at
+6.2 that file would only shadow `Package.swift` on every supported toolchain, so it
+is gone — and `VersionPolicyTests` fails if a `Package@swift-*.swift` ever comes back.
 
 **Every target is in Swift 6 language mode** — the library, all fourteen examples,
 and the test suite — and all of them compile with zero diagnostics. "This SDK is
@@ -231,7 +236,7 @@ Nothing was migrated with `nonisolated(unsafe)`. The two remaining `@unchecked
 Sendable` conformances in the harness are NIO handler state guarded by the event
 loop, and each states its invariant at the declaration.
 
-> **Opting a target out has to be explicit.** Under `swift-tools-version: 6.0`,
+> **Opting a target out has to be explicit.** Under `swift-tools-version: 6.x`,
 > Swift 6 is the *default* language mode for every target — omitting
 > `.swiftLanguageMode` does not opt a target out, it leaves it at the default, and
 > *deleting* the setting from a target is therefore not how you revert one. Only an
@@ -242,19 +247,10 @@ loses the mode, if any target is pinned back to `.v5`, and — reading the compi
 rather than the manifest, via `#if swift(>=6.0)` — if the suite itself is somehow
 compiled in Swift 5 mode anyway.
 
-The alternatives were worse and are worth naming, because both look reasonable
-until you try them. `swift build -Xswiftc -swift-version -Xswiftc 6` applies to
-*every* target in the dependency graph, including swift-nio and
-async-http-client, which are not built for it. And `.unsafeFlags` in
-`swiftSettings` makes a package unusable as a dependency at all — it would break
-every consumer in order to change a compiler setting. A version-specific
-manifest with per-target `.swiftLanguageMode(.v6)` is the one mechanism that
-scopes to this package and nothing else.
-
-The cost is duplication: SwiftPM has no include mechanism, so the two manifests
-must describe the same package by hand. `VersionPolicyTests` fails the build if
-they ever stop doing so — a target added to one and not the other would build on
-one toolchain and fail on the other.
+Per-target `.swiftLanguageMode(.v6)` is the one mechanism that scopes to this
+package and nothing else. `swift build -Xswiftc -swift-version -Xswiftc 6` applies to
+*every* target in the dependency graph, and `.unsafeFlags` in `swiftSettings` makes a
+package unusable as a dependency at all.
 
 `SupportedVersions.isSwiftSixLanguageMode` reports which mode you actually got.
 See [`Examples/VersionCompatibility`](./Examples/VersionCompatibility).

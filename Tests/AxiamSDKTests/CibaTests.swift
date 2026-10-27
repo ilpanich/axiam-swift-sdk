@@ -1,6 +1,6 @@
 import XCTest
 import Crypto
-import _CryptoExtras
+import CryptoExtras
 @testable import AxiamSDK
 
 /// CIBA — CONTRACT.md §33.8's sixteen required tests (nine initiation and polling, four ping,

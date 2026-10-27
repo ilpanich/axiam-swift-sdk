@@ -17,12 +17,20 @@ jobs:
   docc:
     name: build & publish DocC HTML to gh-pages
     runs-on: ubuntu-24.04
-    container: swift:5.10-jammy
+    container: swift:6.4-jammy
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      # `--build-system native`: under swiftbuild (SwiftPM's default since
+      # Swift 6.4) the DocC plugin's symbol extraction also runs clang
+      # extract-api over dependencies' C modules, and swift-nio-extras'
+      # bundled zlib headers (pulled in by async-http-client 1.36) do not
+      # parse standalone — the plugin fails before reaching AxiamSDK. The
+      # native build system extracts Swift symbols only, which is all DocC
+      # needs here.
       - name: Generate DocC static site
         run: |
-          swift package --allow-writing-to-directory ./docs \
+          swift package --build-system native \
+            --allow-writing-to-directory ./docs \
             generate-documentation \
             --target AxiamSDK \
             --disable-indexing \
