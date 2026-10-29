@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-10-29
+
 Dependency and toolchain refresh. **The Swift floor moves from 5.9 to 6.2**, which is a
 consumer-visible change: a Swift 5.9/5.10 toolchain (Xcode 15) can no longer resolve the package.
 No public type, member or signature of the SDK changes.
@@ -37,6 +39,12 @@ No public type, member or signature of the SDK changes.
   nothing changes for consumers.
 - Platforms are unchanged: macOS 13+, iOS 16+, Linux.
 
+- Record the 6.2 floor, the 6.4 newest leg and the single manifest
+
+- Generate DocC with the native build system on Swift 6.4
+
+- Raise the Swift floor to 6.2, test 6.4, update dependencies
+
 ### CI
 
 - The coverage workflow's lcov export also accepts `AxiamSDKTests.so`, the test object
@@ -50,6 +58,8 @@ No public type, member or signature of the SDK changes.
 
 - An unused `verified` binding in id_token validation that Swift 6.4 reports as a warning. Only
   the verifier's throw was ever used; behaviour is unchanged.
+
+- Drop the unused id_token verification binding Swift 6.4 warns on
 
 ## [1.1.2] - 2026-10-23
 
