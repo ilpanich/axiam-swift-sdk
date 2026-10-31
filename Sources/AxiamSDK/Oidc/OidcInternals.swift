@@ -428,7 +428,9 @@ extension AxiamClient {
             return .auth(AuthError(
                 "\(wire.error): \(wire.error_description ?? "")",
                 oauthError: wire.error,
-                oauthErrorDescription: wire.error_description))
+                oauthErrorDescription: wire.error_description,
+                retryAfter: response.status == 429
+                    ? Retry.retryAfter(response.firstHeader("retry-after")) : nil))
         }
         return oidcMapError(response)
     }

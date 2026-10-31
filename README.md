@@ -23,6 +23,11 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 > so the route is a documented `AsyncMiddleware` wiring; §28.5 rule 8's gRPC/AMQP challenge
 > form does not apply, as this SDK's guard covers neither transport).**
 >
+> **Server floor:** federation-config admin calls (`federation.create_config`, `get_config`,
+> `list_configs`, `update_config`) of this 1.2-line SDK need an AXIAM server **1.2.0 or later**:
+> `FederationConfigResponse.nativeLogin` is required from 1.2.0, and a response from an older
+> server fails to decode.
+>
 > §22 is §22.1–§22.8 and §22.14 over a **caller-supplied transport**: this SDK vendors no AMQP
 > client, and you conform `ReactorTransport` over whichever one you already trust (§22.11).
 > "Conforms to … §22" is the claim; "ships an AMQP client" is not.

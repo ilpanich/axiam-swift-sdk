@@ -347,9 +347,10 @@ final class Contract165NativeSignInTests: XCTestCase {
             _ = try await login(try makeClient(transport: transport))
             XCTFail("expected rate_limit_exceeded")
         } catch {
-            // This SDK exposes no `Retry-After` on `AuthError` (it is read only inside its own
-            // §16 and polling paths), so there is nothing further to assert on the 7.
-            XCTAssertEqual(try XCTUnwrap(Self.oauthError(error)).oauthError, "rate_limit_exceeded")
+            // C165-17: the server's wait is reachable on the error (additive `retryAfter`).
+            let auth = try XCTUnwrap(Self.oauthError(error))
+            XCTAssertEqual(auth.oauthError, "rate_limit_exceeded")
+            XCTAssertEqual(auth.retryAfter, 7)
         }
         XCTAssertEqual(transport.requests.count, 1)
     }
@@ -751,5 +752,142 @@ final class Contract165NativeSignInTests: XCTestCase {
                 refreshToken: Sensitive("rt"), configuration: Self.configuration)
         }
         XCTAssertEqual(transport.tokenRequests.count, 3)
+    }
+
+    // MARK: - §26.6 par_idp_hint_from_begin_url_pushed / par_idp_hint_argument_wins (D-N36)
+
+    private func parTransport() -> Contract165Transport {
+        Contract165Transport { spec in
+            if spec.url.path.hasSuffix("/oauth2/par") {
+                return Contract165Transport.json(201, ["request_uri": "urn:par:abc", "expires_in": 90])
+            }
+            return Contract165Transport.json(404, [:])
+        }
+    }
+
+    func testParIdpHintFromBeginURLPushed() async throws {
+        let transport = parTransport()
+        let client = try makeClient(transport: transport)
+        let begun = try await begin(client, hint: "corp-okta")
+
+        // No `idpHint` argument: the begin URL's hint is pushed, exactly once.
+        let pushedRedirect = try await client.oidcPar(
+            request: begun, redirectURI: "https://app.example.test/cb",
+            configuration: Self.configuration)
+        let pushed = try XCTUnwrap(transport.requests.first)
+        XCTAssertEqual(form(pushed).filter { $0.0 == "axiam_idp_hint" }.map { $0.1 }, ["corp-okta"])
+        XCTAssertFalse(form(pushed).contains { $0.0 == "kc_idp_hint" })
+        // The redirect is still exactly client_id, request_uri and the routing tenant_id.
+        XCTAssertEqual(
+            Set(queryItems(pushedRedirect.url).map { $0.name }),
+            ["client_id", "request_uri", "tenant_id"])
+
+        // A begin without a hint pushes none.
+        let plain = try await begin(client)
+        _ = try await client.oidcPar(
+            request: plain, redirectURI: "https://app.example.test/cb",
+            configuration: Self.configuration)
+        XCTAssertFalse(
+            form(try XCTUnwrap(transport.requests.last)).contains { $0.0 == "axiam_idp_hint" })
+    }
+
+    func testParIdpHintArgumentWins() async throws {
+        let transport = parTransport()
+        let client = try makeClient(transport: transport)
+        let begun = try await begin(client, hint: "corp-okta")
+
+        let redirect = try await client.oidcPar(
+            request: begun, redirectURI: "https://app.example.test/cb", idpHint: "other",
+            configuration: Self.configuration)
+        let pushed = try XCTUnwrap(transport.requests.first)
+        XCTAssertEqual(form(pushed).filter { $0.0 == "axiam_idp_hint" }.map { $0.1 }, ["other"])
+        XCTAssertFalse(form(pushed).contains { $0.1 == "corp-okta" })
+        XCTAssertEqual(
+            Set(queryItems(redirect.url).map { $0.name }), ["client_id", "request_uri", "tenant_id"])
+    }
+
+    // MARK: - C165-14 / §12.1 rule 3: no redirect from an /oauth2/* POST
+
+    /// A mocked `307 Location: http://other.example.test/…` is a `NetworkError`, on the native
+    /// call and on the pre-existing token POSTs alike, and is not retried. A mock transport
+    /// follows nothing, so "the other host sees no request" is the next test's job, over sockets.
+    func testRedirectFromOAuth2PostIsNetworkError() async throws {
+        let transport = Contract165Transport { _ in
+            Contract165Transport.reply(
+                307, Data(), headers: [("Location", "http://other.example.test/oauth2/token")])
+        }
+        let client = try makeClient(transport: transport, secret: "the-client-secret")
+
+        for status in [301, 302, 303, 307, 308] {
+            let t = Contract165Transport { _ in
+                Contract165Transport.reply(
+                    status, Data(), headers: [("Location", "http://other.example.test/x")])
+            }
+            let c = try makeClient(transport: t)
+            do {
+                _ = try await login(c)
+                XCTFail("expected a NetworkError for \(status)")
+            } catch let AxiamError.network(error) {
+                XCTAssertEqual(error.statusCode, status)
+                XCTAssertFalse("\(error)".contains("other.example.test"))
+                XCTAssertFalse("\(error)".contains(Self.providerToken))
+            }
+            XCTAssertEqual(t.requests.count, 1, "a refused redirect is not retried")
+            XCTAssertTrue(t.requests.allSatisfy { $0.url.host == "iam.example.test" })
+        }
+
+        // The ordinary token POST (code exchange / refresh) takes the same path.
+        do {
+            _ = try await client.oidcRefresh(
+                refreshToken: Sensitive("rt"), configuration: Self.configuration)
+            XCTFail("expected a NetworkError")
+        } catch let AxiamError.network(error) {
+            XCTAssertEqual(error.statusCode, 307)
+        }
+        XCTAssertEqual(transport.tokenRequests.count, 1)
+        XCTAssertTrue(transport.requests.allSatisfy { $0.url.host == "iam.example.test" })
+    }
+
+    /// Over real sockets and the production `AsyncHTTPClientTransport`: a `307` to another
+    /// host gives a `NetworkError`, and the other host is never contacted.
+    func testRedirectToOtherHostIsNotFollowedOverTheWire() async throws {
+        let other = TestHTTPServer(router: { _, _ in TestResponse.json(200, Self.okBody()) })
+        let otherPort = try other.start()
+        defer { other.stop() }
+
+        let server = TestHTTPServer(router: { request, _ in
+            TestResponse(
+                status: 307,
+                headers: [("Location", "http://127.0.0.1:\(otherPort)\(request.uri)")])
+        })
+        let port = try server.start()
+        defer { server.stop() }
+
+        let base = "http://127.0.0.1:\(port)"
+        let json: [String: Any] = [
+            "issuer": base, "authorization_endpoint": "\(base)/oauth2/authorize",
+            "token_endpoint": "\(base)/oauth2/token", "jwks_uri": "\(base)/oauth2/jwks",
+        ]
+        let document = try JSONDecoder().decode(
+            OidcConfiguration.self, from: JSONSerialization.data(withJSONObject: json))
+        let client = try AxiamClient(config: try AxiamConfig(
+            baseURL: URL(string: base)!, tenantID: Self.tenant, requestTimeout: 10,
+            oidcClientID: Self.clientID))
+        do {
+            do {
+                _ = try await client.loginWithProviderIdToken(
+                    provider: "corp-okta", idToken: Sensitive(Self.providerToken),
+                    nonce: Sensitive(Self.rawNonce), configuration: document)
+                XCTFail("expected a NetworkError")
+            } catch let AxiamError.network(error) {
+                XCTAssertEqual(error.statusCode, 307)
+            }
+            XCTAssertEqual(server.state.requests(pathContaining: "/oauth2/token").count, 1)
+            XCTAssertEqual(other.state.requests.count, 0)
+        } catch {
+            try? await client.shutdown()
+            throw error
+        }
+        try? await client.shutdown()
     }
 }

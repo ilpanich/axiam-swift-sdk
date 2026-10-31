@@ -1172,7 +1172,29 @@ public actor AxiamClient {
             allHeaders.append(("X-Tenant-ID", config.tenantHeaderValue))
         }
         let spec = HTTPRequestSpec(method: method, url: url, headers: allHeaders, body: body)
-        return try await transport.execute(spec, timeout: config.requestTimeout)
+        let response = try await transport.execute(spec, timeout: config.requestTimeout)
+        try refuseOAuth2Redirect(spec, response)
+        return response
+    }
+
+    /// §12.1 rule 3 (amended 2026-10-31, C165-13) and §37.2 rule 12: no redirect is followed from
+    /// a `POST` to an `/oauth2/*` endpoint, and a `3xx` there is a ``NetworkError``.
+    ///
+    /// The transport already follows none (`AsyncHTTPClientTransport` is configured with
+    /// `redirectConfiguration = .disallow`, so a `307`/`308` is never replayed and its `Location`
+    /// is never requested). What this adds is the *surface*: without it the bare `3xx` would fall
+    /// through to the generic status mapping instead of the `NetworkError` the contract names.
+    /// The `Location` value is deliberately left out of the message — it is attacker-influenced
+    /// and the form that would have been re-sent carries credentials.
+    func refuseOAuth2Redirect(_ spec: HTTPRequestSpec, _ response: HTTPResponseData) throws {
+        guard spec.method == .post, (300..<400).contains(response.status) else { return }
+        var prefix = config.baseURL.path
+        while prefix.hasSuffix("/") { prefix.removeLast() }
+        guard spec.url.path.hasPrefix(prefix + "/oauth2/") else { return }
+        throw AxiamError.network(NetworkError(
+            "POST \(spec.url.path) answered HTTP \(response.status), a redirect; "
+                + "redirects from /oauth2/* are never followed",
+            statusCode: response.status))
     }
 
     private func mapError(_ response: HTTPResponseData) -> AxiamError {

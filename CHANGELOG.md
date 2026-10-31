@@ -54,8 +54,30 @@ call that did not use it, and the release number is the maintainer's.
   revoke_session`) it now also ends the session server-side and revokes every refresh token under
   it, the legitimate successor included. `invalid_grant` on `oidcRefresh` means re-authorize;
   never retry it with the same token. An organization can set `refuse` to keep the old behaviour.
-- Vendored `CONTRACT.md` (1.65), `openapi.json` (1.2.0) and `management-registry.json` re-synced
-  from axiam `76d35d9`; `proto/` is unchanged.
+- **Server floor (D-N33):** federation-config admin calls (`federation.create_config`,
+  `get_config`, `list_configs`, `update_config`) of this 1.2-line SDK need an AXIAM server
+  **1.2.0 or later**: `FederationConfigResponse.nativeLogin` is required from 1.2.0, and a
+  response from an older server fails to decode (a `NetworkError`, "Failed to decode response
+  body").
+- `oidcPar` pushes the `axiam_idp_hint` the begin URL carries when its own `idpHint` argument is
+  `nil`, so `oidcBegin(idpHint: "x")` followed by `oidcPar(request:)` no longer loses the hint; the
+  argument wins when both are set, and exactly one value is pushed (§26.2 rule 8, D-N36). The
+  redirect URL is unchanged.
+- A `3xx` answer to a `POST` to an `/oauth2/*` endpoint is now a `NetworkError` (§12.1 rule 3,
+  §37.2 rule 12). The transport never followed a redirect, so no form was ever re-sent; this makes
+  the refusal explicit and stops the `3xx` from falling through to the generic status mapping. It
+  is not retried.
+- `AuthError.retryAfter` (additive, trailing defaulted initializer parameter): the `Retry-After` of
+  a `429` OAuth2 answer, in seconds, so a caller can honour the server's wait; `nil` otherwise.
+- Vendored `CONTRACT.md` (1.65, as amended 2026-10-31) re-synced from axiam `d93976b`;
+  `openapi.json` (1.2.0), `management-registry.json` (from `76d35d9`) and `proto/` are unchanged.
+
+### Source compatibility
+
+- `FederationConfigResponse` gained the required `nativeLogin` (it is a non-defaulted parameter of
+  the memberwise `init`): code that builds one, such as a test fixture or a mock, must supply it.
+  Decoding a server's response is unaffected from server 1.2.0 (see the server floor above).
+  Everything else regenerated this release is additive with defaulted parameters.
 
 ## [1.1.3] - 2026-10-29
 
