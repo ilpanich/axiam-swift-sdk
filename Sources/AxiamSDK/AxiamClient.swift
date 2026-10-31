@@ -96,6 +96,11 @@ public actor AxiamClient {
     /// lifetime, so a document fetched from one origin can never be served for another.
     var oidcConfigurationCache: (document: OidcConfiguration, expiresAt: Date)?
 
+    /// The in-flight `oidcRefresh` calls, keyed by a digest of (tenant, refresh token) — the §9
+    /// single-flight guard for the OAuth2 token namespace (CONTRACT.md §12.1, §9 rule 5: a
+    /// dedicated instance rather than the §1 cookie-session slot). See ``oidcRefresh``.
+    var oidcRefreshFlights: [String: (id: UUID, task: Task<OidcTokenSet, Error>)] = [:]
+
     // MARK: - Construction
 
     /// Build a client from configuration, constructing the production HTTP transport with the

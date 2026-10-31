@@ -1,3 +1,4 @@
+import Crypto
 import Foundation
 
 // CONTRACT.md §12 — the OIDC/SSO relying-party helpers.
@@ -67,12 +68,25 @@ extension AxiamClient {
     ///     them exactly.
     ///   - scope: defaults to `openid profile email`. The `openid` scope is what makes the
     ///     server issue an ID token, and §12.4 rule 6 relies on it.
+    ///   - idpHint: contract 1.65, §12.1 — choose the sign-in provider up front. A provider's
+    ///     UUID, its `provider_slug` or a branded kind name (`google`, `github`, `facebook`,
+    ///     `apple`, `microsoft`). Emitted as the one query parameter `axiam_idp_hint`, exactly
+    ///     once, and only when set. Validated for emptiness and length (256 bytes of UTF-8)
+    ///     and for nothing else: it is not trimmed, case-folded, parsed as a UUID or looked up,
+    ///     because the server resolves it and ignores one that names nothing. There is no
+    ///     `kc_idp_hint` alias. If the discovery document's `authorization_endpoint` already
+    ///     carries an `axiam_idp_hint` of its own, this argument replaces it rather than
+    ///     adding a second, which the server would refuse.
+    /// - Throws: a validation ``NetworkError`` (``NetworkError/isValidation``), with no URL
+    ///   built, when `idpHint` is empty or longer than 256 bytes.
     public func oidcBegin(
         redirectURI: String,
         scope: String = "openid profile email",
+        idpHint: String? = nil,
         configuration: OidcConfiguration
     ) throws -> AuthorizationRequest {
         let clientID = try requireOidcClientID()
+        if let idpHint { try Self.checkIdpHint(idpHint, operation: "oidcBegin") }
         let state = OidcPkce.makeCorrelationValue()
         let nonce = OidcPkce.makeCorrelationValue()
         let verifier = OidcPkce.makeVerifier()
@@ -81,6 +95,10 @@ extension AxiamClient {
             throw AxiamError.network(NetworkError("invalid authorization_endpoint in the discovery document"))
         }
         var query = components.queryItems ?? []
+        // §12.1 `idp_hint` rule 3: the input is the single source of `axiam_idp_hint`. A copy
+        // already on the endpoint is dropped, so the parameter is emitted once — the server
+        // refuses a repeated one before reading either.
+        if idpHint != nil { query.removeAll { $0.name == Self.idpHintParameter } }
         query.append(contentsOf: [
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "client_id", value: clientID),
@@ -91,6 +109,7 @@ extension AxiamClient {
             URLQueryItem(name: "code_challenge", value: OidcPkce.challenge(for: verifier)),
             URLQueryItem(name: "code_challenge_method", value: OidcPkce.method),
         ])
+        if let idpHint { query.append(URLQueryItem(name: Self.idpHintParameter, value: idpHint)) }
         components.queryItems = query
         guard let url = components.url else {
             throw AxiamError.network(NetworkError("could not build the authorization URL"))
@@ -99,16 +118,18 @@ extension AxiamClient {
             url: url.absoluteString, state: state, nonce: nonce, codeVerifier: Sensitive(verifier))
     }
 
-    /// ``oidcBegin(redirectURI:scope:configuration:)`` fetching the discovery document itself.
+    /// ``oidcBegin(redirectURI:scope:idpHint:configuration:)`` fetching the discovery document itself.
     ///
     /// Still performs no authorization-request I/O of its own — the one call it makes is the
     /// cached discovery fetch §12.1's "no network I/O" note explicitly permits.
     public func oidcBegin(
         redirectURI: String,
-        scope: String = "openid profile email"
+        scope: String = "openid profile email",
+        idpHint: String? = nil
     ) async throws -> AuthorizationRequest {
         try oidcBegin(
-            redirectURI: redirectURI, scope: scope, configuration: try await oidcDiscover())
+            redirectURI: redirectURI, scope: scope, idpHint: idpHint,
+            configuration: try await oidcDiscover())
     }
 
     // MARK: - §12.1 oidc_exchange
@@ -117,7 +138,7 @@ extension AxiamClient {
     ///
     /// **Stateless** (§12.3 rule 1): `codeVerifier` and `nonce` come from the caller, and
     /// nothing about this exchange is retained. The `redirectURI` must be the one
-    /// ``oidcBegin(redirectURI:scope:configuration:)`` was given, byte-identically.
+    /// ``oidcBegin(redirectURI:scope:idpHint:configuration:)`` was given, byte-identically.
     ///
     /// Every §12.4 rule is enforced on the returned `id_token` before this returns, and rule 7
     /// makes that all-or-nothing: on any validation failure the whole token set is discarded —
@@ -152,10 +173,62 @@ extension AxiamClient {
     ///
     /// §12.4 rules 1–5 and 7 apply to any `id_token` in the response; rule 6 (nonce) is skipped,
     /// because OIDC Core §12.2 does not require a nonce in a refresh-issued ID token.
+    ///
+    /// **Single-flight (§9, §12.1).** A burst of concurrent calls presenting the same refresh
+    /// token makes **one** wire call, and that one outcome — the token set or the one error — is
+    /// delivered to every caller in the burst. The refresh token is single-use and rotating, so
+    /// "one call per caller" would present it N times, and from contract 1.65 a replayed token
+    /// ends the whole session on the server. The slot is vacated, identity-checked, only after
+    /// the outcome has settled; a call that starts after that makes its own request (§9 rule 6).
+    /// The guard is per client instance: refreshing the same token from two clients, or two
+    /// processes sharing a token store, defeats it and is a defect.
+    ///
+    /// **`invalid_grant` means the session is over** (§9, contract 1.65). It surfaces as the
+    /// ``AuthError`` it is, once; this SDK holds no token of its own to retry with and never
+    /// presents the spent one again. Re-authorize.
     public func oidcRefresh(
         refreshToken: Sensitive<String>,
         tenantID: String? = nil,
         configuration: OidcConfiguration? = nil
+    ) async throws -> OidcTokenSet {
+        try ensureOpen()
+        let key = Self.oidcRefreshFlightKey(
+            tenant: tenantID ?? config.tenantID ?? "", refreshToken: refreshToken.wrapped)
+        if let flight = oidcRefreshFlights[key] {
+            // A live or just-settled attempt (§9 rule 6b): join its single outcome.
+            return try await flight.task.value
+        }
+        let id = UUID()
+        let task = Task<OidcTokenSet, Error> { [self] in
+            try await self.oidcRefreshOnWire(
+                refreshToken: refreshToken, tenantID: tenantID, configuration: configuration)
+        }
+        oidcRefreshFlights[key] = (id, task)
+        do {
+            let result = try await task.value
+            oidcRefreshVacate(key, id)
+            return result
+        } catch {
+            oidcRefreshVacate(key, id)
+            throw error  // §9.3: never retried here.
+        }
+    }
+
+    /// Release the slot only while it still holds *this* attempt (§9 rule 6c).
+    private func oidcRefreshVacate(_ key: String, _ id: UUID) {
+        if oidcRefreshFlights[key]?.id == id { oidcRefreshFlights[key] = nil }
+    }
+
+    /// The flight key: a digest, so the map never holds the refresh token itself.
+    static func oidcRefreshFlightKey(tenant: String, refreshToken: String) -> String {
+        let digest = SHA256.hash(data: Data((tenant + "\n" + refreshToken).utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func oidcRefreshOnWire(
+        refreshToken: Sensitive<String>,
+        tenantID: String?,
+        configuration: OidcConfiguration?
     ) async throws -> OidcTokenSet {
         let document = try await oidcConfiguration(configuration)
         var form = [

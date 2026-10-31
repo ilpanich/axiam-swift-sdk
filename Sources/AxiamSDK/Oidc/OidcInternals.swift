@@ -25,6 +25,30 @@ public enum OidcValidationCode: String, Sendable {
 
 extension AxiamClient {
 
+    // MARK: - §12.1 `idp_hint` (contract 1.65)
+
+    /// The one spelling of the provider-hint parameter. There is no `kc_idp_hint` alias (D-N3).
+    static let idpHintParameter = "axiam_idp_hint"
+
+    /// The longest `idp_hint`, in bytes of UTF-8 (§12.1 `idp_hint` rule 2).
+    static let idpHintMaxBytes = 256
+
+    /// §12.1 `idp_hint` rule 2: refuse an empty value or one over 256 UTF-8 bytes, before any
+    /// URL is built or request sent — and nothing else. No trimming, case-folding, UUID parsing,
+    /// lookup against `sso_providers` or kind-name check: the server resolves the hint and
+    /// ignores one that names nothing, byte-identically to a request without one.
+    static func checkIdpHint(_ hint: String, operation: String) throws {
+        if hint.isEmpty {
+            throw ManagementChecks.refusal(
+                operation, "idpHint must not be empty (CONTRACT.md §12.1 idp_hint rule 2)")
+        }
+        if hint.utf8.count > idpHintMaxBytes {
+            throw ManagementChecks.refusal(
+                operation,
+                "idpHint is longer than \(idpHintMaxBytes) bytes (CONTRACT.md §12.1 idp_hint rule 2)")
+        }
+    }
+
     // MARK: - Client configuration
 
     func requireOidcClientID() throws -> String {
@@ -206,13 +230,10 @@ extension AxiamClient {
         return try oidcDecode(TokenResponseWire.self, response.body, "token response")
     }
 
-    /// The `/oauth2/*` URL plus `?tenant_id=<uuid>`.
-    ///
-    /// §12.3 rule 4: the parameter takes a **UUID**, and a tenant slug is never a substitute.
-    /// A slug-only client that passes no explicit `tenantID` therefore fails **client-side,
-    /// with no wire call** — the request could not have succeeded, and sending it would leak a
-    /// slug into a field the server reads as a UUID.
-    func oidcTenantScopedURL(_ endpoint: String, tenantID: String?) throws -> URL {
+    /// The tenant UUID an `/oauth2/*` call needs (§12.3 rule 4): the explicit argument, else the
+    /// client's own UUID form. Split out of ``oidcTenantScopedURL(_:tenantID:)`` so an operation
+    /// can refuse a slug-only client **before** it spends a discovery fetch.
+    func requireOidcTenantUUID(_ tenantID: String?) throws -> String {
         let candidate = tenantID ?? config.tenantID
         guard let candidate, UUID(uuidString: candidate) != nil else {
             throw AxiamError.auth(AuthError(
@@ -220,6 +241,17 @@ extension AxiamClient {
                 + "tenantID explicitly, or construct the client with a tenantID (UUID). A tenant "
                 + "slug is not a substitute (CONTRACT.md §12.3 rule 4)."))
         }
+        return candidate
+    }
+
+    /// The `/oauth2/*` URL plus `?tenant_id=<uuid>`.
+    ///
+    /// §12.3 rule 4: the parameter takes a **UUID**, and a tenant slug is never a substitute.
+    /// A slug-only client that passes no explicit `tenantID` therefore fails **client-side,
+    /// with no wire call** — the request could not have succeeded, and sending it would leak a
+    /// slug into a field the server reads as a UUID.
+    func oidcTenantScopedURL(_ endpoint: String, tenantID: String?) throws -> URL {
+        let candidate = try requireOidcTenantUUID(tenantID)
         guard var components = URLComponents(string: endpoint) else {
             throw AxiamError.network(NetworkError("invalid endpoint in the discovery document"))
         }
