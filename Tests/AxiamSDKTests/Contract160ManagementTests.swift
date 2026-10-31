@@ -118,6 +118,12 @@ final class Contract160ManagementTests: XCTestCase {
                 "scope_map": [String: Any](),
                 "max_token_age_secs": 300,
             ] as [String: Any],
+            // Required in the response from openapi.json 1.2.0 (contract 1.65, G-A).
+            "native_login": [
+                "enabled": false,
+                "client_ids": [String](),
+                "max_token_age_secs": 300,
+            ] as [String: Any],
             "allow_tenant_inheritance": false,
             "scopes": [String](),
             "effective_scopes": [String](),

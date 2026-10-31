@@ -1460,6 +1460,69 @@ public enum ReactorMode: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// What the token endpoint does when a refresh token that has already been rotated is presented
+/// again and **refused** (G-C, #818 — the T-254 amendment). Two values, ordered by strictness:
+/// * `revoke_session` — the default (D-N2). The refusal also invalidates the session the
+/// replayed token names (which publishes to the revocation feed) and revokes every refresh
+/// token issued under that session — whichever client it was issued to, the console sign-in
+/// included, with no back-channel logout sent — as the authorization-code replay path does for
+/// a code (RFC 6749 §10.5; OAuth 2.0 Security BCP §4.14.2). Only a presentation by the token's
+/// own client, passing the token's sender constraint, triggers it (#821). On a client with no
+/// grace window the honest holder of a replayed token has nothing left to lose — its token is
+/// already dead and it never received the successor — so the revocation costs it nothing and
+/// costs whoever holds the successor everything. * `refuse` — the 1.1.x behaviour: the
+/// presentation is refused, marked on the session and audited, and nothing else is revoked.
+/// Neither value changes what is *accepted*. A `fapi2` client's presentation inside the grace
+/// window is accepted and marked whatever this says (D-N4); a token revoked at logout is not a
+/// replay and revokes nothing. This text is published as the schema's description in
+/// `sdks/openapi.json`, so it carries no rustdoc intra-doc links (F4-W1-08, #824).
+///
+/// An **open** enum. A value this SDK's copy of the spec does not list decodes to `.unknown`
+/// rather than failing the response it arrived in (CONTRACT.md §27.11 rule 1). Throwing there
+/// fails the WHOLE response, so one field of one record would take down the page it was on,
+/// including the records the caller did ask for.
+///
+/// It is never read as one of the KNOWN cases: reading a new value as whichever case happens to
+/// be first turns a new server state into a wrong one, and on this surface these values gate
+/// access. `.unknown`'s own raw value is the empty string, which no server value is, so
+/// `.unknown` is never written: `encode(to:)` refuses it locally, before any request, as a
+/// validation failure (CONTRACT.md §34.2 P12.2, contract 1.60 A4) — never as `""`, never left
+/// to the server to refuse. A `switch` over these cases needs an `.unknown` arm.
+public enum RefreshReuseResponse: String, Codable, Sendable, CaseIterable {
+    case revokeSession = "revoke_session"
+    case refuse = "refuse"
+    /// A value this SDK's copy of the spec does not list; see the type's summary.
+    case unknown = ""
+
+    /// Decodes an unrecognised value to `.unknown` instead of throwing.
+    ///
+    /// The synthesised `RawRepresentable` initializer stays strict — `init(rawValue:)` is still
+    /// `nil` for a value that is not a case — so code that deliberately parses a raw string
+    /// keeps its check. Only DECODING, where the alternative is failing a whole response, is
+    /// lenient.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = RefreshReuseResponse(rawValue: raw) ?? .unknown
+    }
+
+    /// Refuses `.unknown`: a value this SDK could not name is never sent.
+    ///
+    /// Decoding is lenient so one unrecognised value does not fail a whole response; writing is
+    /// not, because the only spelling `.unknown` has is the empty string. A read-modify-write
+    /// of a record that carries one raises before any request (CONTRACT.md §34.2 P12.2,
+    /// contract 1.60 A4).
+    public func encode(to encoder: any Encoder) throws {
+        guard self != .unknown else {
+            throw AxiamError.network(NetworkError(
+                "RefreshReuseResponse: a value this SDK does not know is never sent "
+                    + "(CONTRACT.md §34.2 P12.2)",
+                statusCode: 400, isValidation: true))
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
 /// A SAML 2.0 protocol binding (SAML Bindings §3). The response binding for Web Browser SSO is
 /// always [`Self::HttpPost`], but the enum keeps both because SP metadata carries both, and an
 /// `slo_url` may use either.
@@ -3633,6 +3696,9 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
     /// OIDC discovery URL or SAML metadata URL.
     public let metadataURL: String?
 
+    /// The server's `native_login` field.
+    public let nativeLogin: NativeLoginTrustRequest?
+
     /// Federation protocol: "OidcConnect" or "Saml".
     public let `protocol`: String
 
@@ -3680,6 +3746,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
         idpMetadataSigningCertPEM: String? = nil,
         idpSigningCertPEM: String? = nil,
         metadataURL: String? = nil,
+        nativeLogin: NativeLoginTrustRequest? = nil,
         `protocol`: String,
         provider: String,
         providerKind: String? = nil,
@@ -3704,6 +3771,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
         self.idpMetadataSigningCertPEM = idpMetadataSigningCertPEM
         self.idpSigningCertPEM = idpSigningCertPEM
         self.metadataURL = metadataURL
+        self.nativeLogin = nativeLogin
         self.`protocol` = `protocol`
         self.provider = provider
         self.providerKind = providerKind
@@ -3730,6 +3798,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
         case idpMetadataSigningCertPEM = "idp_metadata_signing_cert_pem"
         case idpSigningCertPEM = "idp_signing_cert_pem"
         case metadataURL = "metadata_url"
+        case nativeLogin = "native_login"
         case `protocol` = "protocol"
         case provider = "provider"
         case providerKind = "provider_kind"
@@ -3757,6 +3826,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
         self.idpMetadataSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .idpMetadataSigningCertPEM)
         self.idpSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .idpSigningCertPEM)
         self.metadataURL = try container.decodeIfPresent(String.self, forKey: .metadataURL)
+        self.nativeLogin = try container.decodeIfPresent(NativeLoginTrustRequest.self, forKey: .nativeLogin)
         self.`protocol` = try container.decode(String.self, forKey: .`protocol`)
         self.provider = try container.decode(String.self, forKey: .provider)
         self.providerKind = try container.decodeIfPresent(String.self, forKey: .providerKind)
@@ -3784,6 +3854,7 @@ public struct CreateFederationConfigRequest: Codable, Sendable {
         try container.encodeIfPresent(idpMetadataSigningCertPEM, forKey: .idpMetadataSigningCertPEM)
         try container.encodeIfPresent(idpSigningCertPEM, forKey: .idpSigningCertPEM)
         try container.encodeIfPresent(metadataURL, forKey: .metadataURL)
+        try container.encodeIfPresent(nativeLogin, forKey: .nativeLogin)
         try container.encode(`protocol`, forKey: .`protocol`)
         try container.encode(provider, forKey: .provider)
         try container.encodeIfPresent(providerKind, forKey: .providerKind)
@@ -4127,6 +4198,15 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
     /// it decides only how an anonymous browser is answered.
     public let browserSSO: Bool?
 
+    /// G-B (#817) — the federation provider (a federation config `id`) this client's sign-in
+    /// page starts with when an authorization request carries no `axiam_idp_hint`; a hint that
+    /// names a provider overrides it. Must name a provider this tenant can sign in with — its
+    /// own enabled configs, or the organization's enabled ones it inherits — or the
+    /// registration is refused with `400`. If that provider is later disabled or deleted the
+    /// default is ignored at the authorization endpoint (the provider chooser is shown), never
+    /// an error. Omit for none.
+    public let defaultIdp: String?
+
     /// RFC 9449 §5.2 — issue DPoP-bound (sender-constrained) access tokens to this client.
     /// Independent of both the authentication method and
     /// `tls_client_certificate_bound_access_tokens`; a client may ask for both constraints, and
@@ -4217,6 +4297,7 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
         backchannelTokenDeliveryMode: String? = nil,
         backchannelUserCodeParameter: Bool? = nil,
         browserSSO: Bool? = nil,
+        defaultIdp: String? = nil,
         dpopBoundAccessTokens: Bool? = nil,
         dpopRequireNonce: Bool? = nil,
         grantTypes: [String],
@@ -4243,6 +4324,7 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
         self.backchannelTokenDeliveryMode = backchannelTokenDeliveryMode
         self.backchannelUserCodeParameter = backchannelUserCodeParameter
         self.browserSSO = browserSSO
+        self.defaultIdp = defaultIdp
         self.dpopBoundAccessTokens = dpopBoundAccessTokens
         self.dpopRequireNonce = dpopRequireNonce
         self.grantTypes = grantTypes
@@ -4271,6 +4353,7 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
         case backchannelTokenDeliveryMode = "backchannel_token_delivery_mode"
         case backchannelUserCodeParameter = "backchannel_user_code_parameter"
         case browserSSO = "browser_sso"
+        case defaultIdp = "default_idp"
         case dpopBoundAccessTokens = "dpop_bound_access_tokens"
         case dpopRequireNonce = "dpop_require_nonce"
         case grantTypes = "grant_types"
@@ -4300,6 +4383,7 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
         self.backchannelTokenDeliveryMode = try container.decodeIfPresent(String.self, forKey: .backchannelTokenDeliveryMode)
         self.backchannelUserCodeParameter = try container.decodeIfPresent(Bool.self, forKey: .backchannelUserCodeParameter)
         self.browserSSO = try container.decodeIfPresent(Bool.self, forKey: .browserSSO)
+        self.defaultIdp = try container.decodeIfPresent(String.self, forKey: .defaultIdp)
         self.dpopBoundAccessTokens = try container.decodeIfPresent(Bool.self, forKey: .dpopBoundAccessTokens)
         self.dpopRequireNonce = try container.decodeIfPresent(Bool.self, forKey: .dpopRequireNonce)
         self.grantTypes = try container.decode([String].self, forKey: .grantTypes)
@@ -4329,6 +4413,7 @@ public struct CreateOAuth2ClientRequest: Codable, Sendable {
         try container.encodeIfPresent(backchannelTokenDeliveryMode, forKey: .backchannelTokenDeliveryMode)
         try container.encodeIfPresent(backchannelUserCodeParameter, forKey: .backchannelUserCodeParameter)
         try container.encodeIfPresent(browserSSO, forKey: .browserSSO)
+        try container.encodeIfPresent(defaultIdp, forKey: .defaultIdp)
         try container.encodeIfPresent(dpopBoundAccessTokens, forKey: .dpopBoundAccessTokens)
         try container.encodeIfPresent(dpopRequireNonce, forKey: .dpopRequireNonce)
         try container.encode(grantTypes, forKey: .grantTypes)
@@ -5706,6 +5791,9 @@ public struct FederationConfigResponse: Codable, Sendable {
     /// sending a stored one. True only for an Apple config with both identifiers set.
     public let mintsClientSecret: Bool
 
+    /// Native sign-in trust (G-A).
+    public let nativeLogin: NativeLoginTrustResponse
+
     /// Whether PKCE is sent on the authorization request. Always true for the OAuth2 variant
     /// regardless of the stored flag.
     public let pkceRequired: Bool
@@ -5760,6 +5848,7 @@ public struct FederationConfigResponse: Codable, Sendable {
         idpMetadataSigningCertPEM: String? = nil,
         metadataURL: String? = nil,
         mintsClientSecret: Bool,
+        nativeLogin: NativeLoginTrustResponse,
         pkceRequired: Bool,
         `protocol`: String,
         provider: String,
@@ -5790,6 +5879,7 @@ public struct FederationConfigResponse: Codable, Sendable {
         self.idpMetadataSigningCertPEM = idpMetadataSigningCertPEM
         self.metadataURL = metadataURL
         self.mintsClientSecret = mintsClientSecret
+        self.nativeLogin = nativeLogin
         self.pkceRequired = pkceRequired
         self.`protocol` = `protocol`
         self.provider = provider
@@ -5822,6 +5912,7 @@ public struct FederationConfigResponse: Codable, Sendable {
         case idpMetadataSigningCertPEM = "idp_metadata_signing_cert_pem"
         case metadataURL = "metadata_url"
         case mintsClientSecret = "mints_client_secret"
+        case nativeLogin = "native_login"
         case pkceRequired = "pkce_required"
         case `protocol` = "protocol"
         case provider = "provider"
@@ -5855,6 +5946,7 @@ public struct FederationConfigResponse: Codable, Sendable {
         self.idpMetadataSigningCertPEM = try container.decodeIfPresent(String.self, forKey: .idpMetadataSigningCertPEM)
         self.metadataURL = try container.decodeIfPresent(String.self, forKey: .metadataURL)
         self.mintsClientSecret = try container.decode(Bool.self, forKey: .mintsClientSecret)
+        self.nativeLogin = try container.decode(NativeLoginTrustResponse.self, forKey: .nativeLogin)
         self.pkceRequired = try container.decode(Bool.self, forKey: .pkceRequired)
         self.`protocol` = try container.decode(String.self, forKey: .`protocol`)
         self.provider = try container.decode(String.self, forKey: .provider)
@@ -5888,6 +5980,7 @@ public struct FederationConfigResponse: Codable, Sendable {
         try container.encodeIfPresent(idpMetadataSigningCertPEM, forKey: .idpMetadataSigningCertPEM)
         try container.encodeIfPresent(metadataURL, forKey: .metadataURL)
         try container.encode(mintsClientSecret, forKey: .mintsClientSecret)
+        try container.encode(nativeLogin, forKey: .nativeLogin)
         try container.encode(pkceRequired, forKey: .pkceRequired)
         try container.encode(`protocol`, forKey: .`protocol`)
         try container.encode(provider, forKey: .provider)
@@ -7201,6 +7294,98 @@ public struct MtlsTrustAnchorResponse: Codable, Sendable {
     }
 }
 
+/// Native sign-in trust (G-A): which ID tokens this provider issued to an app are accepted as a
+/// sign-in at the token endpoint. Mirrors the domain block on the wire, as
+/// `TokenExchangeTrustRequest` does, so an omitted member takes its documented default rather
+/// than failing deserialization. Only an `OidcConnect` provider may enable it.
+public struct NativeLoginTrustRequest: Codable, Sendable {
+    /// The audiences a presented ID token may carry: the iOS bundle ID, Android client ID or
+    /// Apple app ID the native SDK was configured with. Required (non-empty) when `enabled`; at
+    /// most 64 entries of at most 512 characters, none blank, none repeated. The web
+    /// `client_id` is accepted only when it is listed here.
+    public let clientIds: [String]?
+
+    /// Off unless explicitly enabled. Configuring a provider for browser login is not agreement
+    /// to accept its ID tokens from apps.
+    public let enabled: Bool?
+
+    /// Bound on `now - iat` for a presented ID token, 1 to 3600 seconds. Omitted: 300.
+    public let maxTokenAgeSecs: Int?
+
+    public init(
+        clientIds: [String]? = nil,
+        enabled: Bool? = nil,
+        maxTokenAgeSecs: Int? = nil
+    ) {
+        self.clientIds = clientIds
+        self.enabled = enabled
+        self.maxTokenAgeSecs = maxTokenAgeSecs
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case clientIds = "client_ids"
+        case enabled = "enabled"
+        case maxTokenAgeSecs = "max_token_age_secs"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.clientIds = try container.decodeIfPresent([String].self, forKey: .clientIds)
+        self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
+        self.maxTokenAgeSecs = try container.decodeIfPresent(Int.self, forKey: .maxTokenAgeSecs)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(clientIds, forKey: .clientIds)
+        try container.encodeIfPresent(enabled, forKey: .enabled)
+        try container.encodeIfPresent(maxTokenAgeSecs, forKey: .maxTokenAgeSecs)
+    }
+}
+
+/// Native sign-in trust as returned to an administrator. Nothing here is secret; it is never
+/// part of the unauthenticated providers listing.
+public struct NativeLoginTrustResponse: Codable, Sendable {
+    /// The accepted ID-token audiences.
+    public let clientIds: [String]
+
+    /// Whether ID tokens from apps are accepted as a sign-in.
+    public let enabled: Bool
+
+    /// Bound on `now - iat`, in seconds.
+    public let maxTokenAgeSecs: Int
+
+    public init(
+        clientIds: [String],
+        enabled: Bool,
+        maxTokenAgeSecs: Int
+    ) {
+        self.clientIds = clientIds
+        self.enabled = enabled
+        self.maxTokenAgeSecs = maxTokenAgeSecs
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case clientIds = "client_ids"
+        case enabled = "enabled"
+        case maxTokenAgeSecs = "max_token_age_secs"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.clientIds = try container.decode([String].self, forKey: .clientIds)
+        self.enabled = try container.decode(Bool.self, forKey: .enabled)
+        self.maxTokenAgeSecs = try container.decode(Int.self, forKey: .maxTokenAgeSecs)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(clientIds, forKey: .clientIds)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encode(maxTokenAgeSecs, forKey: .maxTokenAgeSecs)
+    }
+}
+
 /// The tenant's network policy, as the management API returns it.
 public struct NetworkPolicyResponse: Codable, Sendable {
     /// `network.session_timeout_max_secs`: the most a reply profile's `Session-Timeout` may be,
@@ -7865,6 +8050,11 @@ public struct OAuth2ClientResponse: Codable, Sendable {
     /// The server's `created_at` field.
     public let createdAt: String
 
+    /// G-B (#817) — the provider this client's sign-in page starts with when a request carries
+    /// no hint; absent for none. Echoed as stored: a value whose provider has since been
+    /// disabled is shown, and ignored at the authorization endpoint.
+    public let defaultIdp: String?
+
     /// The server's `dpop_bound_access_tokens` field.
     public let dpopBoundAccessTokens: Bool
 
@@ -7951,6 +8141,7 @@ public struct OAuth2ClientResponse: Codable, Sendable {
         browserSSO: Bool,
         clientID: String,
         createdAt: String,
+        defaultIdp: String? = nil,
         dpopBoundAccessTokens: Bool,
         dpopRequireNonce: Bool,
         grantTypes: [String],
@@ -7981,6 +8172,7 @@ public struct OAuth2ClientResponse: Codable, Sendable {
         self.browserSSO = browserSSO
         self.clientID = clientID
         self.createdAt = createdAt
+        self.defaultIdp = defaultIdp
         self.dpopBoundAccessTokens = dpopBoundAccessTokens
         self.dpopRequireNonce = dpopRequireNonce
         self.grantTypes = grantTypes
@@ -8013,6 +8205,7 @@ public struct OAuth2ClientResponse: Codable, Sendable {
         case browserSSO = "browser_sso"
         case clientID = "client_id"
         case createdAt = "created_at"
+        case defaultIdp = "default_idp"
         case dpopBoundAccessTokens = "dpop_bound_access_tokens"
         case dpopRequireNonce = "dpop_require_nonce"
         case grantTypes = "grant_types"
@@ -8046,6 +8239,7 @@ public struct OAuth2ClientResponse: Codable, Sendable {
         self.browserSSO = try container.decode(Bool.self, forKey: .browserSSO)
         self.clientID = try container.decode(String.self, forKey: .clientID)
         self.createdAt = try container.decode(String.self, forKey: .createdAt)
+        self.defaultIdp = try container.decodeIfPresent(String.self, forKey: .defaultIdp)
         self.dpopBoundAccessTokens = try container.decode(Bool.self, forKey: .dpopBoundAccessTokens)
         self.dpopRequireNonce = try container.decode(Bool.self, forKey: .dpopRequireNonce)
         self.grantTypes = try container.decode([String].self, forKey: .grantTypes)
@@ -8079,6 +8273,7 @@ public struct OAuth2ClientResponse: Codable, Sendable {
         try container.encode(browserSSO, forKey: .browserSSO)
         try container.encode(clientID, forKey: .clientID)
         try container.encode(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(defaultIdp, forKey: .defaultIdp)
         try container.encode(dpopBoundAccessTokens, forKey: .dpopBoundAccessTokens)
         try container.encode(dpopRequireNonce, forKey: .dpopRequireNonce)
         try container.encode(grantTypes, forKey: .grantTypes)
@@ -8100,6 +8295,37 @@ public struct OAuth2ClientResponse: Codable, Sendable {
         try container.encode(tlsClientCertificateBoundAccessTokens, forKey: .tlsClientCertificateBoundAccessTokens)
         try container.encode(tokenEndpointAuthMethod, forKey: .tokenEndpointAuthMethod)
         try container.encode(updatedAt, forKey: .updatedAt)
+    }
+}
+
+/// OAuth 2.0 authorization-server behaviour that is a tenant's to decide (G-C, #818). A struct
+/// of its own rather than a field on `TokenPolicy` because it is not a lifetime, and so the
+/// resolved setting reads by its documented name, `oauth2.refresh_reuse_response`.
+public struct OAuth2Policy: Codable, Sendable {
+    /// What a refused refresh-token replay does besides refusing. Ordered: a tenant may move
+    /// from `refuse` to `revoke_session` and never back while its organization's baseline is
+    /// `revoke_session`. Published as a reference to the `RefreshReuseResponse` schema, so the
+    /// two legal values reach the SDK generators as an `enum` (F4-W1-06, #823).
+    public let refreshReuseResponse: RefreshReuseResponse?
+
+    public init(
+        refreshReuseResponse: RefreshReuseResponse? = nil
+    ) {
+        self.refreshReuseResponse = refreshReuseResponse
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case refreshReuseResponse = "refresh_reuse_response"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.refreshReuseResponse = try container.decodeIfPresent(RefreshReuseResponse.self, forKey: .refreshReuseResponse)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(refreshReuseResponse, forKey: .refreshReuseResponse)
     }
 }
 
@@ -11384,6 +11610,10 @@ public struct SecuritySettings: Codable, Sendable {
     /// The server's `notification` field.
     public let notification: NotificationPolicy
 
+    /// G-C (#818) — `oauth2.refresh_reuse_response`. Defaulted so a document written before the
+    /// field reads as the default.
+    public let oauth2: OAuth2Policy?
+
     /// The server's `oidc` field.
     public let oidc: OidcPolicy
 
@@ -11419,6 +11649,7 @@ public struct SecuritySettings: Codable, Sendable {
         lockout: LockoutPolicy,
         mfa: MfaPolicy,
         notification: NotificationPolicy,
+        oauth2: OAuth2Policy? = nil,
         oidc: OidcPolicy,
         opaque: OpaquePolicy,
         password: PasswordPolicy,
@@ -11436,6 +11667,7 @@ public struct SecuritySettings: Codable, Sendable {
         self.lockout = lockout
         self.mfa = mfa
         self.notification = notification
+        self.oauth2 = oauth2
         self.oidc = oidc
         self.opaque = opaque
         self.password = password
@@ -11455,6 +11687,7 @@ public struct SecuritySettings: Codable, Sendable {
         case lockout = "lockout"
         case mfa = "mfa"
         case notification = "notification"
+        case oauth2 = "oauth2"
         case oidc = "oidc"
         case opaque = "opaque"
         case password = "password"
@@ -11475,6 +11708,7 @@ public struct SecuritySettings: Codable, Sendable {
         self.lockout = try container.decode(LockoutPolicy.self, forKey: .lockout)
         self.mfa = try container.decode(MfaPolicy.self, forKey: .mfa)
         self.notification = try container.decode(NotificationPolicy.self, forKey: .notification)
+        self.oauth2 = try container.decodeIfPresent(OAuth2Policy.self, forKey: .oauth2)
         self.oidc = try container.decode(OidcPolicy.self, forKey: .oidc)
         self.opaque = try container.decode(OpaquePolicy.self, forKey: .opaque)
         self.password = try container.decode(PasswordPolicy.self, forKey: .password)
@@ -11495,6 +11729,7 @@ public struct SecuritySettings: Codable, Sendable {
         try container.encode(lockout, forKey: .lockout)
         try container.encode(mfa, forKey: .mfa)
         try container.encode(notification, forKey: .notification)
+        try container.encodeIfPresent(oauth2, forKey: .oauth2)
         try container.encode(oidc, forKey: .oidc)
         try container.encode(opaque, forKey: .opaque)
         try container.encode(password, forKey: .password)
@@ -12122,6 +12357,12 @@ public struct SetOrgSettings: Codable, Sendable {
     /// The server's `password_history_count` field.
     public let passwordHistoryCount: Int
 
+    /// G-C (#818) — defaulted to `revoke_session` (D-N2): an API client written before the
+    /// field lands on the new default. `refuse` restores the 1.1.x behaviour. Because it is
+    /// defaulted, a `PUT` from a client written before 1.2.0 (which omits it) sets an
+    /// organization on `refuse` back to `revoke_session` — the stricter direction (F4-W1-06).
+    public let refreshReuseResponse: RefreshReuseResponse?
+
     /// The server's `refresh_token_lifetime_secs` field.
     public let refreshTokenLifetimeSecs: Int
 
@@ -12183,6 +12424,7 @@ public struct SetOrgSettings: Codable, Sendable {
         opaqueMode: String? = nil,
         opaqueSuite: String? = nil,
         passwordHistoryCount: Int,
+        refreshReuseResponse: RefreshReuseResponse? = nil,
         refreshTokenLifetimeSecs: Int,
         requireDigits: Bool,
         requireLowercase: Bool,
@@ -12221,6 +12463,7 @@ public struct SetOrgSettings: Codable, Sendable {
         self.opaqueMode = opaqueMode
         self.opaqueSuite = opaqueSuite
         self.passwordHistoryCount = passwordHistoryCount
+        self.refreshReuseResponse = refreshReuseResponse
         self.refreshTokenLifetimeSecs = refreshTokenLifetimeSecs
         self.requireDigits = requireDigits
         self.requireLowercase = requireLowercase
@@ -12261,6 +12504,7 @@ public struct SetOrgSettings: Codable, Sendable {
         case opaqueMode = "opaque_mode"
         case opaqueSuite = "opaque_suite"
         case passwordHistoryCount = "password_history_count"
+        case refreshReuseResponse = "refresh_reuse_response"
         case refreshTokenLifetimeSecs = "refresh_token_lifetime_secs"
         case requireDigits = "require_digits"
         case requireLowercase = "require_lowercase"
@@ -12302,6 +12546,7 @@ public struct SetOrgSettings: Codable, Sendable {
         self.opaqueMode = try container.decodeIfPresent(String.self, forKey: .opaqueMode)
         self.opaqueSuite = try container.decodeIfPresent(String.self, forKey: .opaqueSuite)
         self.passwordHistoryCount = try container.decode(Int.self, forKey: .passwordHistoryCount)
+        self.refreshReuseResponse = try container.decodeIfPresent(RefreshReuseResponse.self, forKey: .refreshReuseResponse)
         self.refreshTokenLifetimeSecs = try container.decode(Int.self, forKey: .refreshTokenLifetimeSecs)
         self.requireDigits = try container.decode(Bool.self, forKey: .requireDigits)
         self.requireLowercase = try container.decode(Bool.self, forKey: .requireLowercase)
@@ -12343,6 +12588,7 @@ public struct SetOrgSettings: Codable, Sendable {
         try container.encodeIfPresent(opaqueMode, forKey: .opaqueMode)
         try container.encodeIfPresent(opaqueSuite, forKey: .opaqueSuite)
         try container.encode(passwordHistoryCount, forKey: .passwordHistoryCount)
+        try container.encodeIfPresent(refreshReuseResponse, forKey: .refreshReuseResponse)
         try container.encode(refreshTokenLifetimeSecs, forKey: .refreshTokenLifetimeSecs)
         try container.encode(requireDigits, forKey: .requireDigits)
         try container.encode(requireLowercase, forKey: .requireLowercase)
@@ -13129,6 +13375,9 @@ public struct TenantSettingsOverride: Codable, Sendable {
     /// The server's `password_history_count` field.
     public let passwordHistoryCount: Int?
 
+    /// The server's `refresh_reuse_response` field.
+    public let refreshReuseResponse: RefreshReuseResponse?
+
     /// The server's `refresh_token_lifetime_secs` field.
     public let refreshTokenLifetimeSecs: Int?
 
@@ -13190,6 +13439,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         opaqueMode: String? = nil,
         opaqueSuite: String? = nil,
         passwordHistoryCount: Int? = nil,
+        refreshReuseResponse: RefreshReuseResponse? = nil,
         refreshTokenLifetimeSecs: Int? = nil,
         requireDigits: Bool? = nil,
         requireLowercase: Bool? = nil,
@@ -13228,6 +13478,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         self.opaqueMode = opaqueMode
         self.opaqueSuite = opaqueSuite
         self.passwordHistoryCount = passwordHistoryCount
+        self.refreshReuseResponse = refreshReuseResponse
         self.refreshTokenLifetimeSecs = refreshTokenLifetimeSecs
         self.requireDigits = requireDigits
         self.requireLowercase = requireLowercase
@@ -13268,6 +13519,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         case opaqueMode = "opaque_mode"
         case opaqueSuite = "opaque_suite"
         case passwordHistoryCount = "password_history_count"
+        case refreshReuseResponse = "refresh_reuse_response"
         case refreshTokenLifetimeSecs = "refresh_token_lifetime_secs"
         case requireDigits = "require_digits"
         case requireLowercase = "require_lowercase"
@@ -13309,6 +13561,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         self.opaqueMode = try container.decodeIfPresent(String.self, forKey: .opaqueMode)
         self.opaqueSuite = try container.decodeIfPresent(String.self, forKey: .opaqueSuite)
         self.passwordHistoryCount = try container.decodeIfPresent(Int.self, forKey: .passwordHistoryCount)
+        self.refreshReuseResponse = try container.decodeIfPresent(RefreshReuseResponse.self, forKey: .refreshReuseResponse)
         self.refreshTokenLifetimeSecs = try container.decodeIfPresent(Int.self, forKey: .refreshTokenLifetimeSecs)
         self.requireDigits = try container.decodeIfPresent(Bool.self, forKey: .requireDigits)
         self.requireLowercase = try container.decodeIfPresent(Bool.self, forKey: .requireLowercase)
@@ -13350,6 +13603,7 @@ public struct TenantSettingsOverride: Codable, Sendable {
         try container.encodeIfPresent(opaqueMode, forKey: .opaqueMode)
         try container.encodeIfPresent(opaqueSuite, forKey: .opaqueSuite)
         try container.encodeIfPresent(passwordHistoryCount, forKey: .passwordHistoryCount)
+        try container.encodeIfPresent(refreshReuseResponse, forKey: .refreshReuseResponse)
         try container.encodeIfPresent(refreshTokenLifetimeSecs, forKey: .refreshTokenLifetimeSecs)
         try container.encodeIfPresent(requireDigits, forKey: .requireDigits)
         try container.encodeIfPresent(requireLowercase, forKey: .requireLowercase)
@@ -13778,6 +14032,9 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
     /// OIDC discovery or SAML metadata URL. Explicit `null` clears it; omitted leaves it.
     public let metadataURL: String??
 
+    /// The server's `native_login` field.
+    public let nativeLogin: NativeLoginTrustRequest?
+
     /// The server's `provider` field.
     public let provider: String?
 
@@ -13815,6 +14072,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
         idpMetadataSigningCertPEM: String?? = nil,
         idpSigningCertPEM: String?? = nil,
         metadataURL: String?? = nil,
+        nativeLogin: NativeLoginTrustRequest? = nil,
         provider: String? = nil,
         providerSlug: String?? = nil,
         requirePKCE: Bool? = nil,
@@ -13838,6 +14096,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
         self.idpMetadataSigningCertPEM = idpMetadataSigningCertPEM
         self.idpSigningCertPEM = idpSigningCertPEM
         self.metadataURL = metadataURL
+        self.nativeLogin = nativeLogin
         self.provider = provider
         self.providerSlug = providerSlug
         self.requirePKCE = requirePKCE
@@ -13863,6 +14122,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
         case idpMetadataSigningCertPEM = "idp_metadata_signing_cert_pem"
         case idpSigningCertPEM = "idp_signing_cert_pem"
         case metadataURL = "metadata_url"
+        case nativeLogin = "native_login"
         case provider = "provider"
         case providerSlug = "provider_slug"
         case requirePKCE = "require_pkce"
@@ -13949,6 +14209,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
         } else {
             self.metadataURL = nil
         }
+        self.nativeLogin = try container.decodeIfPresent(NativeLoginTrustRequest.self, forKey: .nativeLogin)
         self.provider = try container.decodeIfPresent(String.self, forKey: .provider)
         if container.contains(.providerSlug) {
             if try container.decodeNil(forKey: .providerSlug) {
@@ -14041,6 +14302,7 @@ public struct UpdateFederationConfigRequest: Codable, Sendable {
                 try container.encodeNil(forKey: .metadataURL)
             }
         }
+        try container.encodeIfPresent(nativeLogin, forKey: .nativeLogin)
         try container.encodeIfPresent(provider, forKey: .provider)
         if let providerSlugMember = providerSlug {
             if let providerSlugValue = providerSlugMember {
@@ -14206,6 +14468,11 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
     /// X7.3 — see [`CreateOAuth2ClientRequest::browser_sso`].
     public let browserSSO: Bool?
 
+    /// G-B (#817) — see [`CreateOAuth2ClientRequest::default_idp`]. Omitted leaves it; `null`
+    /// clears it; an id is held to the create rule (`400` unless it names a provider this
+    /// tenant can sign in with).
+    public let defaultIdp: String?
+
     /// The server's `dpop_bound_access_tokens` field.
     public let dpopBoundAccessTokens: Bool?
 
@@ -14269,6 +14536,7 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
         backchannelTokenDeliveryMode: String? = nil,
         backchannelUserCodeParameter: Bool? = nil,
         browserSSO: Bool? = nil,
+        defaultIdp: String? = nil,
         dpopBoundAccessTokens: Bool? = nil,
         dpopRequireNonce: Bool? = nil,
         grantTypes: [String]? = nil,
@@ -14295,6 +14563,7 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
         self.backchannelTokenDeliveryMode = backchannelTokenDeliveryMode
         self.backchannelUserCodeParameter = backchannelUserCodeParameter
         self.browserSSO = browserSSO
+        self.defaultIdp = defaultIdp
         self.dpopBoundAccessTokens = dpopBoundAccessTokens
         self.dpopRequireNonce = dpopRequireNonce
         self.grantTypes = grantTypes
@@ -14323,6 +14592,7 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
         case backchannelTokenDeliveryMode = "backchannel_token_delivery_mode"
         case backchannelUserCodeParameter = "backchannel_user_code_parameter"
         case browserSSO = "browser_sso"
+        case defaultIdp = "default_idp"
         case dpopBoundAccessTokens = "dpop_bound_access_tokens"
         case dpopRequireNonce = "dpop_require_nonce"
         case grantTypes = "grant_types"
@@ -14352,6 +14622,7 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
         self.backchannelTokenDeliveryMode = try container.decodeIfPresent(String.self, forKey: .backchannelTokenDeliveryMode)
         self.backchannelUserCodeParameter = try container.decodeIfPresent(Bool.self, forKey: .backchannelUserCodeParameter)
         self.browserSSO = try container.decodeIfPresent(Bool.self, forKey: .browserSSO)
+        self.defaultIdp = try container.decodeIfPresent(String.self, forKey: .defaultIdp)
         self.dpopBoundAccessTokens = try container.decodeIfPresent(Bool.self, forKey: .dpopBoundAccessTokens)
         self.dpopRequireNonce = try container.decodeIfPresent(Bool.self, forKey: .dpopRequireNonce)
         self.grantTypes = try container.decodeIfPresent([String].self, forKey: .grantTypes)
@@ -14381,6 +14652,7 @@ public struct UpdateOAuth2ClientRequest: Codable, Sendable {
         try container.encodeIfPresent(backchannelTokenDeliveryMode, forKey: .backchannelTokenDeliveryMode)
         try container.encodeIfPresent(backchannelUserCodeParameter, forKey: .backchannelUserCodeParameter)
         try container.encodeIfPresent(browserSSO, forKey: .browserSSO)
+        try container.encodeIfPresent(defaultIdp, forKey: .defaultIdp)
         try container.encodeIfPresent(dpopBoundAccessTokens, forKey: .dpopBoundAccessTokens)
         try container.encodeIfPresent(dpopRequireNonce, forKey: .dpopRequireNonce)
         try container.encodeIfPresent(grantTypes, forKey: .grantTypes)
