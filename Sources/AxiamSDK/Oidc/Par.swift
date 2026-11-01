@@ -3,6 +3,18 @@ import Foundation
 // CONTRACT.md §26 — Pushed Authorization Requests (RFC 9126).
 extension AxiamClient {
 
+    /// The `axiam_idp_hint` an ``oidcBegin(redirectURI:scope:idpHint:configuration:)`` URL carries,
+    /// or `nil` when it carries none (or an empty one, which names no provider). Bounded as the
+    /// argument is, so an altered URL cannot push what the argument could not.
+    static func idpHintCarried(by request: AuthorizationRequest, operation: String) throws -> String? {
+        guard let components = URLComponents(string: request.url),
+              let value = components.queryItems?.first(where: { $0.name == idpHintParameter })?.value,
+              !value.isEmpty
+        else { return nil }
+        try checkIdpHint(value, operation: operation)
+        return value
+    }
+
     /// `POST /oauth2/par` (CONTRACT.md §26.1) — push the authorization request over the
     /// back channel and get an opaque handle to redirect with.
     ///
@@ -21,7 +33,7 @@ extension AxiamClient {
     /// double-consume anything (§26.2 rule 4).
     ///
     /// - Parameters:
-    ///   - request: what ``oidcBegin(redirectURI:scope:configuration:)`` returned. Its
+    ///   - request: what ``oidcBegin(redirectURI:scope:idpHint:configuration:)`` returned. Its
     ///     `state`, `nonce` and PKCE verifier are pushed as-is — §26.2 rule 1 forbids a
     ///     second generator.
     ///   - redirectURI: the same redirect URI that will be sent at exchange time.
@@ -34,9 +46,19 @@ extension AxiamClient {
     ///     verifying DPoP proofs but not generating them, so it holds no client key and has
     ///     no thumbprint of its own to offer. An application doing DPoP computes the
     ///     thumbprint over its own key (RFC 7638) and passes it here.
+    ///   - idpHint: contract 1.65, §26.2 rule 8 — the provider to start the sign-in page with
+    ///     (a UUID, a `provider_slug` or a branded kind name), pushed as `axiam_idp_hint` in the
+    ///     **form body**, exactly once, and only when set. It never reaches the redirect URL,
+    ///     which stays exactly `client_id` and `request_uri` (plus the routing `tenant_id`): the
+    ///     server reads the pushed copy and ignores one beside a `request_uri`. Validated as
+    ///     ``oidcBegin(redirectURI:scope:idpHint:configuration:)`` does — emptiness and 256
+    ///     bytes, nothing else — before any request is sent. When this is `nil`, the `axiam_idp_hint`
+    ///     that `request.url` carries (from `oidcBegin(idpHint:)`) is pushed instead; when both
+    ///     are set this argument wins and exactly one value is pushed.
     ///   - tenantID: a tenant override for the `?tenant_id=` query parameter.
     ///   - configuration: the discovery document, or `nil` to discover.
-    /// - Throws: ``AxiamError/auth(_:)`` client-side, with **no wire call**, when the
+    /// - Throws: a validation ``NetworkError`` when `idpHint` is empty or over 256 bytes;
+    ///   ``AxiamError/auth(_:)`` client-side, with **no wire call**, when the
     ///   discovery document advertises no PAR endpoint — §12.7.2 rule 1's discipline: never
     ///   synthesise the URL from the issuer.
     public func oidcPar(
@@ -44,10 +66,12 @@ extension AxiamClient {
         redirectURI: String,
         scope: String = "openid profile email",
         dpopJkt: String? = nil,
+        idpHint: String? = nil,
         tenantID: String? = nil,
         configuration: OidcConfiguration? = nil
     ) async throws -> PushedAuthorizationRequest {
         try ensureOpen()
+        if let idpHint { try Self.checkIdpHint(idpHint, operation: "oidcPar") }
         let document = try await oidcConfiguration(configuration)
         let clientID = try requireOidcClientID()
 
@@ -86,6 +110,15 @@ extension AxiamClient {
         // it speculatively would make every push demand a proof this SDK cannot produce
         // (§21.9: verifies, does not generate).
         if let dpopJkt { form["dpop_jkt"] = dpopJkt }
+        // §26.2 rule 8 (contract 1.65): the hint rides the pushed body and nothing else carries
+        // it. The redirect URL built below stays `client_id` + `request_uri`; adding the hint
+        // there "to be safe" is forbidden (the server ignores it beside a `request_uri`).
+        // Amended 2026-10-31 (C165-11, D-N36): when the argument is unset, the hint the begin URL
+        // already carries is the one pushed, so `oidcBegin(idpHint: "x")` followed by
+        // `oidcPar(request:)` does not lose it; the argument wins when both are set.
+        if let effective = try idpHint ?? Self.idpHintCarried(by: request, operation: "oidcPar") {
+            form[Self.idpHintParameter] = effective
+        }
 
         // `request_uri` is deliberately NOT a parameter of this method, although contract 1.42
         // adds one to the `PushedAuthorizationRequest` wire schema. RFC 9126 §2.1 makes it the

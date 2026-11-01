@@ -82,6 +82,16 @@ extension AxiamClient {
                     duration: Date().timeIntervalSince(started), outcome: .failure))
                 throw CancellationError()
             } catch {
+                // A refused redirect (§12.1 rule 3) is the server's answer, not a transient
+                // failure: another attempt would be sent to the same intermediary.
+                if case AxiamError.network(let refusal) = error,
+                   let code = refusal.statusCode, (300..<400).contains(code) {
+                    telemetry.emit(.requestEnd(
+                        operation: operation, method: method.rawValue,
+                        pathTemplate: pathTemplate, attempt: attempt, status: code,
+                        duration: Date().timeIntervalSince(started), outcome: .failure))
+                    throw error
+                }
                 thrown = error
             }
 

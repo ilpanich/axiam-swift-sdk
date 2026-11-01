@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Contract 1.65 (the 1.2.0 platform release). Additive; nothing here changes the behaviour of a
+call that did not use it, and the release number is the maintainer's.
+
+### Added
+
+- **Native sign-in with a provider ID token** (contract 1.65, CONTRACT.md §37).
+  `AxiamClient.loginWithProviderIdToken(provider:idToken:nonce:scopes:resource:tenantID:configuration:)`
+  — one `POST /oauth2/token` with `grant_type=urn:axiam:params:oauth:grant-type:provider-id-token`,
+  returning the ordinary `OidcTokenSet`. The raw nonce is sent byte for byte; `openid` is never
+  added; empty `provider`, `idToken` or `nonce` and a slug-only client are refused with no request;
+  the call is never retried and `invalid_grant` is never refined; the provider token and the raw
+  nonce are `Sensitive` and appear in no error, telemetry event or state. An `id_token` in the
+  response is validated under §12.4 with the raw nonce. The set is not adopted (the posture of
+  `loginClientCredentials` and `deviceLogin`).
+- **`AxiamClient.nativeNonce()` and `ProviderNonce`** (§37.4): a synchronous, network-free pair —
+  `raw` (`Sensitive`, 32 CSPRNG bytes, base64url without padding) and `hashed` (`SHA-256(raw)`,
+  64 lower-case hex characters) — for the provider's SDK and for the call above.
+- **`idpHint:` on `oidcBegin` (both overloads) and `oidcPar`** (§12.1, §26.2 rule 8): emitted as
+  `axiam_idp_hint` exactly once, and in the pushed body — never the redirect URL — under PAR.
+  Empty or over 256 UTF-8 bytes is refused with no URL built and no request; nothing else is
+  validated. No `kc_idp_hint`.
+- Regenerated (`Scripts/gen_management.py`) from the contract 1.65 registry and `openapi.json`
+  1.2.0: `OAuth2Policy` (new), `SetOrgSettings` and `TenantSettingsOverride` gain
+  `refreshReuseResponse` (the new `RefreshReuseResponse` open enum, `revoke_session` | `refuse`);
+  `CreateOAuth2ClientRequest`, `UpdateOAuth2ClientRequest` and `OAuth2ClientResponse` gain
+  `defaultIdp`; the create/update/response models of a federation configuration gain `nativeLogin`
+  (new `NativeLoginTrustRequest` / `NativeLoginTrustResponse`). `TokenRequest.provider` / `idToken` /
+  `nonce` and `PushedAuthorizationRequest.axiamIdpHint` are wire schemas this SDK does not model —
+  `loginWithProviderIdToken` and `oidcPar(idpHint:)` are their surface. The registry still has 202
+  operations in 29 namespaces. `settings.setOrg` is a `replace` (§27.4 rule 5) and this SDK has no
+  composed read-modify-write form for it: a `SetOrgSettings` built without `refreshReuseResponse`
+  moves an organization that was on `refuse` back to `revoke_session` (the stricter direction),
+  so pass the value you read.
+
+### Changed
+
+- **`oidcRefresh` is now single-flight** (§9, §12.1: "MUST be governed by a §9-conformant
+  single-flight guard"). A burst of concurrent calls with the same refresh token makes one wire
+  call and shares its outcome with every caller; previously each caller made its own, which for a
+  single-use rotating token is a replay. A call starting after the first has settled makes its own
+  request. No signature changed. The new §9 confirmation test (`400 invalid_grant`, a burst of
+  eight, one wire call) is `Contract165NativeSignInTests`.
+- **Behaviour you may observe from the server, no SDK change needed:** a replayed refresh token is
+  still answered `400 invalid_grant`, and by default (`oauth2.refresh_reuse_response =
+  revoke_session`) it now also ends the session server-side and revokes every refresh token under
+  it, the legitimate successor included. `invalid_grant` on `oidcRefresh` means re-authorize;
+  never retry it with the same token. An organization can set `refuse` to keep the old behaviour.
+- **Server floor (D-N33):** federation-config admin calls (`federation.create_config`,
+  `get_config`, `list_configs`, `update_config`) of this 1.2-line SDK need an AXIAM server
+  **1.2.0 or later**: `FederationConfigResponse.nativeLogin` is required from 1.2.0, and a
+  response from an older server fails to decode (a `NetworkError`, "Failed to decode response
+  body").
+- `oidcPar` pushes the `axiam_idp_hint` the begin URL carries when its own `idpHint` argument is
+  `nil`, so `oidcBegin(idpHint: "x")` followed by `oidcPar(request:)` no longer loses the hint; the
+  argument wins when both are set, and exactly one value is pushed (§26.2 rule 8, D-N36). The
+  redirect URL is unchanged.
+- A `3xx` answer to a `POST` to an `/oauth2/*` endpoint is now a `NetworkError` (§12.1 rule 3,
+  §37.2 rule 12). The transport never followed a redirect, so no form was ever re-sent; this makes
+  the refusal explicit and stops the `3xx` from falling through to the generic status mapping. It
+  is not retried.
+- `AuthError.retryAfter` (additive, trailing defaulted initializer parameter): the `Retry-After` of
+  a `429` OAuth2 answer, in seconds, so a caller can honour the server's wait; `nil` otherwise.
+- Vendored `CONTRACT.md` (1.65, as amended 2026-10-31) re-synced from axiam `d93976b`;
+  `openapi.json` (1.2.0), `management-registry.json` (from `76d35d9`) and `proto/` are unchanged.
+
+### Source compatibility
+
+- `FederationConfigResponse` gained the required `nativeLogin` (it is a non-defaulted parameter of
+  the memberwise `init`): code that builds one, such as a test fixture or a mock, must supply it.
+  Decoding a server's response is unaffected from server 1.2.0 (see the server floor above).
+  Everything else regenerated this release is additive with defaulted parameters.
+
 ## [1.1.3] - 2026-10-29
 
 Dependency and toolchain refresh. **The Swift floor moves from 5.9 to 6.2**, which is a

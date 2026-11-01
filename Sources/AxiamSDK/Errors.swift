@@ -50,19 +50,25 @@ public struct AuthError: Error, Sendable, CustomStringConvertible {
     /// Pass ``SetFailureReason/pushErrorCode`` back to the transmitter (RFC 8935 `err`), or
     /// `SetErr(reason:)` in the next poll's `setErrs`.
     public let setFailureReason: SetFailureReason?
+    /// The `Retry-After` of a `429` OAuth2 answer (e.g. `rate_limit_exceeded` from the route
+    /// limiter, CONTRACT.md §37.3), in seconds, clamped to one hour. `nil` for every
+    /// other failure and for a `429` that carried no usable header. Added in 1.2.0, additively.
+    public let retryAfter: TimeInterval?
 
     public init(
         _ message: String,
         oauthError: String? = nil,
         oauthErrorDescription: String? = nil,
         challenge: String? = nil,
-        setFailureReason: SetFailureReason? = nil
+        setFailureReason: SetFailureReason? = nil,
+        retryAfter: TimeInterval? = nil
     ) {
         self.message = message
         self.oauthError = oauthError
         self.oauthErrorDescription = oauthErrorDescription
         self.challenge = challenge
         self.setFailureReason = setFailureReason
+        self.retryAfter = retryAfter
     }
 
     public var description: String { "AuthError: \(message)" }

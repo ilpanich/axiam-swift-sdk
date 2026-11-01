@@ -12,9 +12,9 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to contract 1.64 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
-> §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33
-> and §36, with §32.7 and §33.2 signed (including §6.1 mTLS —
+> **This SDK conforms to contract 1.65 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
+> §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33,
+> §36 and §37, with §32.7 and §33.2 signed (including §6.1 mTLS —
 > now including rules 6–10, the mTLS device login `authenticateDevice()` — §5.2 rule 1's
 > acting tenant, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login
 > path — which needs `libaxiam_opaque_ffi` installed, see below — and §28's REST surface:
@@ -22,6 +22,11 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 > SDK's core carries no Vapor dependency and its §10/§11 guard is likewise framework-agnostic,
 > so the route is a documented `AsyncMiddleware` wiring; §28.5 rule 8's gRPC/AMQP challenge
 > form does not apply, as this SDK's guard covers neither transport).**
+>
+> **Server floor:** federation-config admin calls (`federation.create_config`, `get_config`,
+> `list_configs`, `update_config`) of this 1.2-line SDK need an AXIAM server **1.2.0 or later**:
+> `FederationConfigResponse.nativeLogin` is required from 1.2.0, and a response from an older
+> server fails to decode.
 >
 > §22 is §22.1–§22.8 and §22.14 over a **caller-supplied transport**: this SDK vendors no AMQP
 > client, and you conform `ReactorTransport` over whichever one you already trust (§22.11).
@@ -976,10 +981,75 @@ The rules this surface exists to enforce:
   with the client's current registration at every refresh, so `oidcRefresh` can answer with a
   narrower `scope` — and no ID token once `openid` is gone. `OidcTokenSet.scope` is always the
   response's, never the original grant's.
+- **`oidcRefresh` is single-flight** (§9, §12.1). A burst of concurrent calls presenting the
+  same refresh token makes **one** wire call and shares its outcome — token set or error — with
+  every caller. This matters more from contract 1.65: the token is single-use and rotating, and a
+  replay is answered `invalid_grant` *and ends the session on the server* (the default
+  `oauth2.refresh_reuse_response = revoke_session`). `invalid_grant` on `oidcRefresh` therefore
+  means the session is over: re-authorize, never retry with the same token. The guard is per client
+  instance, so refreshing one token from two places is a defect.
 - **No `/oauth2/userinfo`.** A relying party's claims come from the validated ID token
   (`OidcTokenSet.idClaims`); §12.3 rule 5 keeps that endpoint out of the vocabulary.
 
 Runnable: [`Examples/OidcLogin`](Examples/OidcLogin/main.swift).
+
+### Choosing the provider: `idpHint` (contract 1.65, §12.1)
+
+A relying party that already knows which provider its user should use can send the browser
+straight to it. `oidcBegin` (both overloads) and `oidcPar` take an optional `idpHint`, emitted as
+the query parameter `axiam_idp_hint` — exactly once, and only when set:
+
+```swift
+let request = try client.oidcBegin(
+    redirectURI: "https://app.example/callback",
+    idpHint: "corp-okta",            // a provider's UUID, its slug, or a branded kind name
+    configuration: configuration)
+```
+
+The value is checked for emptiness and length (256 bytes of UTF-8) and for nothing else — never
+trimmed, case-folded or looked up, because the server resolves it and ignores one that names
+nothing. There is no `kc_idp_hint` alias. Under PAR the hint travels in the **pushed body**
+(`oidcPar(…, idpHint:)`) and never in the redirect URL, which stays `client_id` and `request_uri`.
+
+### Native sign-in with a provider ID token (§37, contract 1.65)
+
+An app that used Google's, Apple's or Facebook's *native* SDK holds an ID token the provider
+signed for it and no authorization code. `loginWithProviderIdToken` presents that token to
+AXIAM's token endpoint (grant `urn:axiam:params:oauth:grant-type:provider-id-token`) and returns
+the client's ordinary `OidcTokenSet`. `nativeNonce()` makes the nonce pair the grant needs:
+
+```swift
+let client = try AxiamClient(config: try AxiamConfig(
+    baseURL: baseURL, tenantID: tenantUUID, oidcClientID: "my-ios-app"))  // public client: no secret
+
+let pair = client.nativeNonce()
+// Give the provider's SDK `pair.hashed` (SHA-256 of the raw value, lower-case hex) as ITS nonce…
+let providerIdToken = try await googleSignIn(nonce: pair.hashed)
+
+// …and give AXIAM the ID token it returned plus the RAW nonce. Hold the raw nonce only for this attempt.
+let tokens = try await client.loginWithProviderIdToken(
+    provider: "google-prod",               // the provider's UUID or its slug — not a kind name
+    idToken: Sensitive(providerIdToken),
+    nonce: pair.raw,
+    scopes: ["openid", "profile"])         // nothing is added for you; omit and no ID token returns
+```
+
+What to know before you ship it:
+
+- **Never retried.** The provider's token is single-use across the whole deployment. Every
+  refusal of it is one generic `invalid_grant` (`AuthError.oauthError`), which this SDK does not
+  refine and you cannot tell apart; recover with a **fresh** provider token and a **fresh**
+  nonce. A transport failure after the request left is indeterminate for the same reason. A
+  `429 rate_limit_exceeded` spends nothing, so you may try the same pair again later.
+- **`consent_required` has spent the token.** It is not turned into a browser flow; complete
+  consent some other way (an authorization-code sign-in for that scope) and start from a fresh
+  provider token.
+- **The raw nonce is a credential**, like the token. Both are `Sensitive`, neither is logged,
+  put in an error or kept by the SDK, and the result is not adopted as the client's session.
+- **A public client is the normal case**: `client_id` alone goes out. A client with
+  `oidcClientSecret` also sends `client_secret` in the body. A client registered for DPoP cannot
+  be driven from here (§21.9) and gets the server's `401 invalid_client`.
+- **Not token exchange.** `tokenExchange` refuses ID tokens by name and this never falls back to it.
 
 ### The four public login-provider operations, and their rules
 
