@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-11-04
+
 Contract 1.66 (post-1.2.0 sign-in hardening, §34.10). `CONTRACT.md`, `openapi.json` and
 `management-registry.json` re-vendored byte for byte from `ilpanich/axiam` `5f9d079`; `proto/` is
 unchanged. **No API change**: the registry moves only its `spec_digest`, and
@@ -28,6 +30,8 @@ unchanged. **No API change**: the registry moves only its `spec_digest`, and
 
 Contract 1.65 (the 1.2.0 platform release). Additive; nothing here changes the behaviour of a
 call that did not use it, and the release number is the maintainer's.
+
+- Contract 1.65 review findings (C165-04, -08, -11, -14, -17)
 
 ### Added
 
@@ -60,6 +64,8 @@ call that did not use it, and the release number is the maintainer's.
   moves an organization that was on `refuse` back to `revoke_session` (the stricter direction),
   so pass the value you read.
 
+- Native sign-in with a provider ID token and idp_hint (contract 1.65 §37)
+
 ### Changed
 
 - **`oidcRefresh` is now single-flight** (§9, §12.1: "MUST be governed by a §9-conformant
@@ -90,6 +96,16 @@ call that did not use it, and the release number is the maintainer's.
   a `429` OAuth2 answer, in seconds, so a caller can honour the server's wait; `nil` otherwise.
 - Vendored `CONTRACT.md` (1.65, as amended 2026-10-31) re-synced from axiam `d93976b`;
   `openapi.json` (1.2.0), `management-registry.json` (from `76d35d9`) and `proto/` are unchanged.
+
+- re-vendor CONTRACT.md 1.66 as amended at ilpanich/axiam 5f9d079
+
+- re-sync contract 1.66 and openapi.json; confirm the federated sign-in cookie binding (§12.1 rule 12b)
+
+- re-vendor openapi.json and the management registry (logout/reset-mfa 500, D-N44)
+
+- re-vendor openapi.json and the management registry (end_session 500, D-N42)
+
+- re-vendor contract 1.65, openapi 1.2.0 and the management registry
 
 ### Source compatibility
 
