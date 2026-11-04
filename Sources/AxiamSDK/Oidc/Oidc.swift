@@ -370,9 +370,8 @@ extension AxiamClient {
     /// `sso_complete_handoff` share it) rather than the generic `oidcJSONPost`: this is a
     /// SESSION-ESTABLISHING call whose `Set-Cookie` must land in this client's §4 jar and
     /// whose completion must reset the §5.2 acting-tenant gate and the §17 memo exactly as
-    /// the other two do (`oidcJSONPost` goes through `umaSendAbsolute`, which deliberately
-    /// attaches and captures no cookie at all — correct for the §20 discovery calls it
-    /// otherwise serves, wrong for a call whose entire point is the cookie it gets back).
+    /// the other two do (`oidcJSONPost` stores the start's cookies — see it — but resets
+    /// nothing, which is right for a start and wrong for a completion).
     public func ssoComplete(code: String, state: String) async throws -> SsoCompleteResult {
         try ensureOpen()
         return try await completeFederationSession(

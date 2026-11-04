@@ -265,20 +265,25 @@ extension AxiamClient {
         return url
     }
 
-    /// A JSON POST against a path on this client's own base URL — the two federation
-    /// operations, which are AXIAM REST endpoints rather than OAuth2 ones.
+    /// A JSON POST against a path on this client's own base URL — the two federation start
+    /// operations (`ssoStart`, `ssoStartOauth2`), which are AXIAM REST endpoints rather than
+    /// OAuth2 ones.
+    ///
+    /// **Through the §4 jar (§12.1 rule 12b, contract 1.66).** A federated start answers with
+    /// the browser-binding cookie (`__Host-axiam_fed_bind`, or `axiam_fed_bind` without
+    /// `Secure`), and the completion is refused with `401` unless it presents the same cookie.
+    /// Until 1.66 this went through `umaSendAbsolute`, which neither stores nor presents a
+    /// cookie, so the binding was dropped and the completion could never carry it. It now uses
+    /// `federationSessionPost` (`rawSend`), the path the three completions already take: the
+    /// `Set-Cookie` lands in this client's jar, and a binding the jar already holds is presented
+    /// (the server reuses it, so one client can run several sign-ins at once).
     func oidcJSONPost<T: Decodable>(
         _ path: String,
         body: [String: String],
         context: String
     ) async throws -> T {
-        let url = config.baseURL.appendingPathComponent(path)
         let payload = try JSONSerialization.data(withJSONObject: body)
-        let response = try await umaSendAbsolute(
-            method: .post,
-            url: url,
-            headers: [("Content-Type", "application/json"), ("Accept", "application/json")],
-            body: payload)
+        let response = try await federationSessionPost(path: path, body: payload)
         guard (200..<300).contains(response.status) else { throw oidcMapError(response) }
         return try oidcDecode(T.self, response.body, context)
     }
