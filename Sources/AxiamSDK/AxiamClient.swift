@@ -1324,9 +1324,10 @@ extension AxiamClient {
     ///
     /// The two §12.1 federation completions (`sso_complete_oauth2`, `sso_complete_handoff`)
     /// answer `200` alongside `Set-Cookie`, and that cookie is the whole result — the body
-    /// carries no token material (§12.1 note 6). Routed through `rawSend` rather than §12's
-    /// own `oidcJSONPost` for exactly that reason: `rawSend` is what stores the §4 jar and
-    /// captures the §3 CSRF token. Errors are not mapped here; §12 maps them itself.
+    /// carries no token material (§12.1 note 6). Routed through `rawSend` for exactly that
+    /// reason: `rawSend` is what stores the §4 jar and captures the §3 CSRF token. The two
+    /// federation starts use it too (via `oidcJSONPost`), for the §12.1 rule 12b binding cookie
+    /// they set. Errors are not mapped here; §12 maps them itself.
     func federationSessionPost(path: String, body: Data) async throws -> HTTPResponseData {
         try await rawSend(method: .post, path: path, body: body)
     }

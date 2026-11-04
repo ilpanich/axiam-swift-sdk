@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Contract 1.66 (post-1.2.0 sign-in hardening, §34.10). `CONTRACT.md`, `openapi.json` and
+`management-registry.json` re-vendored byte for byte from `ilpanich/axiam` `5f9d079`; `proto/` is
+unchanged. **No API change**: the registry moves only its `spec_digest`, and
+`Scripts/gen_management.py --check` reports the §27 surface current. The optional
+`reauthenticate` start input (§12.1 rule 12c) is not exposed.
+
+### Fixed
+
+- **The federated starts now keep the §12.1 rule 12b binding cookie** (contract 1.66, #837).
+  `ssoStart` and `ssoStartOauth2` reached the server through `oidcJSONPost` → `umaSendAbsolute`,
+  which neither stores nor presents a cookie, so the `__Host-axiam_fed_bind` / `axiam_fed_bind`
+  cookie the start sets never reached the §4 jar, and against a 1.66 server every
+  `ssoComplete` / `ssoCompleteOauth2` / `ssoCompleteHandoff` would be refused with `401`. Both now
+  go through `federationSessionPost` (`rawSend`), the path the three completions already take: the
+  start's `Set-Cookie` lands in the jar, and a binding the jar already holds is presented. Start and
+  complete one sign-in through the same `AxiamClient`. Found by the rule 12b confirmation test,
+  `Contract166FederatedBindingTests`: the start's cookie is presented on the following
+  `ssoComplete` from the same client, and absent from a second client's.
+
 Contract 1.65 (the 1.2.0 platform release). Additive; nothing here changes the behaviour of a
 call that did not use it, and the release number is the maintainer's.
 
