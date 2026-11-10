@@ -1,11 +1,29 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
-
+# .github/dependabot.yml
+# Automated dependency updates. Mirrors the AXIAM monorepo and the TypeScript
+# SDK: weekly on Monday, minor and patch bumps grouped into a single PR so the
+# CI matrix runs once per batch; majors arrive one per PR to be reviewed alone.
 version: 2
 updates:
-  - package-ecosystem: "" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # SwiftPM: Package.swift. No Package.resolved is committed (this is a
+  # library), so Dependabot raises the lower bound of each `from:` requirement.
+  - package-ecosystem: swift
+    directory: /
     schedule:
-      interval: "weekly"
+      interval: weekly
+      day: monday
+    groups:
+      minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch

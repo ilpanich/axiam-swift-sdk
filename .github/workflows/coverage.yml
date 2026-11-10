@@ -5,6 +5,10 @@ on:
   push:
     branches: [main]
 
+# Least privilege for every job; a job that needs more declares it itself.
+permissions:
+  contents: read
+
 jobs:
   coverage:
     name: code coverage → Coveralls
