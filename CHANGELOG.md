@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-11
+
+### Changed
+
+- Bump actions/checkout from 4.4.0 to 7.0.1
+
+- Bump actions/upload-artifact from 4.6.2 to 7.0.2
+
+- Potential fix for code scanning alert no. 1: Workflow does not contain permissions
+
+- Potential fix for code scanning alert no. 5: Workflow does not contain permissions
+
+- Configure Dependabot ecosystems and least-privilege workflow tokens
+
+- Potential fix for code scanning alert no. 2: Workflow does not contain permissions
+
+- Potential fix for code scanning alert no. 3: Workflow does not contain permissions
+
+- Potential fix for code scanning alert no. 4: Workflow does not contain permissions
+
+- Potential fix for code scanning alert no. 6: Workflow does not contain permissions
+
+- Fix formatting in dependabot.yml
+
 ## [1.3.0] - 2026-11-08
 
 ### Changed
