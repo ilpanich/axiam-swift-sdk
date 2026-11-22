@@ -352,6 +352,18 @@ public struct AxiamRequestAuthenticator: Sendable {
         let claims = verified.claims
         let now = Date().timeIntervalSince1970
 
+        // §10.1 rules 10 and 11 (contract 1.68; N14): the token must be an ACCESS token.
+        // AXIAM signs the MFA challenge, the MFA setup token and the WebAuthn state with the
+        // access-token key; they carry sub/tenant_id/iss/exp and no `aud`, so every other rule
+        // admits them. Each rule alone refuses all of them — none may be skipped because another
+        // is present. Rule 12 (a `kid` is required, no single-key fallback) is enforced in
+        // `JwksVerifier.selectKey`. These live here, on the access-token path only: the ID token,
+        // the logout token and the SSF SET reach the verifier through other entry points.
+        try Self.assertAccessTokenType(verified.typ)
+        if claims.purpose != nil {
+            throw AuthError("Token carries a purpose claim; it is not an access token (CONTRACT.md §10.1 rule 11).")
+        }
+
         // §10.1 rule 2 (SEC-080): `exp` is REQUIRED. A token with no `exp` is a permanent
         // credential and must fail closed rather than be read as "no expiry constraint". The JWKS
         // trust anchor is organization-wide, so the guard must not lean on the AXIAM server's own
@@ -431,6 +443,19 @@ public struct AxiamRequestAuthenticator: Sendable {
             username: claims.preferred_username,
             email: claims.email
         )
+    }
+
+    /// §10.1 rule 10: a header `typ`, when present, must name an access token —
+    /// `at+jwt`, case-insensitively, with an optional `application/` prefix (RFC 7515 §4.1.9,
+    /// RFC 9068 §2.1). Absent is accepted (rule 11/12 and the rest still apply); `JWT`,
+    /// `axiam-mfa-challenge+jwt`, `logout+jwt` and everything else is refused.
+    static func assertAccessTokenType(_ typ: String?) throws {
+        guard let typ else { return }
+        var normalised = typ.lowercased()
+        if normalised.hasPrefix("application/") { normalised.removeFirst("application/".count) }
+        guard normalised == "at+jwt" else {
+            throw AuthError("Token header typ '\(typ)' is not an access token (CONTRACT.md §10.1 rule 10).")
+        }
     }
 
     /// Cross-tenant carry-forward control (SEC-072).

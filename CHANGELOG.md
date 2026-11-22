@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-22
+
+### Security
+
+- The guard now refuses anything that is not an access token (CONTRACT.md 1.68 section 10.1 rules 10-12; N14).
+  A token whose header `typ` is present and not `at+jwt` (case-insensitive, `application/` prefix allowed)
+  is refused, as is one whose claims carry `purpose` (the MFA challenge, MFA setup and WebAuthn state tokens),
+  and a header with no `kid` stays refused (there is no single-key fallback). A token with no `typ` still verifies.
+  The checks apply to the access-token path only; the ID-token, logout-token and SSF paths are unchanged.
+
+### Changed (migration note)
+
+- **Behaviour change for integrators of AXIAM servers older than 1.67:** their access tokens carry `typ: JWT`
+  and are now refused by the guard, as the 1.67 server itself refuses them by default. Holders refresh (at most
+  one access-token lifetime, 15 minutes by default). Upgrade the server first, or accept one refresh cycle.
+- Vendored `CONTRACT.md`, `openapi.json`, `proto/` and `management-registry.json` re-synced to contract 1.68.
+
 ## [1.3.1] - 2026-11-11
 
 ### Changed

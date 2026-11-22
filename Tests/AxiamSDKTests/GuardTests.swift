@@ -314,4 +314,70 @@ final class GuardTests: XCTestCase {
             XCTAssertEqual(server.state.count("authz"), 0)
         }
     }
+
+    // MARK: - access-token path only (§10.1 rules 10-12, contract 1.68; N14)
+
+    /// Asserts `jwt` is refused by the guard with a signature-valid, tenant-correct,
+    /// audience-less token and a guard configured with no expected audience.
+    private func assertRefused(_ jwt: String, _ label: String) async throws {
+        try await withGuardClient(router: makeRouter()) { client, _ in
+            let auth = client.makeAuthenticator()
+            let ctx = AxiamRequestContext(headers: ["Authorization": "Bearer \(jwt)"])
+            do {
+                _ = try await auth.authenticate(ctx)
+                XCTFail("\(label): expected the guard to refuse this token")
+            } catch is AuthError {
+                // expected
+            }
+        }
+    }
+
+    func testN14RefusesPurposeClaimEvenWithAccessTokenTyp() async throws {
+        var claims = futureClaims()
+        claims["purpose"] = "mfa_challenge"
+        try await assertRefused(signer.makeJWT(claims: claims, typ: "at+jwt"), "purpose + at+jwt")
+    }
+
+    func testN14RefusesWebauthnStateShape() async throws {
+        var claims = futureClaims()
+        claims["sub"] = "00000000-0000-0000-0000-000000000000"
+        claims["purpose"] = "webauthn_authenticate_discoverable"
+        try await assertRefused(signer.makeJWT(claims: claims, typ: "at+jwt"), "webauthn shape")
+    }
+
+    func testN14RefusesWebauthnStateTyp() async throws {
+        try await assertRefused(
+            signer.makeJWT(claims: futureClaims(), typ: "axiam-webauthn-state+jwt"), "webauthn typ")
+    }
+
+    func testN14RefusesOtherTokenTypes() async throws {
+        for typ in ["JWT", "axiam-mfa-challenge+jwt", "axiam-mfa-setup+jwt", "logout+jwt"] {
+            try await assertRefused(signer.makeJWT(claims: futureClaims(), typ: typ), "typ \(typ)")
+        }
+    }
+
+    func testN14RefusesKidlessTokenAgainstOneKeyJwks() async throws {
+        try await assertRefused(
+            signer.makeJWT(claims: futureClaims(), includeKid: false), "kid-less")
+    }
+
+    func testN14AcceptsAccessTokenTypSpellings() async throws {
+        for typ in ["at+jwt", "AT+JWT", "application/at+jwt"] {
+            let jwt = signer.makeJWT(claims: futureClaims(), typ: typ)
+            try await withGuardClient(router: makeRouter()) { client, _ in
+                let user = try await client.makeAuthenticator().authenticate(
+                    AxiamRequestContext(headers: ["Authorization": "Bearer \(jwt)"]))
+                XCTAssertEqual(user.userID, "user-42", "typ \(typ)")
+            }
+        }
+    }
+
+    func testN14AcceptsTokenWithNoTyp() async throws {
+        let jwt = signer.makeJWT(claims: futureClaims(), typ: nil)
+        try await withGuardClient(router: makeRouter()) { client, _ in
+            let user = try await client.makeAuthenticator().authenticate(
+                AxiamRequestContext(headers: ["Authorization": "Bearer \(jwt)"]))
+            XCTAssertEqual(user.userID, "user-42")
+        }
+    }
 }

@@ -2265,7 +2265,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testAuditListReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+            [(status: 200, body: "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
         _ = try await client.audit.list()
 
         XCTAssertEqual(transport.count, 1)
@@ -2275,7 +2275,7 @@ final class ManagementGeneratedTests: XCTestCase {
 
     func testAuditListSystemReachesItsRoute() async throws {
         let (client, transport) = try await ManagementFixture.signedIn(
-            [(status: 200, body: "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
+            [(status: 200, body: "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}")])
         _ = try await client.audit.listSystem()
 
         XCTAssertEqual(transport.count, 1)
@@ -2602,7 +2602,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testAuditLogEntryRoundTripsWithoutLosingAField() throws {
-        let json = "{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}"
+        let json = "{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}"
         let wire = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 
@@ -6858,7 +6858,7 @@ final class ManagementGeneratedTests: XCTestCase {
     }
 
     func testAuditLogEntryMemberwiseInitializerAssignsEveryProperty() throws {
-        let json = "{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}"
+        let json = "{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}"
         let decoded = try JSONDecoder().decode(AuditLogEntry.self, from: Data(json.utf8))
 
         // Every property handed straight back through the memberwise initializer. Two
@@ -6872,6 +6872,7 @@ final class ManagementGeneratedTests: XCTestCase {
             id: decoded.id,
             ipAddress: decoded.ipAddress,
             metadata: decoded.metadata,
+            organizationID: decoded.organizationID,
             outcome: decoded.outcome,
             resourceID: decoded.resourceID,
             tenantID: decoded.tenantID,

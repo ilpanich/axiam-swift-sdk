@@ -15,10 +15,20 @@ struct JwksDocument: Decodable, Sendable {
     let keys: [Jwk]
 }
 
-/// The header of a JWS/JWT (`alg`, `kid`).
+/// The header of a JWS/JWT (`alg`, `kid`, `typ`).
+///
+/// `typ` is decoded so the access-token path can apply CONTRACT.md §10.1 rule 10. A `typ`
+/// that is present but not a string fails the header decode, which is a refusal.
 struct JwtHeader: Decodable, Sendable {
     let alg: String
     let kid: String?
+    let typ: String?
+}
+
+/// Matches any JSON value without interpreting it, so a claim's *presence* can be tested
+/// whatever its type (§10.1 rule 11 refuses `purpose` of any shape).
+struct JwtAnyValue: Decodable, Sendable {
+    init(from decoder: Decoder) throws {}
 }
 
 /// A JWT `aud` claim, which RFC 7519 allows to be either a single string or an array of them.
@@ -80,6 +90,10 @@ struct JwtClaims: Decodable, Sendable {
     /// revocation feed never matches a token without one, and there is no `jti` fallback,
     /// because hashing `jti` instead would match nothing while looking like it worked.
     let sid: String?
+    /// AXIAM's purpose marker on the tokens that are not access tokens — the MFA challenge,
+    /// the MFA setup token and the WebAuthn ceremony state. Decoded only so its presence
+    /// can be refused (CONTRACT.md §10.1 rule 11); never read as a value.
+    let purpose: JwtAnyValue?
 }
 
 /// RFC 7800 confirmation claim.
@@ -131,6 +145,8 @@ public struct CnfClaim: Decodable, Sendable, Equatable {
 /// The verified result of parsing a token: its claims (signature already checked).
 struct VerifiedToken: Sendable {
     let claims: JwtClaims
+    /// The JOSE header `typ`, verbatim (`nil` when absent) — for §10.1 rule 10.
+    let typ: String?
 }
 
 /// Fetches AXIAM's org-wide JWKS (`GET {baseURL}/oauth2/jwks`), caches it for 300s, and
@@ -250,7 +266,7 @@ actor JwksVerifier {
         } catch {
             throw AuthError("Malformed JWT claims.")
         }
-        return VerifiedToken(claims: claims)
+        return VerifiedToken(claims: claims, typ: header.typ)
     }
 
     /// Resolve the JWKS key a token's header names.
