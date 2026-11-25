@@ -58,9 +58,11 @@ struct TestSigner: Sendable {
         claims: [String: Any],
         alg: String = "EdDSA",
         includeKid: Bool = true,
-        kidOverride: String? = nil
+        kidOverride: String? = nil,
+        typ: String? = "at+jwt"
     ) -> String {
-        var header: [String: Any] = ["alg": alg, "typ": "JWT"]
+        var header: [String: Any] = ["alg": alg]
+        if let typ { header["typ"] = typ }
         if includeKid { header["kid"] = kidOverride ?? kid }
         let headerData = try! JSONSerialization.data(withJSONObject: header)
         let claimsData = try! JSONSerialization.data(withJSONObject: claims)

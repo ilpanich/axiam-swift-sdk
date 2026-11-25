@@ -2704,6 +2704,16 @@ public struct AuditLogEntry: Codable, Sendable {
     /// The server's `metadata` field.
     public let metadata: ManagementJSON
 
+    /// The organization a **system-partition** row (nil `tenant_id`) concerns, recorded only
+    /// where the server resolved it with certainty (SA-02, N1): a deleted tenant's
+    /// organization, a verified SCIM token's tenant's, or an organization or tenant the
+    /// request's path names and that exists. `GET /api/v1/audit-logs/system` returns a row only
+    /// to an organization principal of this organization, and a row without one to nobody.
+    /// Always `None` on a tenant's own rows, whose organization is their tenant's, and on every
+    /// system row written before the field existed. Omitted from the serialized form when
+    /// `None`, so an existing row's export line and dead-letter line are what they were.
+    public let organizationID: String?
+
     /// The server's `outcome` field.
     public let outcome: AuditOutcome
 
@@ -2723,6 +2733,7 @@ public struct AuditLogEntry: Codable, Sendable {
         id: String,
         ipAddress: String? = nil,
         metadata: ManagementJSON,
+        organizationID: String? = nil,
         outcome: AuditOutcome,
         resourceID: String? = nil,
         tenantID: String,
@@ -2734,6 +2745,7 @@ public struct AuditLogEntry: Codable, Sendable {
         self.id = id
         self.ipAddress = ipAddress
         self.metadata = metadata
+        self.organizationID = organizationID
         self.outcome = outcome
         self.resourceID = resourceID
         self.tenantID = tenantID
@@ -2747,6 +2759,7 @@ public struct AuditLogEntry: Codable, Sendable {
         case id = "id"
         case ipAddress = "ip_address"
         case metadata = "metadata"
+        case organizationID = "organization_id"
         case outcome = "outcome"
         case resourceID = "resource_id"
         case tenantID = "tenant_id"
@@ -2761,6 +2774,7 @@ public struct AuditLogEntry: Codable, Sendable {
         self.id = try container.decode(String.self, forKey: .id)
         self.ipAddress = try container.decodeIfPresent(String.self, forKey: .ipAddress)
         self.metadata = try container.decode(ManagementJSON.self, forKey: .metadata)
+        self.organizationID = try container.decodeIfPresent(String.self, forKey: .organizationID)
         self.outcome = try container.decode(AuditOutcome.self, forKey: .outcome)
         self.resourceID = try container.decodeIfPresent(String.self, forKey: .resourceID)
         self.tenantID = try container.decode(String.self, forKey: .tenantID)
@@ -2775,6 +2789,7 @@ public struct AuditLogEntry: Codable, Sendable {
         try container.encode(id, forKey: .id)
         try container.encodeIfPresent(ipAddress, forKey: .ipAddress)
         try container.encode(metadata, forKey: .metadata)
+        try container.encodeIfPresent(organizationID, forKey: .organizationID)
         try container.encode(outcome, forKey: .outcome)
         try container.encodeIfPresent(resourceID, forKey: .resourceID)
         try container.encode(tenantID, forKey: .tenantID)
