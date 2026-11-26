@@ -524,4 +524,35 @@ final class GuardTests: XCTestCase {
             } catch is AuthzError { /* ok */ }
         }
     }
+
+    /// §11.2 rule 11(g): roles and scopes are different namespaces and never cross.
+    func testRule11gRolesAndScopesNeverCross() async throws {
+        func token(roles: [String], scope: String) -> String {
+            var claims = futureClaims(roles: roles)
+            claims["scope"] = scope
+            return signer.makeJWT(claims: claims)
+        }
+        let capitalised = token(roles: ["Admin"], scope: "openid")
+        let roleAndOpenid = token(roles: ["admin"], scope: "openid")
+        let scopeAdmin = token(roles: [], scope: "openid admin")
+
+        try await withGuardClient(router: makeRouter()) { client, _ in
+            let guards = client.makeGuards()
+            do {
+                _ = try await guards.requireRole("admin")(self.guardContext(capitalised))
+                XCTFail("roles [\"Admin\"] must not satisfy requireRole(\"admin\")")
+            } catch is AuthzError { /* ok */ }
+
+            let ok = try await guards.requireRole("admin")(self.guardContext(roleAndOpenid))
+            XCTAssertEqual(ok.userID, "user-42")
+
+            let scoped = try await guards.requireScope("admin")(self.guardContext(scopeAdmin))
+            XCTAssertEqual(scoped.userID, "user-42")
+
+            do {
+                _ = try await guards.requireScope("admin")(self.guardContext(roleAndOpenid))
+                XCTFail("a role named admin must not satisfy requireScope(\"admin\")")
+            } catch is AuthzError { /* ok */ }
+        }
+    }
 }

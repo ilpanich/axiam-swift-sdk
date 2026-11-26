@@ -226,7 +226,7 @@ final class OidcTests: XCTestCase {
                 claims: claims, kidOverride: "a-kid-nobody-published")
             return body
         })
-        try await assertExchangeRejects(router: router)
+        try await assertExchangeRejects(router: router, expecting: "unknown_kid")
     }
 
     /// Rule 3: `iss` must equal the discovery issuer by exact string comparison — no

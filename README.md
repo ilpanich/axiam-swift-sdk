@@ -648,10 +648,15 @@ let user = try await requireEdit(ctx)                   // throws AuthError/Auth
   stacks the helper and every one must pass. The granted scopes are `AxiamUser.scopes`, a
   member separate from `roles` that is never merged into it.
 
-§11.2 rule 11 is implemented in full (11(a), 11(b), 11(d); the identity members above are 11(b)'s
-"distinguishable on the identity"). 11(c) concerns frameworks with one authority list, and 11(e)
-is a server-side description of how the `roles` claim is issued; neither changes this SDK's
-guard, which has no such list.
+§11.2 rule 11 is implemented in full: 11(a), 11(b) and 11(d) in the guard and the identity members
+above, 11(c) not applicable (this SDK has no framework authority list), and 11(e) and 11(f)
+documented here:
+
+- **11(e):** the server issues `roles` only to a client that has the `roles` scope registered and
+  requests it. Register it on the client and request it, or **every `requireRole` is a 403**.
+- **11(f):** `roles` is a **snapshot taken when the token was minted**; a role granted or revoked
+  afterwards is stale for up to one access-token lifetime (15 minutes by default). Use
+  `requireAccess` where the decision must be live.
 
 ### What the guard checks (§10.1 minimum local-verification set)
 
@@ -1163,6 +1168,9 @@ let verified = try await client.verifyLogoutToken(postedToken)
 `verifyLogoutToken` rejects a replayed ID token twice over: it requires the back-channel logout
 `events` key, and it rejects any token carrying a `nonce` (Back-Channel Logout 1.0 §2.4 forbids
 one, and its presence is the documented signature of exactly that replay).
+
+The key is selected by the token's `kid` (contract 1.69): a back-channel logout token from a server
+older than 1.69 carries no `kid` and is refused as `unknown_kid`, as is a token naming an unknown `kid`.
 
 ## Device authorization grant (§14)
 

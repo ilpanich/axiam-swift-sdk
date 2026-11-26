@@ -123,6 +123,13 @@ public struct AxiamGuards: Sendable {
     /// fallback. A token with no `roles` claim, or one that is not an array of strings, is
     /// refused with 403 (``AuthzError``) exactly as `[]` is (rule 11(b)); a role matches by
     /// exact, case-sensitive equality.
+    ///
+    /// **The token must carry `roles` at all (§11.2 rule 11(e)).** The server issues the claim
+    /// only when the client requested the `roles` scope and has it registered; register it on
+    /// the client and request it, or every `requireRole` is a 403. And **`roles` is a snapshot
+    /// taken when the token was minted (rule 11(f))**: a role granted or revoked afterwards is
+    /// not reflected for up to one access-token lifetime. Use ``requireAccess(_:resource:scope:)``
+    /// where the decision must be live.
     public func requireRole(_ roles: String...) -> AxiamGuardHandler {
         let authenticator = self.authenticator
         let required = Set(roles)

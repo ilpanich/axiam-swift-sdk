@@ -157,10 +157,14 @@ struct VerifiedToken: Sendable {
     let scopes: [String]?
 
     /// Reads the §10.1 / §11.2 members straight from the verified payload's JSON object.
-    init(claims: JwtClaims, typ: String?, payload: Data) {
+    init(claims: JwtClaims, typ: String?, payload: Data) throws {
         self.claims = claims
         self.typ = typ
-        let object = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any] ?? [:]
+        // A payload that is not a JSON object cannot be read for these members: refuse it rather
+        // than read "no purpose, no roles" out of it.
+        guard let object = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any] else {
+            throw AuthError("Malformed JWT claims.")
+        }
         self.carriesPurpose = object.keys.contains("purpose")
         if let list = object["roles"] as? [Any] {
             let strings = list.compactMap { $0 as? String }
@@ -201,6 +205,8 @@ actor JwksVerifier {
 
     /// When the last unknown-`kid` re-fetch was started; `nil` until one has been.
     private var lastUnknownKidRefetch: Date?
+    /// The last failed (or empty) fetch, which rate-limits the next one by the same cooldown.
+    private var lastFetchFailure: (at: Date, error: Error)?
     private var cachedKeys: [Jwk] = []
     private var cachedAt: Date?
     private var inFlight: Task<[Jwk], Error>?
@@ -284,8 +290,8 @@ actor JwksVerifier {
         }
         let (cached, freshlyFetched) = try await keysForVerification()
         var selected = selectKey(from: cached, kid: kid)
-        if selected == nil, !freshlyFetched, let refreshed = try await refetchForUnknownKid() {
-            selected = selectKey(from: refreshed, kid: kid)
+        if selected == nil, !freshlyFetched {
+            selected = selectKey(from: try await refetchForUnknownKid(), kid: kid)
         }
         guard let jwk = selected else {
             throw AuthError("No matching EdDSA key in the JWKS for the token's 'kid'.", oauthError: "unknown_kid")
@@ -313,7 +319,7 @@ actor JwksVerifier {
         } catch {
             throw AuthError("Malformed JWT claims.")
         }
-        return VerifiedToken(claims: claims, typ: header.typ, payload: payloadData)
+        return try VerifiedToken(claims: claims, typ: header.typ, payload: payloadData)
     }
 
     /// Resolve the JWKS key a token's header names.
@@ -347,30 +353,47 @@ actor JwksVerifier {
 
     /// §12.4 rule 2: the single re-fetch an unknown `kid` is allowed per cooldown window.
     ///
-    /// Returns the refreshed set, or `nil` when the window is still open (the caller then
-    /// refuses the token from the set it already holds, with no network call). The window opens
-    /// *before* the fetch, so a failing fetch is also rate-limited and concurrent unknown
-    /// `kid`s see it already open.
-    private func refetchForUnknownKid() async throws -> [Jwk]? {
+    /// Returns the set the caller should select from. When the window is still open there is no
+    /// new network call: the caller waits for a fetch already in flight, if there is one, and
+    /// otherwise uses the current cache, so it always re-selects from the freshest set held.
+    /// The window opens *before* the fetch, so a failing fetch is also rate-limited and concurrent
+    /// unknown `kid`s see it already open.
+    private func refetchForUnknownKid() async throws -> [Jwk] {
         let current = now()
         if let last = lastUnknownKidRefetch, current.timeIntervalSince(last) < unknownKidCooldown {
-            return nil
+            if let inFlight { return try await inFlight.value }
+            return cachedKeys
         }
         lastUnknownKidRefetch = current
         return try await loadKeys()
     }
 
     /// Fetch the JWKS (single-flighted) and replace the cache.
+    ///
+    /// A failed fetch, or one that returns no keys, is rate-limited by the same cooldown: until it
+    /// elapses the recorded failure is re-thrown with no network call, so an unavailable JWKS
+    /// endpoint costs one fetch per window rather than one per presented token.
     private func loadKeys() async throws -> [Jwk] {
         if let inFlight {
             return try await inFlight.value
+        }
+        if let failure = lastFetchFailure, now().timeIntervalSince(failure.at) < unknownKidCooldown {
+            throw failure.error
         }
         let task = Task<[Jwk], Error> { [self] in
             try await self.fetchKeys()
         }
         inFlight = task
         defer { inFlight = nil }
-        let keys = try await task.value
+        let keys: [Jwk]
+        do {
+            keys = try await task.value
+            if keys.isEmpty { throw AuthError("Failed to use JWKS: the document holds no keys.") }
+        } catch {
+            lastFetchFailure = (at: now(), error: error)
+            throw error
+        }
+        lastFetchFailure = nil
         cachedKeys = keys
         cachedAt = now()
         return keys

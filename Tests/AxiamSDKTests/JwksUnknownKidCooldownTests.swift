@@ -22,17 +22,22 @@ final class JwksUnknownKidCooldownTests: XCTestCase {
         private let lock = NSLock()
         private var signers: [TestSigner]
         private var fetches = 0
+        private var outage = false
 
         init(signers: [TestSigner]) { self.signers = signers }
 
         var fetchCount: Int { lock.locked { fetches } }
+        /// While `true`, every fetch fails as a transport error.
+        func setOutage(_ down: Bool) { lock.locked { outage = down } }
+        struct Outage: Error {}
         func publish(_ signers: [TestSigner]) { lock.locked { self.signers = signers } }
 
         func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval) async throws -> HTTPResponseData {
-            let published = lock.locked { () -> [TestSigner] in
+            let (published, down) = lock.locked { () -> ([TestSigner], Bool) in
                 fetches += 1
-                return signers
+                return (signers, outage)
             }
+            if down { throw Outage() }
             let body = try JSONSerialization.data(withJSONObject: TestSigner.jwksJSON(of: published))
             return HTTPResponseData(status: 200, headers: [("Content-Type", "application/json")], body: body)
         }
@@ -107,6 +112,65 @@ final class JwksUnknownKidCooldownTests: XCTestCase {
             } catch let error as AuthError {
                 XCTAssertEqual(error.oauthError, "unknown_kid")
             }
+        }
+        XCTAssertEqual(transport.fetchCount, 1)
+    }
+
+    /// A key that arrives while the window is open, after the re-fetch that fetched it already
+    /// landed, is accepted from the cache with no further fetch.
+    func testARotatedKeyThatLandedInTheWindowIsAcceptedWithoutAnotherFetch() async throws {
+        let signer = TestSigner(kid: "current-key")
+        let rotated = TestSigner(kid: "rotated-key")
+        let transport = CountingJwksTransport(signers: [signer])
+        let verifier = makeVerifier(transport, clock: TestClock())
+
+        _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+        transport.publish([signer, rotated])
+        // The first unknown kid opens the window and its re-fetch picks the rotated set up.
+        do {
+            _ = try await verifier.verifySignatureOnlyUnchecked(
+                token: signer.makeJWT(claims: claims(), kidOverride: "unknown"))
+            XCTFail("unknown kid must be refused")
+        } catch is AuthError { /* ok */ }
+        XCTAssertEqual(transport.fetchCount, 2)
+
+        _ = try await verifier.verifySignatureOnlyUnchecked(token: rotated.makeJWT(claims: claims()))
+        XCTAssertEqual(transport.fetchCount, 2, "no extra network call inside the window")
+    }
+
+    /// An unavailable JWKS endpoint costs one fetch per window, not one per presented token.
+    func testAFailingJwksEndpointIsFetchedAtMostOncePerWindow() async throws {
+        let signer = TestSigner(kid: "current-key")
+        let transport = CountingJwksTransport(signers: [signer])
+        transport.setOutage(true)
+        let clock = TestClock()
+        let verifier = makeVerifier(transport, clock: clock)
+
+        for _ in 0..<20 {
+            do {
+                _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+                XCTFail("must be refused during an outage")
+            } catch { /* refused */ }
+        }
+        XCTAssertEqual(transport.fetchCount, 1)
+
+        // Past the window, and recovered, the next token fetches once and verifies.
+        clock.advance(by: 61)
+        transport.setOutage(false)
+        _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+        XCTAssertEqual(transport.fetchCount, 2)
+    }
+
+    /// A JWKS document with no keys is rate-limited the same way.
+    func testAnEmptyJwksIsFetchedAtMostOncePerWindow() async throws {
+        let signer = TestSigner(kid: "current-key")
+        let transport = CountingJwksTransport(signers: [])
+        let verifier = makeVerifier(transport, clock: TestClock())
+        for _ in 0..<20 {
+            do {
+                _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+                XCTFail("must be refused with no keys")
+            } catch { /* refused */ }
         }
         XCTAssertEqual(transport.fetchCount, 1)
     }
