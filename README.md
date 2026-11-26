@@ -12,7 +12,7 @@ The official Swift SDK for **AXIAM** (Access eXtended Identity and Authorization
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to contract 1.66 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
+> **This SDK conforms to contract 1.69 (the CONTRACT.md vendored here) §1–§7, §9–§13, §14,
 > §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33,
 > §36 and §37, with §32.7 and §33.2 signed (including §6.1 mTLS —
 > now including rules 6–10, the mTLS device login `authenticateDevice()` — §5.2 rule 1's
@@ -636,12 +636,26 @@ let user = try await requireEdit(ctx)                   // throws AuthError/Auth
 - `requireAuth` — authenticated identity required (401 on failure).
 - `requireAccess(action, resource:)` — the **authenticated end user** (`subject_id`) must pass
   an AXIAM authorization check; 403 on deny. Argument order is `(action, resource)` (§1/§11).
-- `requireRole(_:)` — local check against the verified token's roles (no server round-trip);
-  documented as coarser than, and not a substitute for, `requireAccess`.
+- `requireRole(_:)` — local check against the verified token's `roles` claim (no server round-trip);
+  documented as coarser than, and not a substitute for, `requireAccess`. It reads `roles` and
+  nothing else, never `scope` (§11.2 rule 11(a)). A token with no `roles` claim, or one that is
+  not an array of strings, is refused with 403 exactly as `[]` is (rule 11(b)), and
+  `AxiamUser.rolesClaimPresent` keeps the two distinguishable (`roles` itself reads `[]` for
+  both, as before).
+- `requireScope(_:)` — local check that the token's `scope` claim (RFC 6749 §3.3, split on single
+  spaces, exact case-sensitive entries) contains at least one of the given scopes (§11.2 rule
+  11(d)); no `scope` claim, or a non-string one, is 403. A route that needs several scopes
+  stacks the helper and every one must pass. The granted scopes are `AxiamUser.scopes`, a
+  member separate from `roles` that is never merged into it.
+
+§11.2 rule 11 is implemented in full (11(a), 11(b), 11(d); the identity members above are 11(b)'s
+"distinguishable on the identity"). 11(c) concerns frameworks with one authority list, and 11(e)
+is a server-side description of how the `roles` claim is issued; neither changes this SDK's
+guard, which has no such list.
 
 ### What the guard checks (§10.1 minimum local-verification set)
 
-`authenticate(_:presentedProofs:)` applies **all nine** rules; a signature check alone is not
+`authenticate(_:presentedProofs:)` applies **all twelve** rules; a signature check alone is not
 a guard.
 
 | # | Claim | Rule |
@@ -655,11 +669,25 @@ a guard.
 | 7 | clock skew | One named 60s constant, `AxiamRequestAuthenticator.clockSkewTolerance`, on rules 2 and 3. Not settable. |
 | 8 | subject of the decision | The guard decides on the CALLER'S credential and no other. On failure it rejects — it never retries, refreshes, or falls back to a different credential (in particular not this SDK client's own session). This is a runtime refusal on the credential actually presented, not a compile-time guarantee: nothing in the guard's signature stops a caller from threading a different credential through, the check is what stops it at the call. |
 | 9 | `cnf` | A token carrying `cnf` is **not** a bearer token. See below — this rule is where contract 1.51 found and fixed a real defect at this entry point. |
+| 10 | header `typ` | When present it must be `at+jwt` (case-insensitive, an `application/` prefix allowed). `JWT`, `axiam-mfa-challenge+jwt`, `logout+jwt` and everything else is refused; an absent `typ` is accepted. **Access-token path only.** |
+| 11 | `purpose` | A token carrying a `purpose` member **at all** is refused, `"purpose": null` included: presence is read from the verified payload, not from a decoded optional. **Access-token path only.** |
+| 12 | `kid` | The header must carry a `kid` and the key is selected by it: no single-key fallback. An unknown `kid` causes at most one JWKS re-fetch per 60 s cooldown window (§12.4 rule 2) and is then refused, so a key rotation is picked up without a fetch per forged token. |
+
+Rules 10 and 11 apply to the **access-token path only**. The ID-token (`typ: JWT`), back-channel
+logout-token (`typ: logout+jwt`) and SSF paths reach the same signature verifier but are not
+subject to them, and tests pin that. The back-channel logout token is selected by `kid` too
+(contract 1.69): a token with no `kid` (a pre-1.69 server's) or an unknown one is refused as
+`unknown_kid`.
+
+**Migration note (servers older than 1.67):** their access tokens carry `typ: JWT` and are
+refused by rule 10, as the 1.67 server itself refuses them by default. Holders refresh within
+one access-token lifetime (15 minutes by default); upgrade the server first, or accept one
+refresh cycle.
 
 Every rule fails **closed** — a required claim that is absent, unparseable, or of the wrong JSON
 type rejects the token.
 
-`AxiamGuards`' `requireAuth`/`requireAccess`/`requireRole` all route through this same
+`AxiamGuards`' `requireAuth`/`requireAccess`/`requireRole`/`requireScope` all route through this same
 `authenticate(_:presentedProofs:)`, and none of them thread transport evidence through it:
 this guard cannot obtain a certificate or a verified DPoP proof from Vapor's request on its
 own, so every guard `AxiamGuards` returns refuses a `cnf`-bound (device- or DPoP-bound)

@@ -25,12 +25,6 @@ struct JwtHeader: Decodable, Sendable {
     let typ: String?
 }
 
-/// Matches any JSON value without interpreting it, so a claim's *presence* can be tested
-/// whatever its type (§10.1 rule 11 refuses `purpose` of any shape).
-struct JwtAnyValue: Decodable, Sendable {
-    init(from decoder: Decoder) throws {}
-}
-
 /// A JWT `aud` claim, which RFC 7519 allows to be either a single string or an array of them.
 ///
 /// Decoding is strict: anything that is neither shape fails the whole claim decode, so a
@@ -64,10 +58,15 @@ enum JwtAudience: Decodable, Sendable, Equatable {
 /// lives in ``AxiamRequestAuthenticator``; this type only decodes, and decodes strictly: a claim
 /// of the wrong JSON type (`"exp": "soon"`, `"aud": 7`) throws out of the decode rather than
 /// arriving as `nil`.
+///
+/// `roles`, `scope` and `purpose` are deliberately **not** modelled here. A synthesized
+/// `Decodable` cannot tell an absent key from an explicit `null`, and §10.1 rule 11 and §11.2
+/// rule 11 turn on exactly that (and on a `roles` that is present but not an array of strings,
+/// which must be a 403 and not a decode failure). They are read from the verified payload
+/// itself: see ``VerifiedToken``.
 struct JwtClaims: Decodable, Sendable {
     let sub: String?
     let tenant_id: String?
-    let roles: [String]?
     let preferred_username: String?
     let email: String?
     let exp: Double?
@@ -90,10 +89,6 @@ struct JwtClaims: Decodable, Sendable {
     /// revocation feed never matches a token without one, and there is no `jti` fallback,
     /// because hashing `jti` instead would match nothing while looking like it worked.
     let sid: String?
-    /// AXIAM's purpose marker on the tokens that are not access tokens — the MFA challenge,
-    /// the MFA setup token and the WebAuthn ceremony state. Decoded only so its presence
-    /// can be refused (CONTRACT.md §10.1 rule 11); never read as a value.
-    let purpose: JwtAnyValue?
 }
 
 /// RFC 7800 confirmation claim.
@@ -147,6 +142,38 @@ struct VerifiedToken: Sendable {
     let claims: JwtClaims
     /// The JOSE header `typ`, verbatim (`nil` when absent) — for §10.1 rule 10.
     let typ: String?
+    /// Whether the verified payload carries a `purpose` member **at all** — whatever its value,
+    /// `null` included (§10.1 rule 11: presence is read from the payload, not from a claims
+    /// model whose optional decodes `null` as absent).
+    let carriesPurpose: Bool
+    /// The `roles` claim (§11.2 rule 11): `nil` when the member is absent, is `null`, or is not
+    /// a JSON array of strings; an empty array stays `[]`. The two are told apart by
+    /// ``rolesClaimPresent``.
+    let roles: [String]?
+    /// Whether the token carries a well-formed `roles` array (empty or not).
+    var rolesClaimPresent: Bool { roles != nil }
+    /// The `scope` claim split on single spaces (RFC 6749 §3.3; §11.2 rule 11(d)). `nil` when the
+    /// member is absent or not a string.
+    let scopes: [String]?
+
+    /// Reads the §10.1 / §11.2 members straight from the verified payload's JSON object.
+    init(claims: JwtClaims, typ: String?, payload: Data) {
+        self.claims = claims
+        self.typ = typ
+        let object = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any] ?? [:]
+        self.carriesPurpose = object.keys.contains("purpose")
+        if let list = object["roles"] as? [Any] {
+            let strings = list.compactMap { $0 as? String }
+            self.roles = strings.count == list.count ? strings : nil
+        } else {
+            self.roles = nil
+        }
+        if let scope = object["scope"] as? String {
+            self.scopes = scope.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        } else {
+            self.scopes = nil
+        }
+    }
 }
 
 /// Fetches AXIAM's org-wide JWKS (`GET {baseURL}/oauth2/jwks`), caches it for 300s, and
@@ -159,13 +186,21 @@ struct VerifiedToken: Sendable {
 ///   `iss`, `aud` — belongs to ``AxiamRequestAuthenticator``, which is the guard entry point.
 /// - The network fetch is single-flighted so a burst of first-time verifications triggers one
 ///   HTTP request.
+/// - A token whose `kid` is not in the cached set triggers **one** re-fetch per cooldown window
+///   (CONTRACT.md §12.4 rule 2), so a key rotation is picked up without waiting out the cache
+///   TTL, while a stream of forged `kid`s cannot drive unbounded fetching: inside the window an
+///   unknown `kid` is answered from the cached set with no network call and refused.
 actor JwksVerifier {
     private let transport: HTTPTransport
     private let jwksURL: URL
     private let tenantHeaderValue: String
     private let cacheTTL: TimeInterval
     private let requestTimeout: TimeInterval
+    private let unknownKidCooldown: TimeInterval
+    private let now: @Sendable () -> Date
 
+    /// When the last unknown-`kid` re-fetch was started; `nil` until one has been.
+    private var lastUnknownKidRefetch: Date?
     private var cachedKeys: [Jwk] = []
     private var cachedAt: Date?
     private var inFlight: Task<[Jwk], Error>?
@@ -178,13 +213,17 @@ actor JwksVerifier {
         baseURL: URL,
         tenantHeaderValue: String,
         cacheTTL: TimeInterval = 300,
-        requestTimeout: TimeInterval = 30
+        requestTimeout: TimeInterval = 30,
+        unknownKidCooldown: TimeInterval = 60,
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.transport = transport
         self.jwksURL = baseURL.appendingPathComponent("oauth2/jwks")
         self.tenantHeaderValue = tenantHeaderValue
         self.cacheTTL = cacheTTL
         self.requestTimeout = requestTimeout
+        self.unknownKidCooldown = unknownKidCooldown
+        self.now = now
     }
 
     func currentFetchCount() -> Int { fetchCount }
@@ -235,13 +274,21 @@ actor JwksVerifier {
             throw AuthError("Malformed JWT: invalid base64url encoding.")
         }
 
-        let keys = try await keysForVerification()
-        guard let jwk = selectKey(from: keys, kid: header.kid) else {
+        // §12.4 rule 2: a token with no `kid` is refused outright (no single-key fallback, no
+        // re-fetch: there is nothing to look for); an unknown `kid` earns at most one re-fetch per
+        // cooldown window and is then refused. Both are `unknown_kid`.
+        guard let kid = header.kid else {
             throw AuthError(
-                header.kid == nil
-                    ? "JWT header carries no 'kid'; a key id is required to select a JWKS key."
-                    : "No matching EdDSA key in JWKS for kid '\(header.kid ?? "")'."
-            )
+                "JWT header carries no 'kid'; a key id is required to select a JWKS key.",
+                oauthError: "unknown_kid")
+        }
+        let (cached, freshlyFetched) = try await keysForVerification()
+        var selected = selectKey(from: cached, kid: kid)
+        if selected == nil, !freshlyFetched, let refreshed = try await refetchForUnknownKid() {
+            selected = selectKey(from: refreshed, kid: kid)
+        }
+        guard let jwk = selected else {
+            throw AuthError("No matching EdDSA key in the JWKS for the token's 'kid'.", oauthError: "unknown_kid")
         }
         guard jwk.kty == "OKP", jwk.crv == "Ed25519", let x = jwk.x, let rawKey = Base64URL.decode(x) else {
             throw AuthError("JWKS key is not a usable Ed25519 (OKP) key.")
@@ -266,7 +313,7 @@ actor JwksVerifier {
         } catch {
             throw AuthError("Malformed JWT claims.")
         }
-        return VerifiedToken(claims: claims, typ: header.typ)
+        return VerifiedToken(claims: claims, typ: header.typ, payload: payloadData)
     }
 
     /// Resolve the JWKS key a token's header names.
@@ -289,10 +336,32 @@ actor JwksVerifier {
         return keys.first { $0.kid == kid && $0.kty == "OKP" && $0.crv == "Ed25519" }
     }
 
-    private func keysForVerification() async throws -> [Jwk] {
-        if let cachedAt, Date().timeIntervalSince(cachedAt) < cacheTTL, !cachedKeys.isEmpty {
-            return cachedKeys
+    /// The keys to verify against, and whether this call had to fetch them (a cold or expired
+    /// cache), in which case an unknown `kid` has nothing newer to be re-fetched for.
+    private func keysForVerification() async throws -> ([Jwk], Bool) {
+        if let cachedAt, now().timeIntervalSince(cachedAt) < cacheTTL, !cachedKeys.isEmpty {
+            return (cachedKeys, false)
         }
+        return (try await loadKeys(), true)
+    }
+
+    /// §12.4 rule 2: the single re-fetch an unknown `kid` is allowed per cooldown window.
+    ///
+    /// Returns the refreshed set, or `nil` when the window is still open (the caller then
+    /// refuses the token from the set it already holds, with no network call). The window opens
+    /// *before* the fetch, so a failing fetch is also rate-limited and concurrent unknown
+    /// `kid`s see it already open.
+    private func refetchForUnknownKid() async throws -> [Jwk]? {
+        let current = now()
+        if let last = lastUnknownKidRefetch, current.timeIntervalSince(last) < unknownKidCooldown {
+            return nil
+        }
+        lastUnknownKidRefetch = current
+        return try await loadKeys()
+    }
+
+    /// Fetch the JWKS (single-flighted) and replace the cache.
+    private func loadKeys() async throws -> [Jwk] {
         if let inFlight {
             return try await inFlight.value
         }
@@ -303,7 +372,7 @@ actor JwksVerifier {
         defer { inFlight = nil }
         let keys = try await task.value
         cachedKeys = keys
-        cachedAt = Date()
+        cachedAt = now()
         return keys
     }
 

@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Same unreleased 1.4.0 line (contract 1.69).
+
+### Security
+
+- **Rule 11 now refuses `"purpose": null`** (SWI-R1-1, CONTRACT.md section 10.1). Presence of `purpose` is read
+  from the verified payload, not from a decoded optional that reads `null` as absent.
+- **Unknown-`kid` re-fetch with a cooldown** (CONTRACT.md section 12.4 rule 2; O-1). `JwksVerifier` re-fetches the JWKS once
+  per 60 s window when a token names a `kid` it does not hold, so a key rotation is accepted without waiting out
+  the 300 s cache; further unknown `kid`s in the window are refused with no network call. A kid-less token is
+  still refused without a fetch. The doc comment that claimed this behaviour now describes code that has it.
+- **Back-channel logout token selected by `kid`** (CONTRACT.md 1.69, section 12.7.3 rule 1; #880, O-2). A server-shaped token
+  (header exactly `alg`, `typ: logout+jwt`, `kid`) verifies against a two-key JWKS; a kid-less or unknown-`kid`
+  token is refused as `unknown_kid` (also on the ID-token path). A logout token from a server older than 1.69 has
+  no `kid` and is refused, as before. Rules 10 and 11 stay off the logout and ID-token paths.
+
+### Added
+
+- `AuditLogEntry.organizationID` (`organization_id`, set on system-partition rows the server could attribute;
+  SA-02), from the regenerated model (SWI-R1-3).
+- `AxiamGuards.requireScope(_:)` (CONTRACT.md section 11.2 rule 11(d); O-3): local check of the `scope` claim, split on
+  single spaces, exact entries, at least one must match, 403 when absent or not a string.
+- `AxiamUser.rolesClaimPresent` and `AxiamUser.scopes` (section 11.2 rule 11(b); O-3): an absent `roles` claim is
+  distinguishable from `[]`, and the granted scopes are a member separate from `roles`. Additive; `roles` still
+  reads `[]` for both.
+
+### Changed
+
+- `requireRole` now answers 403 for a token with no `roles` claim or one that is not an array of strings
+  (previously a non-array `roles` failed the claims decode and answered 401).
+- README states conformance to contract 1.69 and documents all twelve guard rules (SWI-R1-2).
+- Tests: ID-token fixtures carry `typ: JWT` and logout-token fixtures `typ: logout+jwt`, and every rule 10-12
+  negative asserts the reason it was refused for (SWI-R1-4, SWI-R1-5).
+
 ## [1.4.0] - 2026-11-22
 
 ### Security

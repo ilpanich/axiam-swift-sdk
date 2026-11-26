@@ -316,7 +316,8 @@ extension AxiamClient {
     /// The §12.4 checklist, in order, against the same JWKS verifier the §10 guard uses.
     ///
     /// Rules 1 and 2 (algorithm pinned before key lookup, Ed25519 signature by `kid`, one
-    /// re-fetch per cooldown window on an unknown `kid`) are enforced inside that verifier —
+    /// re-fetch per cooldown window on an unknown `kid`, implemented in
+    /// ``JwksVerifier/verifySignatureOnlyUnchecked(token:)``) are enforced inside that verifier —
     /// extended, never forked, exactly as §12.4 requires. Rules 3–6 are here.
     func validateIdToken(
         _ idToken: String,
@@ -327,8 +328,11 @@ extension AxiamClient {
         do {
             _ = try await jwks.verifySignatureOnlyUnchecked(token: idToken)
         } catch {
-            // The verifier's failures are already the rule 1/2 set; it distinguishes them in its
-            // message. Mapping them here would need a second classification of the same failure.
+            // A missing or unknown `kid` is `unknown_kid` (§12.3 rule 3); every other verifier
+            // failure shares `invalid_signature`.
+            if let auth = error as? AuthError, auth.oauthError == OidcValidationCode.unknownKid.rawValue {
+                throw oidcValidationError(.unknownKid, "id_token names no key in the JWKS")
+            }
             throw oidcValidationError(.invalidSignature, "id_token signature verification failed")
         }
 

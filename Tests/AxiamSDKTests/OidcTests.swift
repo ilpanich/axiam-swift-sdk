@@ -118,7 +118,7 @@ final class OidcTests: XCTestCase {
             "expires_in": 900,
             "scope": "openid profile",
             "refresh_token": "the-refresh-token",
-            "id_token": signer.makeJWT(claims: claims),
+            "id_token": signer.makeIDToken(claims: claims),
         ]
     }
 
@@ -222,7 +222,7 @@ final class OidcTests: XCTestCase {
         let router = makeRouter(tokenBody: { _ in
             let claims = OidcTests.idClaims()
             var body = OidcTests.tokenResponse(claims)
-            body["id_token"] = OidcTests.signer.makeJWT(
+            body["id_token"] = OidcTests.signer.makeIDToken(
                 claims: claims, kidOverride: "a-kid-nobody-published")
             return body
         })

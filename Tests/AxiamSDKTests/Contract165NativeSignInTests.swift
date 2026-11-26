@@ -400,7 +400,7 @@ final class Contract165NativeSignInTests: XCTestCase {
         return [
             "access_token": "the-access-token", "token_type": tokenType, "expires_in": 900,
             "scope": "openid profile", "refresh_token": "the-refresh-token",
-            "id_token": Self.signer.makeJWT(claims: claims),
+            "id_token": Self.signer.makeIDToken(claims: claims),
         ]
     }
 

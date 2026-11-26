@@ -118,13 +118,40 @@ public struct AxiamGuards: Sendable {
     /// `require_role(role...)` (§11, MAY): a local check that the verified token's roles contain
     /// at least one of `roles`. No server round-trip; coarser than ``requireAccess(_:resource:scope:)``,
     /// which remains the authoritative check.
+    ///
+    /// Reads the `roles` claim and nothing else (§11.2 rule 11(a)): never `scope`, never a
+    /// fallback. A token with no `roles` claim, or one that is not an array of strings, is
+    /// refused with 403 (``AuthzError``) exactly as `[]` is (rule 11(b)); a role matches by
+    /// exact, case-sensitive equality.
     public func requireRole(_ roles: String...) -> AxiamGuardHandler {
         let authenticator = self.authenticator
         let required = Set(roles)
         return { context in
             let user = try await authenticator.authenticate(context)
-            guard !required.isDisjoint(with: Set(user.roles)) else {
+            guard user.rolesClaimPresent, !required.isDisjoint(with: Set(user.roles)) else {
                 throw AuthzError("Caller lacks any of the required roles: \(roles.joined(separator: ", ")).")
+            }
+            return user
+        }
+    }
+
+    /// `require_scope(scope...)` (§11.1 SHOULD where `requireRole` ships; §11.2 rule 11(d)): a
+    /// local check that the verified token's `scope` claim contains at least one of `scopes`.
+    ///
+    /// Reads only the `scope` claim — the space-separated list of RFC 6749 §3.3, split on single
+    /// spaces, each entry compared by exact, case-sensitive equality (so `administrator` does
+    /// not satisfy `admin`). A token with no `scope` claim, or one that is not a string, is
+    /// refused with 403 (``AuthzError``). A route that needs **several** scopes stacks the
+    /// helper — run each handler in turn, and every one must pass. Local, no server round-trip,
+    /// strictly after the §10 guard (401 when the credential is bad), and coarser than
+    /// ``requireAccess(_:resource:scope:)``.
+    public func requireScope(_ scopes: String...) -> AxiamGuardHandler {
+        let authenticator = self.authenticator
+        let required = Set(scopes)
+        return { context in
+            let user = try await authenticator.authenticate(context)
+            guard let granted = user.scopes, !required.isDisjoint(with: Set(granted)) else {
+                throw AuthzError("Caller lacks any of the required scopes: \(scopes.joined(separator: ", ")).")
             }
             return user
         }
