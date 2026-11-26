@@ -23,6 +23,10 @@ final class JwksUnknownKidCooldownTests: XCTestCase {
         private var signers: [TestSigner]
         private var fetches = 0
         private var outage = false
+        private var gateArmed = false
+        private var gateEntered = false
+        private var releaseRequested = false
+        private var gateContinuation: CheckedContinuation<Void, Never>?
 
         init(signers: [TestSigner]) { self.signers = signers }
 
@@ -30,12 +34,43 @@ final class JwksUnknownKidCooldownTests: XCTestCase {
         /// While `true`, every fetch fails as a transport error.
         func setOutage(_ down: Bool) { lock.locked { outage = down } }
         struct Outage: Error {}
+
+        /// The next fetch blocks inside `execute` (after being counted) until ``release()``.
+        func armGate() { lock.locked { gateArmed = true } }
+
+        func waitUntilGateEntered() async throws {
+            while !lock.locked({ gateEntered }) { try await Task.sleep(nanoseconds: 1_000_000) }
+        }
+
+        func release() {
+            let continuation = lock.locked { () -> CheckedContinuation<Void, Never>? in
+                releaseRequested = true
+                let held = gateContinuation
+                gateContinuation = nil
+                return held
+            }
+            continuation?.resume()
+        }
         func publish(_ signers: [TestSigner]) { lock.locked { self.signers = signers } }
 
         func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval) async throws -> HTTPResponseData {
             let (published, down) = lock.locked { () -> ([TestSigner], Bool) in
                 fetches += 1
                 return (signers, outage)
+            }
+            let block = lock.locked { () -> Bool in
+                if gateArmed { gateArmed = false; gateEntered = true; return true }
+                return false
+            }
+            if block {
+                await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                    let resumeNow = lock.locked { () -> Bool in
+                        if releaseRequested { return true }
+                        gateContinuation = continuation
+                        return false
+                    }
+                    if resumeNow { continuation.resume() }
+                }
             }
             if down { throw Outage() }
             let body = try JSONSerialization.data(withJSONObject: TestSigner.jwksJSON(of: published))
@@ -116,9 +151,10 @@ final class JwksUnknownKidCooldownTests: XCTestCase {
         XCTAssertEqual(transport.fetchCount, 1)
     }
 
-    /// A key that arrives while the window is open, after the re-fetch that fetched it already
-    /// landed, is accepted from the cache with no further fetch.
-    func testARotatedKeyThatLandedInTheWindowIsAcceptedWithoutAnotherFetch() async throws {
+    /// A token whose key arrives while a re-fetch is in flight is not refused from the stale
+    /// snapshot it started with: with the window open it waits for that fetch and re-selects from
+    /// the set it brought. One fetch only (no second one is started for it).
+    func testARotatedKeyArrivingDuringAnInFlightRefetchIsAccepted() async throws {
         let signer = TestSigner(kid: "current-key")
         let rotated = TestSigner(kid: "rotated-key")
         let transport = CountingJwksTransport(signers: [signer])
@@ -126,16 +162,52 @@ final class JwksUnknownKidCooldownTests: XCTestCase {
 
         _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
         transport.publish([signer, rotated])
-        // The first unknown kid opens the window and its re-fetch picks the rotated set up.
+        transport.armGate()
+
+        let unknownToken = signer.makeJWT(claims: claims(), kidOverride: "unknown")
+        let rotatedToken = rotated.makeJWT(claims: claims())
+        let first = Task { () -> Bool in
+            do { _ = try await verifier.verifySignatureOnlyUnchecked(token: unknownToken); return true } catch { return false }
+        }
+        try await transport.waitUntilGateEntered()
+        // The second verification starts from the old set with the window open and the fetch in flight.
+        let second = Task { () -> Bool in
+            do { _ = try await verifier.verifySignatureOnlyUnchecked(token: rotatedToken); return true } catch { return false }
+        }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        transport.release()
+
+        let firstAccepted = await first.value
+        let secondAccepted = await second.value
+        XCTAssertFalse(firstAccepted, "the unknown kid stays refused")
+        XCTAssertTrue(secondAccepted, "the rotated kid is accepted from the set the in-flight fetch brought")
+        XCTAssertEqual(transport.fetchCount, 2)
+    }
+
+    /// One transient failed refresh of an expired cache must not refuse every token: the keys
+    /// already held keep verifying, and the endpoint is fetched at most once in the window.
+    func testAFailedRefreshOfAnExpiredCacheKeepsServingTheHeldKeys() async throws {
+        let signer = TestSigner(kid: "current-key")
+        let transport = CountingJwksTransport(signers: [signer])
+        let clock = TestClock()
+        let verifier = makeVerifier(transport, clock: clock)
+
+        _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+        clock.advance(by: 301)   // past the 300 s cache TTL
+        transport.setOutage(true)
+
+        for _ in 0..<10 {
+            let verified = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+            XCTAssertEqual(verified.claims.sub, "user-42")
+        }
         do {
             _ = try await verifier.verifySignatureOnlyUnchecked(
                 token: signer.makeJWT(claims: claims(), kidOverride: "unknown"))
-            XCTFail("unknown kid must be refused")
-        } catch is AuthError { /* ok */ }
-        XCTAssertEqual(transport.fetchCount, 2)
-
-        _ = try await verifier.verifySignatureOnlyUnchecked(token: rotated.makeJWT(claims: claims()))
-        XCTAssertEqual(transport.fetchCount, 2, "no extra network call inside the window")
+            XCTFail("an unknown kid is still refused")
+        } catch let error as AuthError {
+            XCTAssertEqual(error.oauthError, "unknown_kid")
+        }
+        XCTAssertEqual(transport.fetchCount, 2, "the warm fetch and one failed refresh, nothing more")
     }
 
     /// An unavailable JWKS endpoint costs one fetch per window, not one per presented token.
@@ -150,7 +222,7 @@ final class JwksUnknownKidCooldownTests: XCTestCase {
             do {
                 _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
                 XCTFail("must be refused during an outage")
-            } catch { /* refused */ }
+            } catch is CountingJwksTransport.Outage { /* the recorded failure */ }
         }
         XCTAssertEqual(transport.fetchCount, 1)
 
@@ -170,7 +242,9 @@ final class JwksUnknownKidCooldownTests: XCTestCase {
             do {
                 _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
                 XCTFail("must be refused with no keys")
-            } catch { /* refused */ }
+            } catch let error as AuthError {
+                XCTAssertTrue(error.message.contains("no keys"), error.message)
+            }
         }
         XCTAssertEqual(transport.fetchCount, 1)
     }

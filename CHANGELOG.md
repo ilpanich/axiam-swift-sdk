@@ -17,6 +17,10 @@ Same unreleased 1.4.0 line (contract 1.69).
   per 60 s window when a token names a `kid` it does not hold, so a key rotation is accepted without waiting out
   the 300 s cache; further unknown `kid`s in the window are refused with no network call. A kid-less token is
   still refused without a fetch. The doc comment that claimed this behaviour now describes code that has it.
+- **A failed or empty JWKS fetch is rate-limited** (CONTRACT.md section 12.4 rule 2). An unavailable JWKS endpoint
+  costs one fetch per 60 s window rather than one per presented token. While the failure is inside its window the
+  keys already held keep verifying tokens (only the network call is throttled), and a throttled fetch does not
+  open an unknown-`kid` window. A cold cache with no keys refuses tokens until the window passes.
 - **Back-channel logout token selected by `kid`** (CONTRACT.md 1.69, section 12.7.3 rule 1; #880, O-2). A server-shaped token
   (header exactly `alg`, `typ: logout+jwt`, `kid`) verifies against a two-key JWKS; a kid-less or unknown-`kid`
   token is refused as `unknown_kid` (also on the ID-token path). A logout token from a server older than 1.69 has

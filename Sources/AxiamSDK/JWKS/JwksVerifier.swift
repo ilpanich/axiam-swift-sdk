@@ -348,7 +348,20 @@ actor JwksVerifier {
         if let cachedAt, now().timeIntervalSince(cachedAt) < cacheTTL, !cachedKeys.isEmpty {
             return (cachedKeys, false)
         }
-        return (try await loadKeys(), true)
+        // Expired or cold. A recorded failure throttles the network call only, never verification:
+        // while one is inside its window, the keys already held keep verifying (stale, but they
+        // were fetched from this endpoint, and the alternative is refusing every token for a
+        // transient outage).
+        if !cachedKeys.isEmpty, let failure = lastFetchFailure,
+           now().timeIntervalSince(failure.at) < unknownKidCooldown {
+            return (cachedKeys, false)
+        }
+        do {
+            return (try await loadKeys(), true)
+        } catch {
+            if !cachedKeys.isEmpty { return (cachedKeys, false) }
+            throw error
+        }
     }
 
     /// §12.4 rule 2: the single re-fetch an unknown `kid` is allowed per cooldown window.
@@ -362,6 +375,11 @@ actor JwksVerifier {
         let current = now()
         if let last = lastUnknownKidRefetch, current.timeIntervalSince(last) < unknownKidCooldown {
             if let inFlight { return try await inFlight.value }
+            return cachedKeys
+        }
+        // A recorded fetch failure already throttles the network: answer from the cache and do not
+        // open a re-fetch window for a fetch that was never made.
+        if let failure = lastFetchFailure, current.timeIntervalSince(failure.at) < unknownKidCooldown {
             return cachedKeys
         }
         lastUnknownKidRefetch = current

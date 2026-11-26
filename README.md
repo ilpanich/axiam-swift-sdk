@@ -652,11 +652,11 @@ let user = try await requireEdit(ctx)                   // throws AuthError/Auth
 above, 11(c) not applicable (this SDK has no framework authority list), and 11(e) and 11(f)
 documented here:
 
-- **11(e):** the server issues `roles` only to a client that has the `roles` scope registered and
-  requests it. Register it on the client and request it, or **every `requireRole` is a 403**.
-- **11(f):** `roles` is a **snapshot taken when the token was minted**; a role granted or revoked
+- **11(e):** `roles` is a **snapshot taken when the token was minted**; a role granted or revoked
   afterwards is stale for up to one access-token lifetime (15 minutes by default). Use
   `requireAccess` where the decision must be live.
+- **11(f):** the server issues `roles` only to a client that has the `roles` scope registered and
+  requests it. Register it on the client and request it, or **every `requireRole` is a 403**.
 
 ### What the guard checks (§10.1 minimum local-verification set)
 
@@ -676,7 +676,7 @@ a guard.
 | 9 | `cnf` | A token carrying `cnf` is **not** a bearer token. See below — this rule is where contract 1.51 found and fixed a real defect at this entry point. |
 | 10 | header `typ` | When present it must be `at+jwt` (case-insensitive, an `application/` prefix allowed). `JWT`, `axiam-mfa-challenge+jwt`, `logout+jwt` and everything else is refused; an absent `typ` is accepted. **Access-token path only.** |
 | 11 | `purpose` | A token carrying a `purpose` member **at all** is refused, `"purpose": null` included: presence is read from the verified payload, not from a decoded optional. **Access-token path only.** |
-| 12 | `kid` | The header must carry a `kid` and the key is selected by it: no single-key fallback. An unknown `kid` causes at most one JWKS re-fetch per 60 s cooldown window (§12.4 rule 2) and is then refused, so a key rotation is picked up without a fetch per forged token. |
+| 12 | `kid` | The header must carry a `kid` and the key is selected by it: no single-key fallback. An unknown `kid` causes at most one JWKS re-fetch per 60 s cooldown window (§12.4 rule 2) and is then refused, so a key rotation is picked up without a fetch per forged token. A failed or empty JWKS fetch is rate-limited by the same window, during which keys already held keep verifying tokens, so a JWKS outage costs one fetch per window, not one per token. |
 
 Rules 10 and 11 apply to the **access-token path only**. The ID-token (`typ: JWT`), back-channel
 logout-token (`typ: logout+jwt`) and SSF paths reach the same signature verifier but are not
