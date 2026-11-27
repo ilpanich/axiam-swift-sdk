@@ -24,6 +24,13 @@ Same unreleased 1.4.0 line (contract 1.69).
 - **The stale-JWKS fallback is bounded** (CONTRACT.md section 12.4 rule 2). While refreshes fail, the held keys serve
   only while at most 600 s old (300 s cache TTL plus 300 s); past that tokens are refused with the recorded
   failure, so a key removed upstream cannot keep verifying for as long as the JWKS fetch is blocked.
+- **The JWKS cache TTL is clamped to at most 300 s; the stale-if-error conformance test is added** (CONTRACT.md 1.69,
+  section 12.4 rule 2; D-10, #883). `JwksVerifier`'s `cacheTTL` is clamped down to 300 s (a smaller value is honoured), so
+  the refresh interval and the TTL + 300 s stale bound cannot be stretched. `cacheTTL` is an internal initializer
+  parameter that `AxiamConfig` does not expose, so no `config_clamped` event is due. The held-keys behaviour (never
+  replaced or discarded by a failed or empty refresh, anchor moved only by a successful fetch, refused past
+  TTL + 300 s, an unknown-`kid` refresh that fails never extends the window) already conformed and is pinned by
+  `JwksStaleIfErrorTests`. Swift has no AMQP transport, so rule items A to C do not apply.
 - **Back-channel logout token selected by `kid`** (CONTRACT.md 1.69, section 12.7.3 rule 1; #880, O-2). A server-shaped token
   (header exactly `alg`, `typ: logout+jwt`, `kid`) verifies against a two-key JWKS; a kid-less or unknown-`kid`
   token is refused as `unknown_kid` (also on the ID-token path). A logout token from a server older than 1.69 has

@@ -199,6 +199,9 @@ actor JwksVerifier {
     private let jwksURL: URL
     private let tenantHeaderValue: String
     private let cacheTTL: TimeInterval
+    /// The longest a fetched JWKS may be served without a refresh (CONTRACT.md §12.4 rule 2,
+    /// contract 1.69): a larger requested TTL is clamped down to this, a smaller one is honoured.
+    static let maxCacheTTL: TimeInterval = 300
     private let requestTimeout: TimeInterval
     private let unknownKidCooldown: TimeInterval
     /// How long past `cacheTTL` the held keys may still be served while every refresh fails.
@@ -229,7 +232,11 @@ actor JwksVerifier {
         self.transport = transport
         self.jwksURL = baseURL.appendingPathComponent("oauth2/jwks")
         self.tenantHeaderValue = tenantHeaderValue
-        self.cacheTTL = cacheTTL
+        // §12.4 rule 2: the TTL is at most 300 s. The stale bound below is measured from it, so an
+        // unclamped value would stretch both the refresh interval and the stale window. This
+        // initializer is internal and `AxiamConfig` exposes no JWKS TTL, so the value is never a
+        // caller-supplied setting and no §19 `config_clamped` event is due.
+        self.cacheTTL = min(cacheTTL, Self.maxCacheTTL)
         self.requestTimeout = requestTimeout
         self.unknownKidCooldown = unknownKidCooldown
         self.maxStale = maxStale
