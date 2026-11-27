@@ -678,6 +678,9 @@ a guard.
 | 11 | `purpose` | A token carrying a `purpose` member **at all** is refused, `"purpose": null` included: presence is read from the verified payload, not from a decoded optional. **Access-token path only.** |
 | 12 | `kid` | The header must carry a `kid` and the key is selected by it: no single-key fallback. An unknown `kid` causes at most one JWKS re-fetch per 60 s cooldown window (§12.4 rule 2) and is then refused, so a key rotation is picked up without a fetch per forged token. A failed or empty JWKS fetch is rate-limited by the same window, during which keys already held keep verifying tokens, so a JWKS outage costs one fetch per window, not one per token. |
 
+When the JWKS endpoint fails, the held keys keep verifying for up to 600 s (300 s cache TTL plus 300 s
+maximum staleness), and a failed fetch is retried at most once a minute; past that, tokens are refused.
+
 Rules 10 and 11 apply to the **access-token path only**. The ID-token (`typ: JWT`), back-channel
 logout-token (`typ: logout+jwt`) and SSF paths reach the same signature verifier but are not
 subject to them, and tests pin that. The back-channel logout token is selected by `kid` too

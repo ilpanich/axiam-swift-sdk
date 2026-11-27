@@ -365,7 +365,10 @@ actor JwksVerifier {
         do {
             return (try await loadKeys(), true)
         } catch {
-            if !stale.isEmpty { return (stale, false) }
+            // Re-evaluate: the fetch may have run for up to `requestTimeout`, so the bound is
+            // checked against the clock now, not against the value taken before the await.
+            let stillWithinBound = heldKeysWithinStaleBound()
+            if !stillWithinBound.isEmpty { return (stillWithinBound, false) }
             throw error
         }
     }
