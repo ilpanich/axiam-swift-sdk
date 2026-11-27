@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Same unreleased 1.4.0 line (contract 1.69).
+Conforms to contract 1.69.
 
 ### Security
 
@@ -27,11 +27,11 @@ Same unreleased 1.4.0 line (contract 1.69).
 - **The JWKS cache TTL is clamped to at most 300 s; the stale-if-error conformance test is added** (CONTRACT.md 1.69,
   section 12.4 rule 2; D-10, #883). `JwksVerifier`'s `cacheTTL` is clamped down to 300 s (a smaller value is honoured), so
   the refresh interval and the TTL + 300 s stale bound cannot be stretched. `cacheTTL` is an internal initializer
-  parameter that `AxiamConfig` does not expose, so no `config_clamped` event is due. The stale margin is a fixed 300 s (no longer a parameter), and only a `200` counts as a
-  successful JWKS fetch (a `203` or `206` is a failed refresh). The held-keys behaviour (never
-  replaced or discarded by a failed or empty refresh, anchor moved only by a successful fetch, refused past
-  TTL + 300 s, an unknown-`kid` refresh that fails never extends the window) already conformed and is pinned by
-  `JwksStaleIfErrorTests`. Swift has no AMQP transport, so rule items A to C do not apply.
+  parameter that `AxiamConfig` does not expose, so no `config_clamped` event is due. The stale margin is a fixed 300 s
+  (no longer a parameter), and only a `200` counts as a successful JWKS fetch (a `203` or `206` is a failed refresh).
+  The held-keys behaviour (never replaced or discarded by a failed or empty refresh, anchor moved only by a
+  successful fetch, refused past TTL + 300 s, an unknown-`kid` refresh that fails never extends the window)
+  already conformed and is pinned by `JwksStaleIfErrorTests`. Swift has no AMQP transport, so rule items A to C do not apply.
 - **JWKS refresh hardening** (CONTRACT.md section 12.4 rule 2, settled readings 7 to 9; #883). Verification no longer waits
   for a refresh while keys inside TTL + 300 s are held: the single-flight fetch is started and the held keys answer at
   once, and the flight records its own outcome (cache, anchor, failure) whether or not anyone awaits it. The JWKS fetch
@@ -44,6 +44,12 @@ Same unreleased 1.4.0 line (contract 1.69).
   (header exactly `alg`, `typ: logout+jwt`, `kid`) verifies against a two-key JWKS; a kid-less or unknown-`kid`
   token is refused as `unknown_kid` (also on the ID-token path). A logout token from a server older than 1.69 has
   no `kid` and is refused, as before. Rules 10 and 11 stay off the logout and ID-token paths.
+
+- The guard now refuses anything that is not an access token (CONTRACT.md 1.68 section 10.1 rules 10-12; N14).
+  A token whose header `typ` is present and not `at+jwt` (case-insensitive, `application/` prefix allowed)
+  is refused, as is one whose claims carry `purpose` (the MFA challenge, MFA setup and WebAuthn state tokens),
+  and a header with no `kid` stays refused (there is no single-key fallback). A token with no `typ` still verifies.
+  The checks apply to the access-token path only; the ID-token, logout-token and SSF paths are unchanged.
 
 ### Added
 
@@ -62,16 +68,8 @@ Same unreleased 1.4.0 line (contract 1.69).
 - README states conformance to contract 1.69 and documents all twelve guard rules (SWI-R1-2).
 - Tests: ID-token fixtures carry `typ: JWT` and logout-token fixtures `typ: logout+jwt`, and every rule 10-12
   negative asserts the reason it was refused for (SWI-R1-4, SWI-R1-5).
-
-## [1.4.0] - 2026-11-22
-
-### Security
-
-- The guard now refuses anything that is not an access token (CONTRACT.md 1.68 section 10.1 rules 10-12; N14).
-  A token whose header `typ` is present and not `at+jwt` (case-insensitive, `application/` prefix allowed)
-  is refused, as is one whose claims carry `purpose` (the MFA challenge, MFA setup and WebAuthn state tokens),
-  and a header with no `kid` stays refused (there is no single-key fallback). A token with no `typ` still verifies.
-  The checks apply to the access-token path only; the ID-token, logout-token and SSF paths are unchanged.
+- Vendored `CONTRACT.md` re-synced to 1.69 (typed event consumer, byte-order-mark refusal, bounded JWKS
+  stale-if-error and the wire-form clarification; axiam#883).
 
 ### Changed (migration note)
 
@@ -2774,4 +2772,4 @@ contract re-vendor.
 - §8 AMQP HMAC consumption (the contract lists AMQP for Rust/TS/Go/Python/Java/PHP, not Swift).
 - A first-party `AxiamVapor` product (Vapor wiring is documented in the README instead).
 
-[Unreleased]: https://github.com/ilpanich/axiam-swift-sdk/compare/HEAD
+[Unreleased]: https://github.com/ilpanich/axiam-swift-sdk/compare/v1.3.1...HEAD
