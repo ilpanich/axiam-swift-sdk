@@ -754,6 +754,98 @@ final class Contract165NativeSignInTests: XCTestCase {
         XCTAssertEqual(transport.tokenRequests.count, 3)
     }
 
+    // MARK: - §9 rule 7 (contract 1.69): the flight key carries the normalised resolved tenant
+
+    private static let otherTenant = "33333333-3333-3333-3333-333333333333"
+
+    /// One refresh per `(token, tenantID)` pair, run concurrently: the first is parked on the wire,
+    /// the rest start while it is held. Returns the number of token-endpoint calls made.
+    private func heldRefreshWireCalls(
+        _ calls: [(token: String, tenant: String?)],
+        clientTenant: String? = Contract165NativeSignInTests.tenant
+    ) async throws -> Int {
+        let started = ProbeLatch()
+        let release = ProbeLatch()
+        let transport = Contract165Transport { _ in
+            started.signal()
+            await release.wait()
+            return Contract165Transport.json(200, Self.okBody())
+        }
+        let client = try makeClient(transport: transport, tenantID: clientTenant)
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for (index, call) in calls.enumerated() {
+                group.addTask {
+                    _ = try await client.oidcRefresh(
+                        refreshToken: Sensitive(call.token), tenantID: call.tenant,
+                        configuration: Self.configuration)
+                }
+                // The first call is on the wire before any other starts.
+                if index == 0 { await started.wait() }
+            }
+            // Give the rest time to reach the guard while the first call is held.
+            try await Task.sleep(nanoseconds: 200_000_000)
+            release.signal()
+            try await group.waitForAll()
+        }
+        return transport.tokenRequests.count
+    }
+
+    func testRefreshTenantCaseAndOmittedDefaultShareOneFlight() async throws {
+        let lower = Self.tenant
+        let upper = Self.tenant.uppercased()
+        // The client's default tenant, spelled lower, upper and not at all, concurrently.
+        let wire = try await heldRefreshWireCalls([("rt", lower), ("rt", upper), ("rt", nil)])
+        XCTAssertEqual(wire, 1, "same token, same effective tenant: one flight, one wire call")
+
+        // The default itself configured in upper case, the others in lower case and omitted.
+        let mixed = try await heldRefreshWireCalls(
+            [("rt", nil), ("rt", lower), ("rt", upper)], clientTenant: upper)
+        XCTAssertEqual(mixed, 1)
+    }
+
+    func testRefreshDifferentTenantSeparateFlights() async throws {
+        let wire = try await heldRefreshWireCalls([("rt", Self.tenant), ("rt", Self.otherTenant)])
+        XCTAssertEqual(wire, 2, "same token, different tenant: separate flights")
+        // The explicit other tenant in upper case is still the other tenant.
+        let upper = try await heldRefreshWireCalls(
+            [("rt", nil), ("rt", Self.otherTenant.uppercased())])
+        XCTAssertEqual(upper, 2)
+    }
+
+    func testRefreshDifferentTokenSeparateFlights() async throws {
+        let wire = try await heldRefreshWireCalls([("rt-a", nil), ("rt-b", nil)])
+        XCTAssertEqual(wire, 2, "different token, same tenant: separate flights (pin)")
+    }
+
+    func testRefreshFlightKeyNormalisesTenant() {
+        let token = "rt"
+        let lower = AxiamClient.oidcRefreshFlightKey(tenant: Self.tenant, refreshToken: token)
+        XCTAssertEqual(
+            lower,
+            AxiamClient.oidcRefreshFlightKey(tenant: Self.tenant.uppercased(), refreshToken: token))
+        XCTAssertNotEqual(
+            lower, AxiamClient.oidcRefreshFlightKey(tenant: Self.otherTenant, refreshToken: token))
+        // A string that is not a UUID is never mapped onto a valid tenant's key; the call itself
+        // is refused on the wire path exactly as before.
+        XCTAssertNotEqual(
+            lower, AxiamClient.oidcRefreshFlightKey(tenant: "not-a-uuid", refreshToken: token))
+        XCTAssertFalse(lower.contains(token), "a digest, never the token")
+    }
+
+    func testRefreshInvalidTenantIsStillRefused() async throws {
+        let transport = okTransport()
+        let client = try makeClient(transport: transport)
+        do {
+            _ = try await client.oidcRefresh(
+                refreshToken: Sensitive("rt"), tenantID: "not-a-uuid",
+                configuration: Self.configuration)
+            XCTFail("an invalid tenant must be refused")
+        } catch {
+            XCTAssertNotNil(Self.oauthError(error), "\(error)")
+        }
+        XCTAssertEqual(transport.tokenRequests.count, 0)
+    }
+
     // MARK: - §26.6 par_idp_hint_from_begin_url_pushed / par_idp_hint_argument_wins (D-N36)
 
     private func parTransport() -> Contract165Transport {

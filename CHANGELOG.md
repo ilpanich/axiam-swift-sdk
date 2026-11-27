@@ -124,6 +124,12 @@ unchanged. **No API change**: the registry moves only its `spec_digest`, and
 
 ### Fixed
 
+- **The `oidcRefresh` single-flight key normalises the tenant** (CONTRACT.md section 9 rule 7, #95).
+  The key digest took `tenantID ?? config.tenantID` as spelled, so the same tenant in upper and lower case
+  (or explicit versus the client default) made two flights and two wire calls with one rotating refresh token,
+  a replay that ends the session under contract 1.65. The resolved tenant now enters the key as the
+  lower-case hyphenated UUID; an invalid tenant is still refused as before.
+
 - **The federated starts now keep the §12.1 rule 12b binding cookie** (contract 1.66, #837).
   `ssoStart` and `ssoStartOauth2` reached the server through `oidcJSONPost` → `umaSendAbsolute`,
   which neither stores nor presents a cookie, so the `__Host-axiam_fed_bind` / `axiam_fed_bind`

@@ -220,7 +220,13 @@ extension AxiamClient {
     }
 
     /// The flight key: a digest, so the map never holds the refresh token itself.
+    ///
+    /// The resolved tenant enters the key as the lower-case hyphenated UUID (§9 rule 7), so the
+    /// same tenant spelled `ABC…` or `abc…`, or reached through the client's default, is one key.
+    /// A string that is not a UUID is keyed as given: it cannot collide with a valid tenant's
+    /// key, and the call is refused on the wire path as before.
     static func oidcRefreshFlightKey(tenant: String, refreshToken: String) -> String {
+        let tenant = UUID(uuidString: tenant)?.uuidString.lowercased() ?? tenant
         let digest = SHA256.hash(data: Data((tenant + "\n" + refreshToken).utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
     }
