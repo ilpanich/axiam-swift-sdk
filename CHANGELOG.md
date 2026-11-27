@@ -128,7 +128,8 @@ unchanged. **No API change**: the registry moves only its `spec_digest`, and
   The key digest took `tenantID ?? config.tenantID` as spelled, so the same tenant in upper and lower case
   (or explicit versus the client default) made two flights and two wire calls with one rotating refresh token,
   a replay that ends the session under contract 1.65. The resolved tenant now enters the key as the
-  lower-case hyphenated UUID; an invalid tenant is still refused as before.
+  lower-case hyphenated UUID, validated before keying: an invalid tenant is refused with no
+  request of any kind (it no longer costs a discovery fetch first), and cannot collide with a valid key.
 
 - **The federated starts now keep the §12.1 rule 12b binding cookie** (contract 1.66, #837).
   `ssoStart` and `ssoStartOauth2` reached the server through `oidcJSONPost` → `umaSendAbsolute`,

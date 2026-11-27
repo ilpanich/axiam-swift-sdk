@@ -43,6 +43,10 @@ public actor AxiamClient {
     /// writes it). Lets a test deterministically pin open the §9 rule 6 windows described on
     /// ``refreshOnce()`` instead of racing for them.
     var _refreshTestHook: (@Sendable (RefreshPhase) async -> Void)?
+    /// The same seam for ``oidcRefresh(refreshToken:tenantID:configuration:)``'s per-key guard
+    /// (`.waiterJoining` in the join branch, `.ownerPublished` before the slot is vacated).
+    /// Never assigned in production.
+    var _oidcRefreshTestHook: (@Sendable (RefreshPhase) async -> Void)?
     /// Organization UUID resolved from the access-token `org_id` claim after login (D-14).
     /// The login response body carries `org_slug` but never `org_id`, and the config may hold
     /// only a slug — so this is the source of the UUID that `RefreshRequest` requires.
@@ -1462,6 +1466,14 @@ extension AxiamClient {
     func _setRefreshTestHook(_ hook: (@Sendable (RefreshPhase) async -> Void)?) {
         _refreshTestHook = hook
     }
+
+    /// Install the `oidcRefresh` phase hook (see ``AxiamClient/RefreshPhase``). Tests only.
+    func _setOidcRefreshTestHook(_ hook: (@Sendable (RefreshPhase) async -> Void)?) {
+        _oidcRefreshTestHook = hook
+    }
+
+    /// How many `oidcRefresh` flight slots are populated (settled-but-unvacated included). Tests only.
+    func _oidcRefreshFlightCount() -> Int { oidcRefreshFlights.count }
 
     /// Whether the single-flight slot is populated at all — live **or** settled-but-not-yet-vacated
     /// (§9 rule 6b: this is occupancy, not liveness). Tests only.

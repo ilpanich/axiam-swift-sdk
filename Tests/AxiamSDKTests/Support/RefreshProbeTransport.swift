@@ -136,15 +136,15 @@ final class ProbeLatch: @unchecked Sendable {
     private let lock = NSLock()
     private var signalled = false
     private var claimed = false
-    private var waiter: CheckedContinuation<Void, Never>?
+    private var waiters: [CheckedContinuation<Void, Never>] = []
 
     func signal() {
         lock.lock()
         signalled = true
-        let continuation = waiter
-        waiter = nil
+        let continuations = waiters
+        waiters = []
         lock.unlock()
-        continuation?.resume()
+        for continuation in continuations { continuation.resume() }
     }
 
     func wait() async {
@@ -155,7 +155,7 @@ final class ProbeLatch: @unchecked Sendable {
                 continuation.resume()
                 return
             }
-            waiter = continuation
+            waiters.append(continuation)
             lock.unlock()
         }
     }
