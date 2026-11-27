@@ -21,6 +21,9 @@ Same unreleased 1.4.0 line (contract 1.69).
   costs one fetch per 60 s window rather than one per presented token. While the failure is inside its window the
   keys already held keep verifying tokens (only the network call is throttled), and a throttled fetch does not
   open an unknown-`kid` window. A cold cache with no keys refuses tokens until the window passes.
+- **The stale-JWKS fallback is bounded** (CONTRACT.md section 12.4 rule 2). While refreshes fail, the held keys serve
+  only while at most 600 s old (300 s cache TTL plus 300 s); past that tokens are refused with the recorded
+  failure, so a key removed upstream cannot keep verifying for as long as the JWKS fetch is blocked.
 - **Back-channel logout token selected by `kid`** (CONTRACT.md 1.69, section 12.7.3 rule 1; #880, O-2). A server-shaped token
   (header exactly `alg`, `typ: logout+jwt`, `kid`) verifies against a two-key JWKS; a kid-less or unknown-`kid`
   token is refused as `unknown_kid` (also on the ID-token path). A logout token from a server older than 1.69 has

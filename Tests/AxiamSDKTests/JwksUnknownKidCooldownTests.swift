@@ -210,6 +210,41 @@ final class JwksUnknownKidCooldownTests: XCTestCase {
         XCTAssertEqual(transport.fetchCount, 2, "the warm fetch and one failed refresh, nothing more")
     }
 
+    /// The stale fallback is bounded: keys loaded at t=0 with the endpoint failing afterwards
+    /// verify at t=301 and t=599, are refused at t=601, and the endpoint is still fetched at most
+    /// once per window.
+    func testTheStaleFallbackIsBoundedToTtlPlusMaxStale() async throws {
+        let signer = TestSigner(kid: "current-key")
+        let transport = CountingJwksTransport(signers: [signer])
+        let clock = TestClock()
+        let verifier = makeVerifier(transport, clock: clock)
+
+        _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+        XCTAssertEqual(transport.fetchCount, 1)
+        transport.setOutage(true)
+
+        clock.advance(by: 301)
+        for _ in 0..<5 {
+            _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+        }
+        XCTAssertEqual(transport.fetchCount, 2, "one failed refresh in the window")
+
+        clock.advance(by: 298)   // t = 599, a new window
+        for _ in 0..<5 {
+            _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+        }
+        XCTAssertEqual(transport.fetchCount, 3, "one more failed refresh, in its own window")
+
+        clock.advance(by: 2)     // t = 601: older than 300 + 300
+        for _ in 0..<5 {
+            do {
+                _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+                XCTFail("keys older than the stale bound must not verify")
+            } catch is CountingJwksTransport.Outage { /* the recorded failure */ }
+        }
+        XCTAssertEqual(transport.fetchCount, 3, "the recorded failure is replayed, no fetch per token")
+    }
+
     /// An unavailable JWKS endpoint costs one fetch per window, not one per presented token.
     func testAFailingJwksEndpointIsFetchedAtMostOncePerWindow() async throws {
         let signer = TestSigner(kid: "current-key")

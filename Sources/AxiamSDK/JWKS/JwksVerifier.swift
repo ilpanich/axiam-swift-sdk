@@ -201,6 +201,8 @@ actor JwksVerifier {
     private let cacheTTL: TimeInterval
     private let requestTimeout: TimeInterval
     private let unknownKidCooldown: TimeInterval
+    /// How long past `cacheTTL` the held keys may still be served while every refresh fails.
+    private let maxStale: TimeInterval
     private let now: @Sendable () -> Date
 
     /// When the last unknown-`kid` re-fetch was started; `nil` until one has been.
@@ -221,6 +223,7 @@ actor JwksVerifier {
         cacheTTL: TimeInterval = 300,
         requestTimeout: TimeInterval = 30,
         unknownKidCooldown: TimeInterval = 60,
+        maxStale: TimeInterval = 300,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.transport = transport
@@ -229,6 +232,7 @@ actor JwksVerifier {
         self.cacheTTL = cacheTTL
         self.requestTimeout = requestTimeout
         self.unknownKidCooldown = unknownKidCooldown
+        self.maxStale = maxStale
         self.now = now
     }
 
@@ -349,19 +353,27 @@ actor JwksVerifier {
             return (cachedKeys, false)
         }
         // Expired or cold. A recorded failure throttles the network call only, never verification:
-        // while one is inside its window, the keys already held keep verifying (stale, but they
-        // were fetched from this endpoint, and the alternative is refusing every token for a
-        // transient outage).
-        if !cachedKeys.isEmpty, let failure = lastFetchFailure,
+        // while one is inside its window, the keys already held keep verifying, but only while they
+        // are at most `cacheTTL + maxStale` old. Unbounded, a key removed upstream (a rotated-out
+        // compromised key) would verify for as long as the refreshes keep failing, and whoever can
+        // block the fetch would prolong it.
+        let stale = heldKeysWithinStaleBound()
+        if !stale.isEmpty, let failure = lastFetchFailure,
            now().timeIntervalSince(failure.at) < unknownKidCooldown {
-            return (cachedKeys, false)
+            return (stale, false)
         }
         do {
             return (try await loadKeys(), true)
         } catch {
-            if !cachedKeys.isEmpty { return (cachedKeys, false) }
+            if !stale.isEmpty { return (stale, false) }
             throw error
         }
+    }
+
+    /// The held keys, or none when they are older than `cacheTTL + maxStale`.
+    private func heldKeysWithinStaleBound() -> [Jwk] {
+        guard let cachedAt, now().timeIntervalSince(cachedAt) < cacheTTL + maxStale else { return [] }
+        return cachedKeys
     }
 
     /// §12.4 rule 2: the single re-fetch an unknown `kid` is allowed per cooldown window.
@@ -375,12 +387,12 @@ actor JwksVerifier {
         let current = now()
         if let last = lastUnknownKidRefetch, current.timeIntervalSince(last) < unknownKidCooldown {
             if let inFlight { return try await inFlight.value }
-            return cachedKeys
+            return heldKeysWithinStaleBound()
         }
         // A recorded fetch failure already throttles the network: answer from the cache and do not
         // open a re-fetch window for a fetch that was never made.
         if let failure = lastFetchFailure, current.timeIntervalSince(failure.at) < unknownKidCooldown {
-            return cachedKeys
+            return heldKeysWithinStaleBound()
         }
         lastUnknownKidRefetch = current
         return try await loadKeys()
