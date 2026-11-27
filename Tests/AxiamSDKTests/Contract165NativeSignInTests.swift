@@ -756,7 +756,9 @@ final class Contract165NativeSignInTests: XCTestCase {
 
     // MARK: - §9 rule 7 (contract 1.69): the flight key carries the normalised resolved tenant
 
-    private static let otherTenant = "33333333-3333-3333-3333-333333333333"
+    /// Both contain hex letters, so upper- and lower-case spellings really differ.
+    private static let hexTenant = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+    private static let otherTenant = "ffffffff-1111-4222-9333-abcdefabcdef"
 
     /// What a burst of held `oidcRefresh` calls did.
     private struct RefreshBurst {
@@ -830,12 +832,22 @@ final class Contract165NativeSignInTests: XCTestCase {
     }
 
     func testRefreshTenantCaseAndOmittedDefaultShareOneFlight() async throws {
-        let lower = Self.tenant
-        let upper = Self.tenant.uppercased()
+        let lower = Self.hexTenant
+        let upper = Self.hexTenant.uppercased()
+        XCTAssertNotEqual(lower, upper)
+        XCTAssertNotEqual(Self.otherTenant, Self.otherTenant.uppercased())
+        // The leader passes the tenant in upper case: the wire still gets the canonical form.
+        let leaderUpper = try await heldRefreshBurst(
+            [("rt", upper), ("rt", lower), ("rt", nil)], clientTenant: lower,
+            expectedWire: 1, expectedJoins: 2)
+        XCTAssertEqual(leaderUpper.wireCalls, 1)
+        XCTAssertEqual(leaderUpper.wireTenants, [lower.lowercased()])
         // The client's default tenant, spelled lower, upper and not at all, concurrently.
         let burst = try await heldRefreshBurst(
-            [("rt", lower), ("rt", upper), ("rt", nil)], expectedWire: 1, expectedJoins: 2)
+            [("rt", lower), ("rt", upper), ("rt", nil)], clientTenant: lower,
+            expectedWire: 1, expectedJoins: 2)
         XCTAssertEqual(burst.wireCalls, 1, "same token, same effective tenant: one flight")
+        XCTAssertEqual(burst.wireTenants, [lower], "the canonical lower-case value goes on the wire")
         XCTAssertEqual(burst.results, ["at-rt", "at-rt", "at-rt"])
         XCTAssertEqual(burst.slotsAfter, 0, "the slot is removed once vacated")
 
@@ -844,30 +856,35 @@ final class Contract165NativeSignInTests: XCTestCase {
             [("rt", nil), ("rt", lower), ("rt", upper)], clientTenant: upper,
             expectedWire: 1, expectedJoins: 2)
         XCTAssertEqual(mixed.wireCalls, 1)
+        XCTAssertEqual(mixed.wireTenants, [lower])
         XCTAssertEqual(mixed.slotsAfter, 0)
     }
 
     func testRefreshDifferentTenantSeparateFlights() async throws {
         let burst = try await heldRefreshBurst(
-            [("rt", Self.tenant), ("rt", Self.otherTenant)], expectedWire: 2, expectedJoins: 0)
+            [("rt", Self.hexTenant), ("rt", Self.otherTenant)], clientTenant: Self.hexTenant,
+            expectedWire: 2, expectedJoins: 0)
         XCTAssertEqual(burst.wireCalls, 2, "same token, different tenant: separate flights")
-        XCTAssertEqual(Set(burst.wireTenants), [Self.tenant, Self.otherTenant],
+        XCTAssertEqual(Set(burst.wireTenants), [Self.hexTenant, Self.otherTenant],
                        "each wire call carries its own tenant_id")
         XCTAssertEqual(burst.results, ["at-rt", "at-rt"])
         XCTAssertEqual(burst.slotsAfter, 0)
 
         // The other tenant spelled in upper case is still the other tenant: separate flights.
         let upper = try await heldRefreshBurst(
-            [("rt", nil), ("rt", Self.otherTenant.uppercased())], expectedWire: 2, expectedJoins: 0)
+            [("rt", nil), ("rt", Self.otherTenant.uppercased())], clientTenant: Self.hexTenant,
+            expectedWire: 2, expectedJoins: 0)
         XCTAssertEqual(upper.wireCalls, 2)
         XCTAssertEqual(upper.slotsAfter, 0)
     }
 
     func testRefreshDifferentTokenSeparateFlights() async throws {
         let burst = try await heldRefreshBurst(
-            [("rt-a", nil), ("rt-b", nil)], expectedWire: 2, expectedJoins: 0)
+            [("rt-a", nil), ("rt-a", nil), ("rt-b", nil)], expectedWire: 2, expectedJoins: 1)
         XCTAssertEqual(burst.wireCalls, 2, "different token, same tenant: separate flights")
-        XCTAssertEqual(burst.results, ["at-rt-a", "at-rt-b"], "each caller gets its own outcome")
+        XCTAssertEqual(
+            burst.results, ["at-rt-a", "at-rt-a", "at-rt-b"],
+            "a second caller of A shares A's call; B gets its own outcome")
         XCTAssertEqual(burst.slotsAfter, 0)
     }
 
@@ -882,26 +899,28 @@ final class Contract165NativeSignInTests: XCTestCase {
                 200, ["access_token": "at-\(token)", "token_type": "Bearer", "expires_in": 900])
         }
         let client = try makeClient(transport: transport)
-        let parked = ProbeLatch()
+        let parked = ProbeCounter()
         let open = ProbeLatch()
         let once = ProbeLatch()
-        let joined = ProbeLatch()
+        let joined = ProbeCounter()
         await client._setOidcRefreshTestHook { phase in
             switch phase {
             case .ownerPublished:
                 if once.claimOnce() {  // only A's owner parks; B's vacate passes straight through
-                    parked.signal()
+                    parked.increment()
                     await open.wait()
                 }
             case .waiterJoining:
-                joined.signal()
+                joined.increment()
             }
         }
         let a = Task {
             try await client.oidcRefresh(
                 refreshToken: Sensitive("rt-a"), configuration: Self.configuration)
         }
-        await parked.wait()  // A's wire call is done and its outcome settled; the slot is not vacated
+        // A's wire call is done and its outcome settled; the slot is not vacated.
+        let isParked = await parked.wait(atLeast: 1)
+        XCTAssertTrue(isParked, "owner A reached the publish-before-vacate window")
         XCTAssertEqual(transport.tokenRequests.count, 1)
 
         let b = try await client.oidcRefresh(
@@ -913,7 +932,10 @@ final class Contract165NativeSignInTests: XCTestCase {
             try await client.oidcRefresh(
                 refreshToken: Sensitive("rt-a"), configuration: Self.configuration)
         }
-        await joined.wait()  // the same token committed to the settled flight in the window
+        // The same token commits to the settled flight in the window (bounded: a regression that
+        // starts a second flight fails here instead of hanging).
+        let didJoin = await joined.wait(atLeast: 1)
+        XCTAssertTrue(didJoin, "the same token joined the settled flight")
         open.signal()
         let first = try await a.value
         let second = try await aAgain.value
@@ -927,10 +949,10 @@ final class Contract165NativeSignInTests: XCTestCase {
 
     func testRefreshFlightKeyNormalisesTenantAndIsAHexDigest() {
         let token = "rt-secret"
-        let lower = AxiamClient.oidcRefreshFlightKey(tenant: Self.tenant, refreshToken: token)
+        let lower = AxiamClient.oidcRefreshFlightKey(tenant: Self.hexTenant, refreshToken: token)
         XCTAssertEqual(
             lower,
-            AxiamClient.oidcRefreshFlightKey(tenant: Self.tenant.uppercased(), refreshToken: token))
+            AxiamClient.oidcRefreshFlightKey(tenant: Self.hexTenant.uppercased(), refreshToken: token))
         XCTAssertNotEqual(
             lower, AxiamClient.oidcRefreshFlightKey(tenant: Self.otherTenant, refreshToken: token))
         XCTAssertEqual(lower.count, 64, "a SHA-256 hex digest, never the token")
@@ -1097,23 +1119,3 @@ final class Contract165NativeSignInTests: XCTestCase {
     }
 }
 
-
-/// A thread-safe counter a test can wait on, by bounded polling (no continuation, so no hang if
-/// the count is never reached). `wait` returns whether the target was reached.
-final class ProbeCounter: @unchecked Sendable {
-    private let lock = NSLock()
-    private var count = 0
-
-    func increment() { lock.lock(); count += 1; lock.unlock() }
-
-    private var current: Int { lock.lock(); defer { lock.unlock() }; return count }
-
-    func wait(atLeast target: Int, seconds: Double = 5) async -> Bool {
-        let deadline = Date().addingTimeInterval(seconds)
-        while current < target {
-            if Date() > deadline { return false }
-            try? await Task.sleep(nanoseconds: 2_000_000)
-        }
-        return true
-    }
-}
