@@ -899,6 +899,9 @@ final class Contract165NativeSignInTests: XCTestCase {
                 200, ["access_token": "at-\(token)", "token_type": "Bearer", "expires_in": 900])
         }
         let client = try makeClient(transport: transport)
+        // Captured explicitly below: Swift 6.2's region-based isolation checker cannot check an
+        // unstructured Task that reaches `Self.configuration` (it implicitly captures `self`).
+        let configuration = Self.configuration
         let parked = ProbeCounter()
         let open = ProbeLatch()
         let once = ProbeLatch()
@@ -914,9 +917,9 @@ final class Contract165NativeSignInTests: XCTestCase {
                 joined.increment()
             }
         }
-        let a = Task {
+        let a = Task { [client, configuration] in
             try await client.oidcRefresh(
-                refreshToken: Sensitive("rt-a"), configuration: Self.configuration)
+                refreshToken: Sensitive("rt-a"), configuration: configuration)
         }
         // A's wire call is done and its outcome settled; the slot is not vacated.
         let isParked = await parked.wait(atLeast: 1)
@@ -924,13 +927,13 @@ final class Contract165NativeSignInTests: XCTestCase {
         XCTAssertEqual(transport.tokenRequests.count, 1)
 
         let b = try await client.oidcRefresh(
-            refreshToken: Sensitive("rt-b"), configuration: Self.configuration)
+            refreshToken: Sensitive("rt-b"), configuration: configuration)
         XCTAssertEqual(b.accessToken.wrapped, "at-rt-b", "B's own result")
         XCTAssertEqual(transport.tokenRequests.count, 2, "B made its own wire call")
 
-        let aAgain = Task {
+        let aAgain = Task { [client, configuration] in
             try await client.oidcRefresh(
-                refreshToken: Sensitive("rt-a"), configuration: Self.configuration)
+                refreshToken: Sensitive("rt-a"), configuration: configuration)
         }
         // The same token commits to the settled flight in the window (bounded: a regression that
         // starts a second flight fails here instead of hanging).
