@@ -207,6 +207,7 @@ final class JwksUnknownKidCooldownTests: XCTestCase {
         } catch let error as AuthError {
             XCTAssertEqual(error.oauthError, "unknown_kid")
         }
+        await verifier.awaitInFlight()
         XCTAssertEqual(transport.fetchCount, 2, "the warm fetch and one failed refresh, nothing more")
     }
 
@@ -227,12 +228,14 @@ final class JwksUnknownKidCooldownTests: XCTestCase {
         for _ in 0..<5 {
             _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
         }
+        await verifier.awaitInFlight()
         XCTAssertEqual(transport.fetchCount, 2, "one failed refresh in the window")
 
         clock.advance(by: 298)   // t = 599, a new window
         for _ in 0..<5 {
             _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
         }
+        await verifier.awaitInFlight()
         XCTAssertEqual(transport.fetchCount, 3, "one more failed refresh, in its own window")
 
         clock.advance(by: 2)     // t = 601: older than 300 + 300

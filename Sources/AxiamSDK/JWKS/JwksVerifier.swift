@@ -351,36 +351,62 @@ actor JwksVerifier {
         return keys.first { $0.kid == kid && $0.kty == "OKP" && $0.crv == "Ed25519" }
     }
 
-    /// The keys to verify against, and whether this call had to fetch them (a cold or expired
+    /// Seconds since `instant`, or `nil` when the clock reads earlier than it (it was stepped
+    /// back). A negative age is never trusted: held keys are not served on it and a window that
+    /// "started in the future" is over (CONTRACT.md §12.4 rule 2, settled readings 7 and 9).
+    private func age(since instant: Date) -> TimeInterval? {
+        let elapsed = now().timeIntervalSince(instant)
+        return elapsed >= 0 ? elapsed : nil
+    }
+
+    /// Whether a cooldown window that began at `start` is still open.
+    private func windowOpen(since start: Date) -> Bool {
+        guard let elapsed = age(since: start) else { return false }
+        return elapsed < unknownKidCooldown
+    }
+
+    private var failureWindowOpen: Bool {
+        guard let failure = lastFetchFailure else { return false }
+        return windowOpen(since: failure.at)
+    }
+
+    /// Test seam: waits for the fetch in flight, if any, so a test can count fetches after it.
+    func awaitInFlight() async {
+        if let flight = inFlight { _ = try? await flight.value }
+    }
+
+    /// The keys to verify against, and whether this call had to fetch them (a cold or unusable
     /// cache), in which case an unknown `kid` has nothing newer to be re-fetched for.
     private func keysForVerification() async throws -> ([Jwk], Bool) {
-        if let cachedAt, now().timeIntervalSince(cachedAt) < cacheTTL, !cachedKeys.isEmpty {
+        if let cachedAt, let elapsed = age(since: cachedAt), elapsed < cacheTTL, !cachedKeys.isEmpty {
             return (cachedKeys, false)
         }
-        // Expired or cold. A recorded failure throttles the network call only, never verification:
-        // while one is inside its window, the keys already held keep verifying, but only while they
-        // are at most `cacheTTL + maxStale` old. Unbounded, a key removed upstream (a rotated-out
-        // compromised key) would verify for as long as the refreshes keep failing, and whoever can
-        // block the fetch would prolong it.
+        // Past the TTL. Keys already held keep verifying while they are at most
+        // `cacheTTL + maxStale` old, and verification never waits for the refresh: it is started
+        // here if none is running and its window is closed, and the held keys answer now. Unbounded,
+        // a key removed upstream (a rotated-out compromised key) would verify for as long as the
+        // refreshes keep failing, hence the bound.
         let stale = heldKeysWithinStaleBound()
-        if !stale.isEmpty, let failure = lastFetchFailure,
-           now().timeIntervalSince(failure.at) < unknownKidCooldown {
+        if !stale.isEmpty {
+            if inFlight == nil, !failureWindowOpen { _ = startFlight() }
             return (stale, false)
         }
+        // Cold, past the bound, or the clock stepped back: nothing usable is held, so wait.
         do {
             return (try await loadKeys(), true)
         } catch {
-            // Re-evaluate: the fetch may have run for up to `requestTimeout`, so the bound is
-            // checked against the clock now, not against the value taken before the await.
             let stillWithinBound = heldKeysWithinStaleBound()
             if !stillWithinBound.isEmpty { return (stillWithinBound, false) }
             throw error
         }
     }
 
-    /// The held keys, or none when they are older than `cacheTTL + maxStale`.
+    /// The held keys, or none when they are older than `cacheTTL + maxStale` or the clock reads
+    /// earlier than the last successful fetch.
     private func heldKeysWithinStaleBound() -> [Jwk] {
-        guard let cachedAt, now().timeIntervalSince(cachedAt) < cacheTTL + Self.maxStale else { return [] }
+        guard let cachedAt, let elapsed = age(since: cachedAt), elapsed < cacheTTL + Self.maxStale else {
+            return []
+        }
         return cachedKeys
     }
 
@@ -390,23 +416,30 @@ actor JwksVerifier {
     /// new network call: the caller waits for a fetch already in flight, if there is one, and
     /// otherwise uses the current cache, so it always re-selects from the freshest set held.
     /// The window opens *before* the fetch, so a failing fetch is also rate-limited and concurrent
-    /// unknown `kid`s see it already open.
+    /// unknown `kid`s see it already open. A failed refresh refuses the token (the caller finds no
+    /// key) and leaves the held set, and the stale bound, exactly where they were.
     private func refetchForUnknownKid() async throws -> [Jwk] {
         let current = now()
-        if let last = lastUnknownKidRefetch, current.timeIntervalSince(last) < unknownKidCooldown {
-            if let inFlight { return try await inFlight.value }
+        if let last = lastUnknownKidRefetch, windowOpen(since: last) {
+            if let inFlight { return (try? await inFlight.value) ?? heldKeysWithinStaleBound() }
             return heldKeysWithinStaleBound()
         }
         // A recorded fetch failure already throttles the network: answer from the cache and do not
         // open a re-fetch window for a fetch that was never made.
-        if let failure = lastFetchFailure, current.timeIntervalSince(failure.at) < unknownKidCooldown {
+        if failureWindowOpen {
             return heldKeysWithinStaleBound()
         }
         lastUnknownKidRefetch = current
-        return try await loadKeys()
+        do {
+            return try await loadKeys()
+        } catch {
+            let held = heldKeysWithinStaleBound()
+            if held.isEmpty { throw error }
+            return held
+        }
     }
 
-    /// Fetch the JWKS (single-flighted) and replace the cache.
+    /// Fetch the JWKS (single-flighted) and wait for the outcome.
     ///
     /// A failed fetch, or one that returns no keys, is rate-limited by the same cooldown: until it
     /// elapses the recorded failure is re-thrown with no network call, so an unavailable JWKS
@@ -415,27 +448,63 @@ actor JwksVerifier {
         if let inFlight {
             return try await inFlight.value
         }
-        if let failure = lastFetchFailure, now().timeIntervalSince(failure.at) < unknownKidCooldown {
+        if let failure = lastFetchFailure, windowOpen(since: failure.at) {
             throw failure.error
         }
-        let task = Task<[Jwk], Error> { [self] in
-            try await self.fetchKeys()
-        }
+        return try await startFlight().value
+    }
+
+    /// Starts the single fetch (or returns the one running). The flight runs in its own task, so a
+    /// caller's cancellation neither stops it nor is recorded as a failed refresh, and it records
+    /// its own outcome: no caller has to be awaiting for the cache to be filled or the failure noted.
+    private func startFlight() -> Task<[Jwk], Error> {
+        if let inFlight { return inFlight }
+        let task = Task<[Jwk], Error> { [self] in try await self.runFlight() }
         inFlight = task
+        return task
+    }
+
+    private func runFlight() async throws -> [Jwk] {
         defer { inFlight = nil }
-        let keys: [Jwk]
         do {
-            keys = try await task.value
+            let keys = try await fetchKeysWithDeadline()
             if keys.isEmpty { throw AuthError("Failed to use JWKS: the document holds no keys.") }
+            lastFetchFailure = nil
+            cachedKeys = keys
+            cachedAt = now()
+            return keys
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             lastFetchFailure = (at: now(), error: error)
             throw error
         }
-        lastFetchFailure = nil
-        cachedKeys = keys
-        cachedAt = now()
-        return keys
     }
+
+    /// The fetch with a TOTAL deadline of `requestTimeout`: the request and the reading of its
+    /// body race a timer, and the loser is cancelled (AsyncHTTPClient aborts a streaming body on
+    /// cancellation). The client's own timeout covers the response head only, so a server that
+    /// drips the body would otherwise hold the single flight, and with it the cache, forever.
+    private func fetchKeysWithDeadline() async throws -> [Jwk] {
+        let nanoseconds = UInt64(max(requestTimeout, 0) * 1_000_000_000)
+        let seconds = Int(requestTimeout.rounded())
+        return try await withThrowingTaskGroup(of: [Jwk]?.self) { group in
+            group.addTask { [self] in try await self.fetchKeys() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: nanoseconds)
+                return nil
+            }
+            defer { group.cancelAll() }
+            guard let first = try await group.next() else {
+                throw AuthError("Failed to fetch JWKS.")
+            }
+            if let keys = first { return keys }
+            throw AuthError("Failed to fetch JWKS: no complete response within \(seconds) s.")
+        }
+    }
+
+    /// The largest JWKS body read (a real set is a few hundred bytes).
+    static let maxBodyBytes = 1024 * 1024
 
     private func fetchKeys() async throws -> [Jwk] {
         let spec = HTTPRequestSpec(
@@ -444,8 +513,12 @@ actor JwksVerifier {
             headers: [("Accept", "application/json"), ("X-Tenant-ID", tenantHeaderValue)],
             body: nil
         )
-        let response = try await transport.execute(spec, timeout: requestTimeout)
+        let response = try await transport.execute(
+            spec, timeout: requestTimeout, maxBodyBytes: Self.maxBodyBytes)
         fetchCount += 1
+        guard response.body.count <= Self.maxBodyBytes else {
+            throw AuthError("Failed to fetch JWKS: the response body is too large.")
+        }
         // §12.4 rule 2: only a `200` is a successful fetch (a `304` needs a conditional request,
         // which this SDK never sends), so 203, 206 and the rest of 2xx are failed refreshes.
         guard response.status == 200 else {

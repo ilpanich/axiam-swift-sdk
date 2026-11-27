@@ -32,6 +32,14 @@ Same unreleased 1.4.0 line (contract 1.69).
   replaced or discarded by a failed or empty refresh, anchor moved only by a successful fetch, refused past
   TTL + 300 s, an unknown-`kid` refresh that fails never extends the window) already conformed and is pinned by
   `JwksStaleIfErrorTests`. Swift has no AMQP transport, so rule items A to C do not apply.
+- **JWKS refresh hardening** (CONTRACT.md section 12.4 rule 2, settled readings 7 to 9; #883). Verification no longer waits
+  for a refresh while keys inside TTL + 300 s are held: the single-flight fetch is started and the held keys answer at
+  once, and the flight records its own outcome (cache, anchor, failure) whether or not anyone awaits it. The JWKS fetch
+  has a total deadline (`requestTimeout`) covering the body read, not only the response head, so a dripped body cannot
+  hold the flight, and the body is capped at 1 MiB (`HTTPTransport` gains an `execute(_:timeout:maxBodyBytes:)`
+  requirement with a default, enforced by the AsyncHTTPClient transport; other requests keep their 32 MiB cap). A clock
+  stepped back is handled: a negative age never trusts held keys and makes a refresh due, and a cooldown window whose
+  start is in the future is over.
 - **Back-channel logout token selected by `kid`** (CONTRACT.md 1.69, section 12.7.3 rule 1; #880, O-2). A server-shaped token
   (header exactly `alg`, `typ: logout+jwt`, `kid`) verifies against a two-key JWKS; a kid-less or unknown-`kid`
   token is refused as `unknown_kid` (also on the ID-token path). A logout token from a server older than 1.69 has

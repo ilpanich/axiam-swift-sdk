@@ -46,7 +46,17 @@ struct HTTPResponseData: Sendable {
 /// against a real server (integration tests) or a counting mock (single-flight unit test).
 protocol HTTPTransport: Sendable {
     func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval) async throws -> HTTPResponseData
+    /// As ``execute(_:timeout:)`` with a cap on the response body, for callers that know how
+    /// large a legitimate answer is (the JWKS fetch). The default ignores the cap; the production
+    /// transport enforces it.
+    func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval, maxBodyBytes: Int) async throws -> HTTPResponseData
     func shutdown() async throws
+}
+
+extension HTTPTransport {
+    func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval, maxBodyBytes: Int) async throws -> HTTPResponseData {
+        try await execute(spec, timeout: timeout)
+    }
 }
 
 /// Production transport built on `AsyncHTTPClient`.
@@ -65,6 +75,10 @@ final class AsyncHTTPClientTransport: HTTPTransport {
     }
 
     func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval) async throws -> HTTPResponseData {
+        try await execute(spec, timeout: timeout, maxBodyBytes: 32 * 1024 * 1024)
+    }
+
+    func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval, maxBodyBytes: Int) async throws -> HTTPResponseData {
         var request = HTTPClientRequest(url: spec.url.absoluteString)
         request.method = Self.niaMethod(spec.method)
         for (name, value) in spec.headers {
@@ -84,7 +98,7 @@ final class AsyncHTTPClientTransport: HTTPTransport {
 
         var buffer: ByteBuffer
         do {
-            buffer = try await response.body.collect(upTo: 32 * 1024 * 1024)
+            buffer = try await response.body.collect(upTo: maxBodyBytes)
         } catch {
             throw AxiamError.network(NetworkError("Failed to read response body", cause: error))
         }

@@ -28,7 +28,12 @@ final class JwksStaleIfErrorTests: XCTestCase {
     }
 
     private func accepts(_ verifier: JwksVerifier, _ token: String) async -> Bool {
-        do { _ = try await verifier.verifySignatureOnlyUnchecked(token: token); return true } catch { return false }
+        let accepted: Bool
+        do { _ = try await verifier.verifySignatureOnlyUnchecked(token: token); accepted = true } catch { accepted = false }
+        // A refresh started in the background is not part of the answer; let it settle so the
+        // fetch counts that follow are deterministic.
+        await verifier.awaitInFlight()
+        return accepted
     }
 
     /// Fill at t0, every later fetch fails: held kid accepted at TTL+1, unknown kid refused and
@@ -199,5 +204,135 @@ final class JwksStaleIfErrorTests: XCTestCase {
             let past = await accepts(verifier, signer.makeJWT(claims: claims()))
             XCTAssertFalse(past, "\(code): the anchor did not move")
         }
+    }
+
+    // MARK: - Verification never waits for a refresh while usable keys are held (reading 8)
+
+    /// Past the TTL with the held keys inside TTL + 300 s, the refresh is started but not awaited:
+    /// the verification returns while the fetch is still held open.
+    func testAUsableHeldSetNeverWaitsForAnInFlightRefresh() async throws {
+        let signer = TestSigner(kid: "held-key")
+        let transport = Transport(signers: [signer])
+        let clock = Clock()
+        let verifier = makeVerifier(transport, clock: clock)
+
+        let ok = await accepts(verifier, signer.makeJWT(claims: claims()))
+        XCTAssertTrue(ok)
+        clock.advance(by: 301)
+        transport.armGate()
+
+        // Not through `accepts`: that would wait for the held-open fetch.
+        _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+        try await transport.waitUntilGateEntered()
+        _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+        XCTAssertEqual(transport.fetchCount, 2, "one refresh, shared, still held open")
+
+        transport.release()
+        await verifier.awaitInFlight()
+        // The flight recorded its own outcome: the new anchor serves a fetch-free verification.
+        clock.advance(by: 250)
+        let served = await accepts(verifier, signer.makeJWT(claims: claims()))
+        XCTAssertTrue(served)
+        XCTAssertEqual(transport.fetchCount, 2)
+    }
+
+    // MARK: - Total deadline and body cap
+
+    /// A transport whose request never completes, as one that drips its body would: it sleeps
+    /// until it is cancelled.
+    private final class DrippingTransport: HTTPTransport, @unchecked Sendable {
+        private let lock = NSLock()
+        private var calls = 0
+        var callCount: Int { lock.locked { calls } }
+        func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval) async throws -> HTTPResponseData {
+            lock.locked { calls += 1 }
+            while true { try await Task.sleep(nanoseconds: 1_000_000_000) }
+        }
+        func shutdown() async throws {}
+    }
+
+    func testADrippedBodyIsCutOffByATotalDeadlineAndCountsAsAFailedRefresh() async throws {
+        let transport = DrippingTransport()
+        let verifier = JwksVerifier(
+            transport: transport,
+            baseURL: URL(string: "http://127.0.0.1:1")!,
+            tenantHeaderValue: "tenant",
+            requestTimeout: 0.2,
+            unknownKidCooldown: 60)
+        let signer = TestSigner(kid: "k")
+        do {
+            _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+            XCTFail("a fetch that never completes must fail at the deadline")
+        } catch let error as AuthError {
+            XCTAssertTrue(error.message.contains("no complete response"), error.message)
+        }
+        // The failure is recorded: the next verification replays it with no second fetch.
+        do {
+            _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+            XCTFail("must be refused")
+        } catch is AuthError {}
+        XCTAssertEqual(transport.callCount, 1)
+    }
+
+    /// A transport answering 200 with an oversized body.
+    private final class OversizedTransport: HTTPTransport, @unchecked Sendable {
+        func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval) async throws -> HTTPResponseData {
+            HTTPResponseData(status: 200, headers: [], body: Data(count: JwksVerifier.maxBodyBytes + 1))
+        }
+        func shutdown() async throws {}
+    }
+
+    func testAnOversizedJwksBodyIsAFailedRefresh() async throws {
+        let verifier = JwksVerifier(
+            transport: OversizedTransport(),
+            baseURL: URL(string: "http://127.0.0.1:1")!,
+            tenantHeaderValue: "tenant")
+        let signer = TestSigner(kid: "k")
+        do {
+            _ = try await verifier.verifySignatureOnlyUnchecked(token: signer.makeJWT(claims: claims()))
+            XCTFail("an oversized body must be refused")
+        } catch let error as AuthError {
+            XCTAssertTrue(error.message.contains("too large"), error.message)
+        }
+    }
+
+    // MARK: - A clock stepped back (readings 7 and 9)
+
+    /// A negative age is not trusted: with the clock behind the last successful fetch the held
+    /// keys do not verify and a refresh is due.
+    func testANegativeAgeDistrustsTheHeldKeysAndDuesARefresh() async throws {
+        let signer = TestSigner(kid: "held-key")
+        let transport = Transport(signers: [signer])
+        let clock = Clock()
+        let verifier = makeVerifier(transport, clock: clock)
+
+        let ok = await accepts(verifier, signer.makeJWT(claims: claims()))
+        XCTAssertTrue(ok)
+        clock.advance(by: -10)
+        transport.setOutage(true)
+
+        let refused = await accepts(verifier, signer.makeJWT(claims: claims()))
+        XCTAssertFalse(refused, "held keys are not trusted on a negative age")
+        XCTAssertEqual(transport.fetchCount, 2, "a refresh was due and attempted")
+    }
+
+    /// A cooldown window whose start lies in the future is over: after a failed first fetch, with
+    /// the clock stepped back, the next verification fetches again instead of replaying the failure.
+    func testAWindowStartingInTheFutureIsOver() async throws {
+        let signer = TestSigner(kid: "held-key")
+        let transport = Transport(signers: [signer])
+        transport.setOutage(true)
+        let clock = Clock()
+        let verifier = makeVerifier(transport, clock: clock)
+
+        let first = await accepts(verifier, signer.makeJWT(claims: claims()))
+        XCTAssertFalse(first)
+        XCTAssertEqual(transport.fetchCount, 1)
+        clock.advance(by: -100)
+        transport.setOutage(false)
+
+        let second = await accepts(verifier, signer.makeJWT(claims: claims()))
+        XCTAssertTrue(second, "the stale window is over, so the fetch is attempted and succeeds")
+        XCTAssertEqual(transport.fetchCount, 2)
     }
 }
