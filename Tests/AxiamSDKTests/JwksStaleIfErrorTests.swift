@@ -128,4 +128,76 @@ final class JwksStaleIfErrorTests: XCTestCase {
         XCTAssertTrue(again)
         XCTAssertEqual(transport.fetchCount, 2, "refreshed after the 10 s TTL")
     }
+
+    /// The unknown-kid refresh is itself the failing fetch: it is refused, the held kid still
+    /// verifies, and the anchor does not move (the held kid is refused 601 s after the fill).
+    func testAFailedUnknownKidRefreshNeverMovesTheAnchor() async throws {
+        let signer = TestSigner(kid: "held-key")
+        let transport = Transport(signers: [signer])
+        let clock = Clock()
+        let verifier = makeVerifier(transport, clock: clock)
+
+        let ok = await accepts(verifier, signer.makeJWT(claims: claims()))
+        XCTAssertTrue(ok)
+        transport.setOutage(true)
+
+        clock.advance(by: 100)   // still inside the TTL: the unknown kid triggers the refresh
+        let unknown = await accepts(verifier, signer.makeJWT(claims: claims(), kidOverride: "unknown"))
+        XCTAssertFalse(unknown)
+        XCTAssertEqual(transport.fetchCount, 2, "the unknown-kid refresh was attempted and failed")
+        let held = await accepts(verifier, signer.makeJWT(claims: claims()))
+        XCTAssertTrue(held, "the held kid still verifies")
+
+        clock.advance(by: 501)   // t0 + 601
+        let past = await accepts(verifier, signer.makeJWT(claims: claims()))
+        XCTAssertFalse(past, "the failed refresh did not move the anchor")
+    }
+
+    /// A transport that answers 200 with the set first, then a configurable non-200 status with
+    /// keys in the body.
+    private final class StatusTransport: HTTPTransport, @unchecked Sendable {
+        private let lock = NSLock()
+        private let signer: TestSigner
+        private var status = 200
+        private var fetches = 0
+        init(signer: TestSigner) { self.signer = signer }
+        var fetchCount: Int { lock.locked { fetches } }
+        func setStatus(_ code: Int) { lock.locked { status = code } }
+        func execute(_ spec: HTTPRequestSpec, timeout: TimeInterval) async throws -> HTTPResponseData {
+            let code = lock.locked { () -> Int in fetches += 1; return status }
+            let body = try JSONSerialization.data(withJSONObject: TestSigner.jwksJSON(of: [signer]))
+            return HTTPResponseData(status: code, headers: [("Content-Type", "application/json")], body: body)
+        }
+        func shutdown() async throws {}
+    }
+
+    /// Only a `200` is a successful fetch: a `203` or `206` carrying keys is a failed refresh, so
+    /// it leaves the anchor where it was. (On the former `200..<300` check the 203 at t0 + 301
+    /// counted as a success, moved the anchor, and the held kid was still accepted at t0 + 601.)
+    func testANon200SuccessStatusIsAFailedRefresh() async throws {
+        for code in [203, 206] {
+            let signer = TestSigner(kid: "held-key")
+            let transport = StatusTransport(signer: signer)
+            let clock = Clock()
+            let verifier = JwksVerifier(
+                transport: transport,
+                baseURL: URL(string: "http://127.0.0.1:1")!,
+                tenantHeaderValue: "tenant",
+                unknownKidCooldown: 60,
+                now: { clock.now() })
+
+            let ok = await accepts(verifier, signer.makeJWT(claims: claims()))
+            XCTAssertTrue(ok)
+            transport.setStatus(code)
+
+            clock.advance(by: 301)
+            let held = await accepts(verifier, signer.makeJWT(claims: claims()))
+            XCTAssertTrue(held, "\(code): the held set is kept")
+            XCTAssertEqual(transport.fetchCount, 2, "\(code): a refresh was attempted")
+
+            clock.advance(by: 300)   // t0 + 601
+            let past = await accepts(verifier, signer.makeJWT(claims: claims()))
+            XCTAssertFalse(past, "\(code): the anchor did not move")
+        }
+    }
 }

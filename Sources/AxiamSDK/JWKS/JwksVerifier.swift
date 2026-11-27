@@ -205,7 +205,7 @@ actor JwksVerifier {
     private let requestTimeout: TimeInterval
     private let unknownKidCooldown: TimeInterval
     /// How long past `cacheTTL` the held keys may still be served while every refresh fails.
-    private let maxStale: TimeInterval
+    static let maxStale: TimeInterval = 300
     private let now: @Sendable () -> Date
 
     /// When the last unknown-`kid` re-fetch was started; `nil` until one has been.
@@ -226,7 +226,6 @@ actor JwksVerifier {
         cacheTTL: TimeInterval = 300,
         requestTimeout: TimeInterval = 30,
         unknownKidCooldown: TimeInterval = 60,
-        maxStale: TimeInterval = 300,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.transport = transport
@@ -239,7 +238,6 @@ actor JwksVerifier {
         self.cacheTTL = min(cacheTTL, Self.maxCacheTTL)
         self.requestTimeout = requestTimeout
         self.unknownKidCooldown = unknownKidCooldown
-        self.maxStale = maxStale
         self.now = now
     }
 
@@ -382,7 +380,7 @@ actor JwksVerifier {
 
     /// The held keys, or none when they are older than `cacheTTL + maxStale`.
     private func heldKeysWithinStaleBound() -> [Jwk] {
-        guard let cachedAt, now().timeIntervalSince(cachedAt) < cacheTTL + maxStale else { return [] }
+        guard let cachedAt, now().timeIntervalSince(cachedAt) < cacheTTL + Self.maxStale else { return [] }
         return cachedKeys
     }
 
@@ -448,7 +446,9 @@ actor JwksVerifier {
         )
         let response = try await transport.execute(spec, timeout: requestTimeout)
         fetchCount += 1
-        guard (200..<300).contains(response.status) else {
+        // §12.4 rule 2: only a `200` is a successful fetch (a `304` needs a conditional request,
+        // which this SDK never sends), so 203, 206 and the rest of 2xx are failed refreshes.
+        guard response.status == 200 else {
             throw AuthError("Failed to fetch JWKS: HTTP \(response.status).")
         }
         do {

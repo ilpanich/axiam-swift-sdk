@@ -27,7 +27,8 @@ Same unreleased 1.4.0 line (contract 1.69).
 - **The JWKS cache TTL is clamped to at most 300 s; the stale-if-error conformance test is added** (CONTRACT.md 1.69,
   section 12.4 rule 2; D-10, #883). `JwksVerifier`'s `cacheTTL` is clamped down to 300 s (a smaller value is honoured), so
   the refresh interval and the TTL + 300 s stale bound cannot be stretched. `cacheTTL` is an internal initializer
-  parameter that `AxiamConfig` does not expose, so no `config_clamped` event is due. The held-keys behaviour (never
+  parameter that `AxiamConfig` does not expose, so no `config_clamped` event is due. The stale margin is a fixed 300 s (no longer a parameter), and only a `200` counts as a
+  successful JWKS fetch (a `203` or `206` is a failed refresh). The held-keys behaviour (never
   replaced or discarded by a failed or empty refresh, anchor moved only by a successful fetch, refused past
   TTL + 300 s, an unknown-`kid` refresh that fails never extends the window) already conformed and is pinned by
   `JwksStaleIfErrorTests`. Swift has no AMQP transport, so rule items A to C do not apply.
