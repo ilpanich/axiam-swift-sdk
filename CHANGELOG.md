@@ -7,7 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-28
+
 Conforms to contract 1.69.
+
+### Fixed
+
+- Review follow-ups for the tenant-normalised refresh key (#95)
+
+- Normalise the tenant in the oidc_refresh flight key (#95)
+
+- OI-42 follow-up, readings 7 to 9 (axiam#883)
+
+- OI-42 review round 1 (axiam#883)
+
+- Clamp JWKS cache TTL to 300 s, pin bounded stale-if-error (OI-42, axiam#883)
+
+- re-check the stale bound after the fetch, document it (OI wave B, round 3)
+
+- Bound the stale JWKS fallback (OI wave B, round 3)
+
+- JWKS failure no longer refuses held keys, gated in-flight test, 11(e)/(f) labels (OI wave B, round 2)
+
+- Rule 11(e)/(f) docs, rule 11(g) tests, JWKS failure rate-limit, fail-closed payload parse (OI wave B, round 1)
+
+- Rule 11 refuses purpose:null, unknown-kid cooldown, logout kid, roles/scope (OI-20, #91, axiam#880)
+
+- Enforce access-token rules 10-12 in the guard (SA-30, N14)
 
 ### Security
 
@@ -70,6 +96,22 @@ Conforms to contract 1.69.
   negative asserts the reason it was refused for (SWI-R1-4, SWI-R1-5).
 - Vendored `CONTRACT.md` re-synced to 1.69 (typed event consumer, byte-order-mark refusal, bounded JWKS
   stale-if-error and the wire-form clarification; axiam#883).
+
+- Capture the configuration explicitly in the refresh window test (#95)
+
+- re-vendor CONTRACT.md 1.69 (§9 rule 7: oidc_refresh single-flight per tenant and token)
+
+- Bound every wait in the refresh-key tests (#95)
+
+- re-vendor CONTRACT.md after the server merged ilpanich/axiam#893
+
+- re-vendor CONTRACT.md 1.69 (typed consume, BOM refusal, bounded JWKS stale-if-error; axiam#883)
+
+- re-vendor CONTRACT.md 1.69 wire-form clarification (axiam#883)
+
+- re-vendor CONTRACT.md for the contract 1.69 §8 correction
+
+- re-vendor CONTRACT.md, openapi.json and the management registry
 
 ### Changed (migration note)
 
