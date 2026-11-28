@@ -107,6 +107,15 @@ extension AxiamClient {
         do {
             _ = try await jwks.verifySignatureOnlyUnchecked(token: token)
         } catch {
+            // §12.7.3 rule 1 (contract 1.69): the key is selected by `kid`. A token with no `kid`
+            // (a pre-1.69 server's) or an unknown one is `unknown_kid`; the verifier has already
+            // spent its one re-fetch for the window. Rules 10 and 11 of §10.1 are not applied here:
+            // they live in the access-token guard only, and a logout token's `typ` is `logout+jwt`.
+            if let auth = error as? AuthError, auth.oauthError == OidcValidationCode.unknownKid.rawValue {
+                throw AxiamError.auth(AuthError(
+                    "logout token \(OidcValidationCode.unknownKid.rawValue): no JWKS key for its `kid`",
+                    oauthError: OidcValidationCode.unknownKid.rawValue))
+            }
             throw AxiamError.auth(AuthError(
                 "logout token signature verification failed", oauthError: "invalid_signature"))
         }

@@ -71,6 +71,25 @@ public struct AxiamUser: Sendable, Equatable {
     /// arrives as `nil`, for the same reason.
     public let reachableTenantIDs: [String]?
 
+    /// Whether the token carried a well-formed `roles` claim (a JSON array of strings),
+    /// **empty or not** (CONTRACT.md §11.2 rule 11(b)).
+    ///
+    /// ``roles`` alone cannot say: an absent claim and `[]` both read as an empty list there.
+    /// The two mean different things to an integrator — absent says "this token was not issued
+    /// the `roles` scope, ask for it", `[]` says "the user holds none" — and `false` here is
+    /// also what a `roles` claim that is not an array of strings produces. ``AxiamGuards/requireRole(_:)``
+    /// refuses with 403 whenever this is `false`. Defaults to `!roles.isEmpty`, which is exact
+    /// for an identity built by hand; only the guard path can tell `[]` from absent.
+    public let rolesClaimPresent: Bool
+
+    /// The granted scopes of the verified token (the `scope` claim split on single spaces,
+    /// RFC 6749 §3.3), or `nil` when the token carries no string `scope` claim.
+    ///
+    /// A separate member from ``roles`` and never merged into it (§11.2 rule 11): a scope
+    /// names what the *client* asked for, a role what the *user* holds. `nil` on the login
+    /// path.
+    public let scopes: [String]?
+
     /// The four §5.2.2/§5.2.3 parameters are appended and defaulted, so every call site
     /// written before contract 1.34 still compiles.
     public init(
@@ -83,7 +102,9 @@ public struct AxiamUser: Sendable, Equatable {
         principalTenantID: String? = nil,
         principalTenantSlug: String? = nil,
         orgID: String? = nil,
-        reachableTenantIDs: [String]? = nil
+        reachableTenantIDs: [String]? = nil,
+        rolesClaimPresent: Bool? = nil,
+        scopes: [String]? = nil
     ) {
         self.userID = userID
         self.tenantID = tenantID
@@ -95,6 +116,8 @@ public struct AxiamUser: Sendable, Equatable {
         self.principalTenantSlug = principalTenantSlug
         self.orgID = orgID
         self.reachableTenantIDs = reachableTenantIDs
+        self.rolesClaimPresent = rolesClaimPresent ?? !roles.isEmpty
+        self.scopes = scopes
     }
 }
 

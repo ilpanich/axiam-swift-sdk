@@ -78,7 +78,7 @@ final class CibaTests: XCTestCase {
     private static func tokens(_ transport: RoutedTransport) -> RoutedTransport.Reply {
         transport.route("GET", "/oauth2/jwks", [.json(200, object: signer.jwksJSON())])
         let now = Date().timeIntervalSince1970
-        let idToken = signer.makeJWT(claims: [
+        let idToken = signer.makeIDToken(claims: [
             "iss": issuer, "aud": clientID, "sub": UUID().uuidString.lowercased(),
             "iat": Int(now), "exp": Int(now) + 600,
         ])
@@ -544,7 +544,7 @@ final class CibaTests: XCTestCase {
         let now = Date().timeIntervalSince1970
         let unverifiable = RoutedTransport.Reply.json(200, object: [
             "access_token": SecretKit.random(), "token_type": "Bearer", "expires_in": 900,
-            "id_token": Self.signer.makeJWT(claims: [
+            "id_token": Self.signer.makeIDToken(claims: [
                 "iss": Self.issuer, "aud": Self.clientID, "sub": UUID().uuidString.lowercased(),
                 "iat": Int(now), "exp": Int(now) + 600,
             ]),

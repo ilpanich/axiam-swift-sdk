@@ -7,15 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.4.0] - 2026-11-22
+Conforms to contract 1.69.
 
 ### Security
+
+- **Rule 11 now refuses `"purpose": null`** (SWI-R1-1, CONTRACT.md section 10.1). Presence of `purpose` is read
+  from the verified payload, not from a decoded optional that reads `null` as absent.
+- **Unknown-`kid` re-fetch with a cooldown** (CONTRACT.md section 12.4 rule 2; O-1). `JwksVerifier` re-fetches the JWKS once
+  per 60 s window when a token names a `kid` it does not hold, so a key rotation is accepted without waiting out
+  the 300 s cache; further unknown `kid`s in the window are refused with no network call. A kid-less token is
+  still refused without a fetch. The doc comment that claimed this behaviour now describes code that has it.
+- **A failed or empty JWKS fetch is rate-limited** (CONTRACT.md section 12.4 rule 2). An unavailable JWKS endpoint
+  costs one fetch per 60 s window rather than one per presented token. While the failure is inside its window the
+  keys already held keep verifying tokens (only the network call is throttled), and a throttled fetch does not
+  open an unknown-`kid` window. A cold cache with no keys refuses tokens until the window passes.
+- **The stale-JWKS fallback is bounded** (CONTRACT.md section 12.4 rule 2). While refreshes fail, the held keys serve
+  only while at most 600 s old (300 s cache TTL plus 300 s); past that tokens are refused with the recorded
+  failure, so a key removed upstream cannot keep verifying for as long as the JWKS fetch is blocked.
+- **The JWKS cache TTL is clamped to at most 300 s; the stale-if-error conformance test is added** (CONTRACT.md 1.69,
+  section 12.4 rule 2; D-10, #883). `JwksVerifier`'s `cacheTTL` is clamped down to 300 s (a smaller value is honoured), so
+  the refresh interval and the TTL + 300 s stale bound cannot be stretched. `cacheTTL` is an internal initializer
+  parameter that `AxiamConfig` does not expose, so no `config_clamped` event is due. The stale margin is a fixed 300 s
+  (no longer a parameter), and only a `200` counts as a successful JWKS fetch (a `203` or `206` is a failed refresh).
+  The held-keys behaviour (never replaced or discarded by a failed or empty refresh, anchor moved only by a
+  successful fetch, refused past TTL + 300 s, an unknown-`kid` refresh that fails never extends the window)
+  already conformed and is pinned by `JwksStaleIfErrorTests`. Swift has no AMQP transport, so rule items A to C do not apply.
+- **JWKS refresh hardening** (CONTRACT.md section 12.4 rule 2, settled readings 7 to 9; #883). Verification no longer waits
+  for a refresh while keys inside TTL + 300 s are held: the single-flight fetch is started and the held keys answer at
+  once, and the flight records its own outcome (cache, anchor, failure) whether or not anyone awaits it. The JWKS fetch
+  has a total deadline (`requestTimeout`) covering the body read, not only the response head, so a dripped body cannot
+  hold the flight, and the body is capped at 1 MiB (`HTTPTransport` gains an `execute(_:timeout:maxBodyBytes:)`
+  requirement with a default, enforced by the AsyncHTTPClient transport; other requests keep their 32 MiB cap). A clock
+  stepped back is handled: a negative age never trusts held keys and makes a refresh due, and a cooldown window whose
+  start is in the future is over.
+- **Back-channel logout token selected by `kid`** (CONTRACT.md 1.69, section 12.7.3 rule 1; #880, O-2). A server-shaped token
+  (header exactly `alg`, `typ: logout+jwt`, `kid`) verifies against a two-key JWKS; a kid-less or unknown-`kid`
+  token is refused as `unknown_kid` (also on the ID-token path). A logout token from a server older than 1.69 has
+  no `kid` and is refused, as before. Rules 10 and 11 stay off the logout and ID-token paths.
 
 - The guard now refuses anything that is not an access token (CONTRACT.md 1.68 section 10.1 rules 10-12; N14).
   A token whose header `typ` is present and not `at+jwt` (case-insensitive, `application/` prefix allowed)
   is refused, as is one whose claims carry `purpose` (the MFA challenge, MFA setup and WebAuthn state tokens),
   and a header with no `kid` stays refused (there is no single-key fallback). A token with no `typ` still verifies.
   The checks apply to the access-token path only; the ID-token, logout-token and SSF paths are unchanged.
+
+### Added
+
+- `AuditLogEntry.organizationID` (`organization_id`, set on system-partition rows the server could attribute;
+  SA-02), from the regenerated model (SWI-R1-3).
+- `AxiamGuards.requireScope(_:)` (CONTRACT.md section 11.2 rule 11(d); O-3): local check of the `scope` claim, split on
+  single spaces, exact entries, at least one must match, 403 when absent or not a string.
+- `AxiamUser.rolesClaimPresent` and `AxiamUser.scopes` (section 11.2 rule 11(b); O-3): an absent `roles` claim is
+  distinguishable from `[]`, and the granted scopes are a member separate from `roles`. Additive; `roles` still
+  reads `[]` for both.
+
+### Changed
+
+- `requireRole` now answers 403 for a token with no `roles` claim or one that is not an array of strings
+  (previously a non-array `roles` failed the claims decode and answered 401).
+- README states conformance to contract 1.69 and documents all twelve guard rules (SWI-R1-2).
+- Tests: ID-token fixtures carry `typ: JWT` and logout-token fixtures `typ: logout+jwt`, and every rule 10-12
+  negative asserts the reason it was refused for (SWI-R1-4, SWI-R1-5).
+- Vendored `CONTRACT.md` re-synced to 1.69 (typed event consumer, byte-order-mark refusal, bounded JWKS
+  stale-if-error and the wire-form clarification; axiam#883).
 
 ### Changed (migration note)
 
@@ -69,6 +123,13 @@ unchanged. **No API change**: the registry moves only its `spec_digest`, and
 `reauthenticate` start input (§12.1 rule 12c) is not exposed.
 
 ### Fixed
+
+- **The `oidcRefresh` single-flight key normalises the tenant** (CONTRACT.md section 9 rule 7, #95).
+  The key digest took `tenantID ?? config.tenantID` as spelled, so the same tenant in upper and lower case
+  (or explicit versus the client default) made two flights and two wire calls with one rotating refresh token,
+  a replay that ends the session under contract 1.65. The resolved tenant now enters the key as the
+  lower-case hyphenated UUID, validated before keying: an invalid tenant is refused with no
+  request of any kind (it no longer costs a discovery fetch first), and cannot collide with a valid key.
 
 - **The federated starts now keep the §12.1 rule 12b binding cookie** (contract 1.66, #837).
   `ssoStart` and `ssoStartOauth2` reached the server through `oidcJSONPost` → `umaSendAbsolute`,
@@ -2718,4 +2779,4 @@ contract re-vendor.
 - §8 AMQP HMAC consumption (the contract lists AMQP for Rust/TS/Go/Python/Java/PHP, not Swift).
 - A first-party `AxiamVapor` product (Vapor wiring is documented in the README instead).
 
-[Unreleased]: https://github.com/ilpanich/axiam-swift-sdk/compare/HEAD
+[Unreleased]: https://github.com/ilpanich/axiam-swift-sdk/compare/v1.3.1...HEAD

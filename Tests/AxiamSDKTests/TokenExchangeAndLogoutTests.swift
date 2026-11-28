@@ -16,12 +16,15 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
 
     private func makeRouter(
         tokenStatus: Int = 200,
-        tokenBody: [String: Any] = [:]
+        tokenBody: [String: Any] = [:],
+        jwksSigners: [TestSigner]? = nil
     ) -> TestRouter {
         let signer = self.signer
         let encodedTokenBody = TestResponse.jsonBody(tokenBody)
         return { request, state in
-            if request.uri.hasSuffix("/oauth2/jwks") { return .json(200, signer.jwksJSON()) }
+            if request.uri.hasSuffix("/oauth2/jwks") {
+                return .json(200, jwksSigners.map { TestSigner.jwksJSON(of: $0) } ?? signer.jwksJSON())
+            }
             if request.uri.contains("/.well-known/openid-configuration") {
                 let base = "http://\(request.header("Host") ?? "127.0.0.1")"
                 return .json(200, [
@@ -472,7 +475,7 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
 
     func testVerifyLogoutTokenReturnsSidSubAndJti() async throws {
         try await withServiceClient(router: makeRouter()) { client, _ in
-            let token = signer.makeJWT(claims: logoutClaims())
+            let token = signer.makeLogoutToken(claims: logoutClaims())
             let verified = try await client.verifyLogoutToken(token)
 
             // §12.7.3: never a bare boolean — the RP has to know WHICH session to end.
@@ -495,7 +498,7 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
         ]
         try await withServiceClient(router: makeRouter()) { client, _ in
             for (label, claims) in cases {
-                let token = self.signer.makeJWT(claims: claims)
+                let token = self.signer.makeLogoutToken(claims: claims)
                 do {
                     _ = try await client.verifyLogoutToken(token)
                     XCTFail("expected rejection: \(label)")
@@ -505,6 +508,92 @@ final class TokenExchangeAndLogoutTests: XCTestCase {
                         return XCTFail("expected an AuthError for \(label)")
                     }
                     XCTAssertFalse(authError.message.contains(token))
+                }
+            }
+        }
+    }
+    // MARK: - contract 1.69 (#880): the logout token is selected by `kid`
+
+    /// Decodes a compact JWT's header into its member names.
+    private func headerMembers(_ token: String) throws -> [String: Any] {
+        let segment = String(token.split(separator: ".", omittingEmptySubsequences: false)[0])
+        let data = try XCTUnwrap(Base64URL.decode(segment))
+        return try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    /// §12.7.6: a server-shaped token (header exactly `alg`, `typ: logout+jwt`, `kid`) verifies
+    /// against a two-key JWKS whose first key is NOT the signing key, so a verifier that takes
+    /// the first or only key fails here.
+    func testServerShapedLogoutTokenVerifiesAgainstATwoKeyJwks() async throws {
+        let rotatedOut = TestSigner(kid: "old-key")
+        let token = signer.makeLogoutToken(claims: logoutClaims())
+
+        let header = try headerMembers(token)
+        XCTAssertEqual(Set(header.keys), ["alg", "typ", "kid"], "the fixture adds nothing the server does not send")
+        XCTAssertEqual(header["alg"] as? String, "EdDSA")
+        XCTAssertEqual(header["typ"] as? String, "logout+jwt")
+        XCTAssertEqual(header["kid"] as? String, signer.kid)
+
+        try await withServiceClient(router: makeRouter(jwksSigners: [rotatedOut, signer])) { client, _ in
+            let verified = try await client.verifyLogoutToken(token)
+            XCTAssertEqual(verified.sid, "session-7")
+            XCTAssertEqual(verified.subject, "user-42")
+            XCTAssertEqual(verified.jwtID, "logout-token-1")
+        }
+    }
+
+    /// A kid-less token is refused as `unknown_kid` against a ONE-key JWKS whose key did sign it
+    /// (the single-key fallback the rule forbids).
+    func testKidlessLogoutTokenIsRefusedAsUnknownKidAgainstAOneKeyJwks() async throws {
+        let token = signer.makeLogoutToken(claims: logoutClaims(), includeKid: false)
+        try await withServiceClient(router: makeRouter(jwksSigners: [signer])) { client, _ in
+            do {
+                _ = try await client.verifyLogoutToken(token)
+                XCTFail("a kid-less logout token must be refused")
+            } catch let AxiamError.auth(authError) {
+                XCTAssertEqual(authError.oauthError, "unknown_kid")
+                XCTAssertFalse(authError.message.contains(token))
+            }
+        }
+    }
+
+    func testUnknownKidLogoutTokenIsRefusedAsUnknownKid() async throws {
+        let token = signer.makeLogoutToken(claims: logoutClaims(), kidOverride: "a-kid-nobody-published")
+        try await withServiceClient(router: makeRouter()) { client, _ in
+            do {
+                _ = try await client.verifyLogoutToken(token)
+                XCTFail("an unknown kid must be refused")
+            } catch let AxiamError.auth(authError) {
+                XCTAssertEqual(authError.oauthError, "unknown_kid")
+            }
+        }
+    }
+
+    /// §12.7.6: rules 10 and 11 of §10.1 stay off the logout and ID-token paths. The
+    /// server-shaped logout token (`typ: logout+jwt`) and an ID token (`typ: JWT`) both verify
+    /// through the verifier the access-token guard shares, while that guard refuses both.
+    func testRules10And11StayOffTheLogoutAndIdTokenPathsButTheGuardRefusesBoth() async throws {
+        let logoutToken = signer.makeLogoutToken(claims: logoutClaims())
+        let idToken = signer.makeIDToken(claims: [
+            "iss": Self.issuer, "aud": Self.clientID, "sub": "user-42", "tenant_id": Self.tenantUUID,
+            "iat": Date().timeIntervalSince1970, "exp": Date().addingTimeInterval(300).timeIntervalSince1970,
+        ])
+        try await withServiceClient(router: makeRouter()) { client, _ in
+            // The shared verifier accepts both headers.
+            _ = try await client.jwks.verifySignatureOnlyUnchecked(token: logoutToken)
+            _ = try await client.jwks.verifySignatureOnlyUnchecked(token: idToken)
+            // The logout helper accepts its own token.
+            let verified = try await client.verifyLogoutToken(logoutToken)
+            XCTAssertEqual(verified.jwtID, "logout-token-1")
+
+            // The access-token guard refuses both, on rule 10.
+            for (label, token) in [("logout token", logoutToken), ("ID token", idToken)] {
+                do {
+                    _ = try await client.makeAuthenticator().authenticate(
+                        AxiamRequestContext(headers: ["Authorization": "Bearer \(token)"]))
+                    XCTFail("the guard must refuse a \(label)")
+                } catch let error as AuthError {
+                    XCTAssertTrue(error.message.contains("rule 10"), "\(label): \(error.message)")
                 }
             }
         }

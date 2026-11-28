@@ -192,35 +192,47 @@ extension AxiamClient {
         configuration: OidcConfiguration? = nil
     ) async throws -> OidcTokenSet {
         try ensureOpen()
-        let key = Self.oidcRefreshFlightKey(
-            tenant: tenantID ?? config.tenantID ?? "", refreshToken: refreshToken.wrapped)
+        // §12.3 rule 4 / §9 rule 7: resolve and validate the tenant BEFORE keying, so only a
+        // real UUID ever enters a key. An invalid or slug-only tenant is refused here, with no
+        // discovery fetch and no wire call.
+        // That one canonical value is also what goes on the wire: the wire path is handed it and
+        // never re-resolves the tenant (§9 rule 7).
+        let tenant = try requireOidcTenantUUID(tenantID).lowercased()
+        let key = Self.oidcRefreshFlightKey(tenant: tenant, refreshToken: refreshToken.wrapped)
         if let flight = oidcRefreshFlights[key] {
             // A live or just-settled attempt (§9 rule 6b): join its single outcome.
+            if let hook = _oidcRefreshTestHook { await hook(.waiterJoining) }
             return try await flight.task.value
         }
         let id = UUID()
         let task = Task<OidcTokenSet, Error> { [self] in
             try await self.oidcRefreshOnWire(
-                refreshToken: refreshToken, tenantID: tenantID, configuration: configuration)
+                refreshToken: refreshToken, tenantID: tenant, configuration: configuration)
         }
         oidcRefreshFlights[key] = (id, task)
         do {
             let result = try await task.value
-            oidcRefreshVacate(key, id)
+            await oidcRefreshVacate(key, id)
             return result
         } catch {
-            oidcRefreshVacate(key, id)
+            await oidcRefreshVacate(key, id)
             throw error  // §9.3: never retried here.
         }
     }
 
     /// Release the slot only while it still holds *this* attempt (§9 rule 6c).
-    private func oidcRefreshVacate(_ key: String, _ id: UUID) {
+    private func oidcRefreshVacate(_ key: String, _ id: UUID) async {
+        if let hook = _oidcRefreshTestHook { await hook(.ownerPublished) }
         if oidcRefreshFlights[key]?.id == id { oidcRefreshFlights[key] = nil }
     }
 
     /// The flight key: a digest, so the map never holds the refresh token itself.
+    ///
+    /// `tenant` is the resolved, already validated tenant UUID (``requireOidcTenantUUID(_:)``);
+    /// it enters the key as the lower-case hyphenated form (§9 rule 7), so the same tenant spelled
+    /// `ABC…` or `abc…`, or reached through the client's default, is one key.
     static func oidcRefreshFlightKey(tenant: String, refreshToken: String) -> String {
+        let tenant = UUID(uuidString: tenant)?.uuidString.lowercased() ?? tenant.lowercased()
         let digest = SHA256.hash(data: Data((tenant + "\n" + refreshToken).utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
     }

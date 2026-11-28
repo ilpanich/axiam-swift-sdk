@@ -25,12 +25,6 @@ struct JwtHeader: Decodable, Sendable {
     let typ: String?
 }
 
-/// Matches any JSON value without interpreting it, so a claim's *presence* can be tested
-/// whatever its type (§10.1 rule 11 refuses `purpose` of any shape).
-struct JwtAnyValue: Decodable, Sendable {
-    init(from decoder: Decoder) throws {}
-}
-
 /// A JWT `aud` claim, which RFC 7519 allows to be either a single string or an array of them.
 ///
 /// Decoding is strict: anything that is neither shape fails the whole claim decode, so a
@@ -64,10 +58,15 @@ enum JwtAudience: Decodable, Sendable, Equatable {
 /// lives in ``AxiamRequestAuthenticator``; this type only decodes, and decodes strictly: a claim
 /// of the wrong JSON type (`"exp": "soon"`, `"aud": 7`) throws out of the decode rather than
 /// arriving as `nil`.
+///
+/// `roles`, `scope` and `purpose` are deliberately **not** modelled here. A synthesized
+/// `Decodable` cannot tell an absent key from an explicit `null`, and §10.1 rule 11 and §11.2
+/// rule 11 turn on exactly that (and on a `roles` that is present but not an array of strings,
+/// which must be a 403 and not a decode failure). They are read from the verified payload
+/// itself: see ``VerifiedToken``.
 struct JwtClaims: Decodable, Sendable {
     let sub: String?
     let tenant_id: String?
-    let roles: [String]?
     let preferred_username: String?
     let email: String?
     let exp: Double?
@@ -90,10 +89,6 @@ struct JwtClaims: Decodable, Sendable {
     /// revocation feed never matches a token without one, and there is no `jti` fallback,
     /// because hashing `jti` instead would match nothing while looking like it worked.
     let sid: String?
-    /// AXIAM's purpose marker on the tokens that are not access tokens — the MFA challenge,
-    /// the MFA setup token and the WebAuthn ceremony state. Decoded only so its presence
-    /// can be refused (CONTRACT.md §10.1 rule 11); never read as a value.
-    let purpose: JwtAnyValue?
 }
 
 /// RFC 7800 confirmation claim.
@@ -147,6 +142,42 @@ struct VerifiedToken: Sendable {
     let claims: JwtClaims
     /// The JOSE header `typ`, verbatim (`nil` when absent) — for §10.1 rule 10.
     let typ: String?
+    /// Whether the verified payload carries a `purpose` member **at all** — whatever its value,
+    /// `null` included (§10.1 rule 11: presence is read from the payload, not from a claims
+    /// model whose optional decodes `null` as absent).
+    let carriesPurpose: Bool
+    /// The `roles` claim (§11.2 rule 11): `nil` when the member is absent, is `null`, or is not
+    /// a JSON array of strings; an empty array stays `[]`. The two are told apart by
+    /// ``rolesClaimPresent``.
+    let roles: [String]?
+    /// Whether the token carries a well-formed `roles` array (empty or not).
+    var rolesClaimPresent: Bool { roles != nil }
+    /// The `scope` claim split on single spaces (RFC 6749 §3.3; §11.2 rule 11(d)). `nil` when the
+    /// member is absent or not a string.
+    let scopes: [String]?
+
+    /// Reads the §10.1 / §11.2 members straight from the verified payload's JSON object.
+    init(claims: JwtClaims, typ: String?, payload: Data) throws {
+        self.claims = claims
+        self.typ = typ
+        // A payload that is not a JSON object cannot be read for these members: refuse it rather
+        // than read "no purpose, no roles" out of it.
+        guard let object = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any] else {
+            throw AuthError("Malformed JWT claims.")
+        }
+        self.carriesPurpose = object.keys.contains("purpose")
+        if let list = object["roles"] as? [Any] {
+            let strings = list.compactMap { $0 as? String }
+            self.roles = strings.count == list.count ? strings : nil
+        } else {
+            self.roles = nil
+        }
+        if let scope = object["scope"] as? String {
+            self.scopes = scope.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        } else {
+            self.scopes = nil
+        }
+    }
 }
 
 /// Fetches AXIAM's org-wide JWKS (`GET {baseURL}/oauth2/jwks`), caches it for 300s, and
@@ -159,13 +190,28 @@ struct VerifiedToken: Sendable {
 ///   `iss`, `aud` — belongs to ``AxiamRequestAuthenticator``, which is the guard entry point.
 /// - The network fetch is single-flighted so a burst of first-time verifications triggers one
 ///   HTTP request.
+/// - A token whose `kid` is not in the cached set triggers **one** re-fetch per cooldown window
+///   (CONTRACT.md §12.4 rule 2), so a key rotation is picked up without waiting out the cache
+///   TTL, while a stream of forged `kid`s cannot drive unbounded fetching: inside the window an
+///   unknown `kid` is answered from the cached set with no network call and refused.
 actor JwksVerifier {
     private let transport: HTTPTransport
     private let jwksURL: URL
     private let tenantHeaderValue: String
     private let cacheTTL: TimeInterval
+    /// The longest a fetched JWKS may be served without a refresh (CONTRACT.md §12.4 rule 2,
+    /// contract 1.69): a larger requested TTL is clamped down to this, a smaller one is honoured.
+    static let maxCacheTTL: TimeInterval = 300
     private let requestTimeout: TimeInterval
+    private let unknownKidCooldown: TimeInterval
+    /// How long past `cacheTTL` the held keys may still be served while every refresh fails.
+    static let maxStale: TimeInterval = 300
+    private let now: @Sendable () -> Date
 
+    /// When the last unknown-`kid` re-fetch was started; `nil` until one has been.
+    private var lastUnknownKidRefetch: Date?
+    /// The last failed (or empty) fetch, which rate-limits the next one by the same cooldown.
+    private var lastFetchFailure: (at: Date, error: Error)?
     private var cachedKeys: [Jwk] = []
     private var cachedAt: Date?
     private var inFlight: Task<[Jwk], Error>?
@@ -178,13 +224,21 @@ actor JwksVerifier {
         baseURL: URL,
         tenantHeaderValue: String,
         cacheTTL: TimeInterval = 300,
-        requestTimeout: TimeInterval = 30
+        requestTimeout: TimeInterval = 30,
+        unknownKidCooldown: TimeInterval = 60,
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.transport = transport
         self.jwksURL = baseURL.appendingPathComponent("oauth2/jwks")
         self.tenantHeaderValue = tenantHeaderValue
-        self.cacheTTL = cacheTTL
+        // §12.4 rule 2: the TTL is at most 300 s. The stale bound below is measured from it, so an
+        // unclamped value would stretch both the refresh interval and the stale window. This
+        // initializer is internal and `AxiamConfig` exposes no JWKS TTL, so the value is never a
+        // caller-supplied setting and no §19 `config_clamped` event is due.
+        self.cacheTTL = min(cacheTTL, Self.maxCacheTTL)
         self.requestTimeout = requestTimeout
+        self.unknownKidCooldown = unknownKidCooldown
+        self.now = now
     }
 
     func currentFetchCount() -> Int { fetchCount }
@@ -235,13 +289,21 @@ actor JwksVerifier {
             throw AuthError("Malformed JWT: invalid base64url encoding.")
         }
 
-        let keys = try await keysForVerification()
-        guard let jwk = selectKey(from: keys, kid: header.kid) else {
+        // §12.4 rule 2: a token with no `kid` is refused outright (no single-key fallback, no
+        // re-fetch: there is nothing to look for); an unknown `kid` earns at most one re-fetch per
+        // cooldown window and is then refused. Both are `unknown_kid`.
+        guard let kid = header.kid else {
             throw AuthError(
-                header.kid == nil
-                    ? "JWT header carries no 'kid'; a key id is required to select a JWKS key."
-                    : "No matching EdDSA key in JWKS for kid '\(header.kid ?? "")'."
-            )
+                "JWT header carries no 'kid'; a key id is required to select a JWKS key.",
+                oauthError: "unknown_kid")
+        }
+        let (cached, freshlyFetched) = try await keysForVerification()
+        var selected = selectKey(from: cached, kid: kid)
+        if selected == nil, !freshlyFetched {
+            selected = selectKey(from: try await refetchForUnknownKid(), kid: kid)
+        }
+        guard let jwk = selected else {
+            throw AuthError("No matching EdDSA key in the JWKS for the token's 'kid'.", oauthError: "unknown_kid")
         }
         guard jwk.kty == "OKP", jwk.crv == "Ed25519", let x = jwk.x, let rawKey = Base64URL.decode(x) else {
             throw AuthError("JWKS key is not a usable Ed25519 (OKP) key.")
@@ -266,7 +328,7 @@ actor JwksVerifier {
         } catch {
             throw AuthError("Malformed JWT claims.")
         }
-        return VerifiedToken(claims: claims, typ: header.typ)
+        return try VerifiedToken(claims: claims, typ: header.typ, payload: payloadData)
     }
 
     /// Resolve the JWKS key a token's header names.
@@ -289,23 +351,160 @@ actor JwksVerifier {
         return keys.first { $0.kid == kid && $0.kty == "OKP" && $0.crv == "Ed25519" }
     }
 
-    private func keysForVerification() async throws -> [Jwk] {
-        if let cachedAt, Date().timeIntervalSince(cachedAt) < cacheTTL, !cachedKeys.isEmpty {
-            return cachedKeys
+    /// Seconds since `instant`, or `nil` when the clock reads earlier than it (it was stepped
+    /// back). A negative age is never trusted: held keys are not served on it and a window that
+    /// "started in the future" is over (CONTRACT.md §12.4 rule 2, settled readings 7 and 9).
+    private func age(since instant: Date) -> TimeInterval? {
+        let elapsed = now().timeIntervalSince(instant)
+        return elapsed >= 0 ? elapsed : nil
+    }
+
+    /// Whether a cooldown window that began at `start` is still open.
+    private func windowOpen(since start: Date) -> Bool {
+        guard let elapsed = age(since: start) else { return false }
+        return elapsed < unknownKidCooldown
+    }
+
+    private var failureWindowOpen: Bool {
+        guard let failure = lastFetchFailure else { return false }
+        return windowOpen(since: failure.at)
+    }
+
+    /// Test seam: waits for the fetch in flight, if any, so a test can count fetches after it.
+    func awaitInFlight() async {
+        if let flight = inFlight { _ = try? await flight.value }
+    }
+
+    /// The keys to verify against, and whether this call had to fetch them (a cold or unusable
+    /// cache), in which case an unknown `kid` has nothing newer to be re-fetched for.
+    private func keysForVerification() async throws -> ([Jwk], Bool) {
+        if let cachedAt, let elapsed = age(since: cachedAt), elapsed < cacheTTL, !cachedKeys.isEmpty {
+            return (cachedKeys, false)
         }
+        // Past the TTL. Keys already held keep verifying while they are at most
+        // `cacheTTL + maxStale` old, and verification never waits for the refresh: it is started
+        // here if none is running and its window is closed, and the held keys answer now. Unbounded,
+        // a key removed upstream (a rotated-out compromised key) would verify for as long as the
+        // refreshes keep failing, hence the bound.
+        let stale = heldKeysWithinStaleBound()
+        if !stale.isEmpty {
+            if inFlight == nil, !failureWindowOpen { _ = startFlight() }
+            return (stale, false)
+        }
+        // Cold, past the bound, or the clock stepped back: nothing usable is held, so wait.
+        do {
+            return (try await loadKeys(), true)
+        } catch {
+            let stillWithinBound = heldKeysWithinStaleBound()
+            if !stillWithinBound.isEmpty { return (stillWithinBound, false) }
+            throw error
+        }
+    }
+
+    /// The held keys, or none when they are older than `cacheTTL + maxStale` or the clock reads
+    /// earlier than the last successful fetch.
+    private func heldKeysWithinStaleBound() -> [Jwk] {
+        guard let cachedAt, let elapsed = age(since: cachedAt), elapsed < cacheTTL + Self.maxStale else {
+            return []
+        }
+        return cachedKeys
+    }
+
+    /// §12.4 rule 2: the single re-fetch an unknown `kid` is allowed per cooldown window.
+    ///
+    /// Returns the set the caller should select from. When the window is still open there is no
+    /// new network call: the caller waits for a fetch already in flight, if there is one, and
+    /// otherwise uses the current cache, so it always re-selects from the freshest set held.
+    /// The window opens *before* the fetch, so a failing fetch is also rate-limited and concurrent
+    /// unknown `kid`s see it already open. A failed refresh refuses the token (the caller finds no
+    /// key) and leaves the held set, and the stale bound, exactly where they were.
+    private func refetchForUnknownKid() async throws -> [Jwk] {
+        let current = now()
+        if let last = lastUnknownKidRefetch, windowOpen(since: last) {
+            if let inFlight { return (try? await inFlight.value) ?? heldKeysWithinStaleBound() }
+            return heldKeysWithinStaleBound()
+        }
+        // A recorded fetch failure already throttles the network: answer from the cache and do not
+        // open a re-fetch window for a fetch that was never made.
+        if failureWindowOpen {
+            return heldKeysWithinStaleBound()
+        }
+        lastUnknownKidRefetch = current
+        do {
+            return try await loadKeys()
+        } catch {
+            let held = heldKeysWithinStaleBound()
+            if held.isEmpty { throw error }
+            return held
+        }
+    }
+
+    /// Fetch the JWKS (single-flighted) and wait for the outcome.
+    ///
+    /// A failed fetch, or one that returns no keys, is rate-limited by the same cooldown: until it
+    /// elapses the recorded failure is re-thrown with no network call, so an unavailable JWKS
+    /// endpoint costs one fetch per window rather than one per presented token.
+    private func loadKeys() async throws -> [Jwk] {
         if let inFlight {
             return try await inFlight.value
         }
-        let task = Task<[Jwk], Error> { [self] in
-            try await self.fetchKeys()
+        if let failure = lastFetchFailure, windowOpen(since: failure.at) {
+            throw failure.error
         }
-        inFlight = task
-        defer { inFlight = nil }
-        let keys = try await task.value
-        cachedKeys = keys
-        cachedAt = Date()
-        return keys
+        return try await startFlight().value
     }
+
+    /// Starts the single fetch (or returns the one running). The flight runs in its own task, so a
+    /// caller's cancellation neither stops it nor is recorded as a failed refresh, and it records
+    /// its own outcome: no caller has to be awaiting for the cache to be filled or the failure noted.
+    private func startFlight() -> Task<[Jwk], Error> {
+        if let inFlight { return inFlight }
+        let task = Task<[Jwk], Error> { [self] in try await self.runFlight() }
+        inFlight = task
+        return task
+    }
+
+    private func runFlight() async throws -> [Jwk] {
+        defer { inFlight = nil }
+        do {
+            let keys = try await fetchKeysWithDeadline()
+            if keys.isEmpty { throw AuthError("Failed to use JWKS: the document holds no keys.") }
+            lastFetchFailure = nil
+            cachedKeys = keys
+            cachedAt = now()
+            return keys
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            lastFetchFailure = (at: now(), error: error)
+            throw error
+        }
+    }
+
+    /// The fetch with a TOTAL deadline of `requestTimeout`: the request and the reading of its
+    /// body race a timer, and the loser is cancelled (AsyncHTTPClient aborts a streaming body on
+    /// cancellation). The client's own timeout covers the response head only, so a server that
+    /// drips the body would otherwise hold the single flight, and with it the cache, forever.
+    private func fetchKeysWithDeadline() async throws -> [Jwk] {
+        let nanoseconds = UInt64(max(requestTimeout, 0) * 1_000_000_000)
+        let seconds = Int(requestTimeout.rounded())
+        return try await withThrowingTaskGroup(of: [Jwk]?.self) { group in
+            group.addTask { [self] in try await self.fetchKeys() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: nanoseconds)
+                return nil
+            }
+            defer { group.cancelAll() }
+            guard let first = try await group.next() else {
+                throw AuthError("Failed to fetch JWKS.")
+            }
+            if let keys = first { return keys }
+            throw AuthError("Failed to fetch JWKS: no complete response within \(seconds) s.")
+        }
+    }
+
+    /// The largest JWKS body read (a real set is a few hundred bytes).
+    static let maxBodyBytes = 1024 * 1024
 
     private func fetchKeys() async throws -> [Jwk] {
         let spec = HTTPRequestSpec(
@@ -314,9 +513,15 @@ actor JwksVerifier {
             headers: [("Accept", "application/json"), ("X-Tenant-ID", tenantHeaderValue)],
             body: nil
         )
-        let response = try await transport.execute(spec, timeout: requestTimeout)
+        let response = try await transport.execute(
+            spec, timeout: requestTimeout, maxBodyBytes: Self.maxBodyBytes)
         fetchCount += 1
-        guard (200..<300).contains(response.status) else {
+        guard response.body.count <= Self.maxBodyBytes else {
+            throw AuthError("Failed to fetch JWKS: the response body is too large.")
+        }
+        // §12.4 rule 2: only a `200` is a successful fetch (a `304` needs a conditional request,
+        // which this SDK never sends), so 203, 206 and the rest of 2xx are failed refreshes.
+        guard response.status == 200 else {
             throw AuthError("Failed to fetch JWKS: HTTP \(response.status).")
         }
         do {

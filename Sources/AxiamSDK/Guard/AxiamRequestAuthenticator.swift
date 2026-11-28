@@ -348,7 +348,14 @@ public struct AxiamRequestAuthenticator: Sendable {
         // §10.1 rule 1. The primitive checks the signature only — every claim rule below is this
         // guard's job. A non-numeric `exp`/`nbf` or a wrong-typed `aud` already fails there, in
         // the strict claim decode.
-        let verified = try await jwks.verifySignatureOnlyUnchecked(token: token)
+        let verified: VerifiedToken
+        do {
+            verified = try await jwks.verifySignatureOnlyUnchecked(token: token)
+        } catch let error as AuthError where error.oauthError == OidcValidationCode.unknownKid.rawValue {
+            // `unknown_kid` is the ID-token and logout-token vocabulary (§12.3 rule 3). The guard's
+            // refusals stay indistinguishable (§28.4), so the code is not carried onto them.
+            throw AuthError(error.message)
+        }
         let claims = verified.claims
         let now = Date().timeIntervalSince1970
 
@@ -360,7 +367,9 @@ public struct AxiamRequestAuthenticator: Sendable {
         // `JwksVerifier.selectKey`. These live here, on the access-token path only: the ID token,
         // the logout token and the SSF SET reach the verifier through other entry points.
         try Self.assertAccessTokenType(verified.typ)
-        if claims.purpose != nil {
+        // Presence is read from the verified payload (`carriesPurpose`), not from a decoded
+        // optional: `"purpose": null` is a `purpose` and is refused like any other value.
+        if verified.carriesPurpose {
             throw AuthError("Token carries a purpose claim; it is not an access token (CONTRACT.md §10.1 rule 11).")
         }
 
@@ -439,9 +448,12 @@ public struct AxiamRequestAuthenticator: Sendable {
         return AxiamUser(
             userID: subject,
             tenantID: claims.tenant_id ?? tenantID,
-            roles: claims.roles ?? [],
+            roles: verified.roles ?? [],
             username: claims.preferred_username,
-            email: claims.email
+            email: claims.email,
+            // §11.2 rule 11(b): absent (or malformed) `roles` stays distinguishable from `[]`.
+            rolesClaimPresent: verified.rolesClaimPresent,
+            scopes: verified.scopes
         )
     }
 

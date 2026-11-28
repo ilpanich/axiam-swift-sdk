@@ -71,6 +71,26 @@ struct TestSigner: Sendable {
         return signingInput + "." + TestBase64URL.encode(signature)
     }
 
+    /// An OIDC ID token as the server mints it: header `typ: JWT` (never `at+jwt`), so a test that
+    /// passes through the shared verifier also proves §10.1 rules 10 and 11 stay off this path.
+    func makeIDToken(claims: [String: Any], kidOverride: String? = nil) -> String {
+        makeJWT(claims: claims, kidOverride: kidOverride, typ: "JWT")
+    }
+
+    /// A back-channel logout token as the server signs it from contract 1.69: the header is
+    /// **exactly** `{"alg":"EdDSA","typ":"logout+jwt","kid":"<kid>"}` and nothing else.
+    /// `includeKid: false` is the pre-1.69 shape.
+    func makeLogoutToken(claims: [String: Any], includeKid: Bool = true, kidOverride: String? = nil) -> String {
+        makeJWT(claims: claims, includeKid: includeKid, kidOverride: kidOverride, typ: "logout+jwt")
+    }
+
+    /// One JWKS document holding the public keys of every signer, in the order given — a key
+    /// rotation, where a verifier that takes the first or only key picks the wrong one.
+    static func jwksJSON(of signers: [TestSigner]) -> [String: Any] {
+        let keys = signers.flatMap { ($0.jwksJSON()["keys"] as? [[String: Any]]) ?? [] }
+        return ["keys": keys]
+    }
+
     /// An `alg: none` token with an empty signature segment — the classic unsigned-JWT forgery.
     func makeAlgNoneJWT(claims: [String: Any]) -> String {
         let header: [String: Any] = ["alg": "none", "typ": "JWT", "kid": kid]

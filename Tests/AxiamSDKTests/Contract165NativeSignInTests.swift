@@ -400,7 +400,7 @@ final class Contract165NativeSignInTests: XCTestCase {
         return [
             "access_token": "the-access-token", "token_type": tokenType, "expires_in": 900,
             "scope": "openid profile", "refresh_token": "the-refresh-token",
-            "id_token": Self.signer.makeJWT(claims: claims),
+            "id_token": Self.signer.makeIDToken(claims: claims),
         ]
     }
 
@@ -754,6 +754,236 @@ final class Contract165NativeSignInTests: XCTestCase {
         XCTAssertEqual(transport.tokenRequests.count, 3)
     }
 
+    // MARK: - §9 rule 7 (contract 1.69): the flight key carries the normalised resolved tenant
+
+    /// Both contain hex letters, so upper- and lower-case spellings really differ.
+    private static let hexTenant = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+    private static let otherTenant = "ffffffff-1111-4222-9333-abcdefabcdef"
+
+    /// What a burst of held `oidcRefresh` calls did.
+    private struct RefreshBurst {
+        var wireCalls: Int
+        /// The `tenant_id` query value of each token-endpoint call, in arrival order.
+        var wireTenants: [String]
+        /// Each caller's access token (`at-<refresh token it presented>`), in call order.
+        var results: [String]
+        var slotsAfter: Int
+    }
+
+    /// One refresh per `(token, tenantID)` pair, run concurrently. The first call is parked on the
+    /// wire before any other starts. The wire is released only when the burst has reached its
+    /// expected shape: `expectedJoins` callers have committed to the live flight (a hook fired in
+    /// the join branch) and `expectedWire` calls are parked on the transport. No sleeps: a shape
+    /// that is never reached gives up after a bounded poll, so a regression fails an assertion
+    /// instead of hanging the suite.
+    private func heldRefreshBurst(
+        _ calls: [(token: String, tenant: String?)],
+        clientTenant: String? = Contract165NativeSignInTests.tenant,
+        expectedWire: Int,
+        expectedJoins: Int
+    ) async throws -> RefreshBurst {
+        let arrivals = ProbeCounter()
+        let joins = ProbeCounter()
+        let release = ProbeLatch()
+        let transport = Contract165Transport { spec in
+            arrivals.increment()
+            await release.wait()
+            let token = Contract165NativeSignInTests.refreshToken(in: spec)
+            return Contract165Transport.json(
+                200,
+                ["access_token": "at-\(token)", "token_type": "Bearer", "expires_in": 900])
+        }
+        let client = try makeClient(transport: transport, tenantID: clientTenant)
+        await client._setOidcRefreshTestHook { phase in
+            if phase == .waiterJoining { joins.increment() }
+        }
+        let results = try await withThrowingTaskGroup(of: (Int, String).self) { group in
+            for (index, call) in calls.enumerated() {
+                group.addTask {
+                    let set = try await client.oidcRefresh(
+                        refreshToken: Sensitive(call.token), tenantID: call.tenant,
+                        configuration: Self.configuration)
+                    return (index, set.accessToken.wrapped)
+                }
+                // The first call is on the wire before any other starts.
+                if index == 0 { _ = await arrivals.wait(atLeast: 1) }
+            }
+            _ = await joins.wait(atLeast: expectedJoins)
+            _ = await arrivals.wait(atLeast: expectedWire)
+            release.signal()
+            var out = [String](repeating: "", count: calls.count)
+            for try await (index, token) in group { out[index] = token }
+            return out
+        }
+        await client._setOidcRefreshTestHook(nil)
+        let tenants = transport.tokenRequests.map { spec in
+            (URLComponents(url: spec.url, resolvingAgainstBaseURL: false)?.queryItems ?? [])
+                .first { $0.name == "tenant_id" }?.value ?? ""
+        }
+        return RefreshBurst(
+            wireCalls: transport.tokenRequests.count, wireTenants: tenants, results: results,
+            slotsAfter: await client._oidcRefreshFlightCount())
+    }
+
+    private static func refreshToken(in spec: HTTPRequestSpec) -> String {
+        String(decoding: spec.body ?? Data(), as: UTF8.self).split(separator: "&")
+            .first { $0.hasPrefix("refresh_token=") }
+            .map { String($0.dropFirst("refresh_token=".count)) } ?? ""
+    }
+
+    func testRefreshTenantCaseAndOmittedDefaultShareOneFlight() async throws {
+        let lower = Self.hexTenant
+        let upper = Self.hexTenant.uppercased()
+        XCTAssertNotEqual(lower, upper)
+        XCTAssertNotEqual(Self.otherTenant, Self.otherTenant.uppercased())
+        // The leader passes the tenant in upper case: the wire still gets the canonical form.
+        let leaderUpper = try await heldRefreshBurst(
+            [("rt", upper), ("rt", lower), ("rt", nil)], clientTenant: lower,
+            expectedWire: 1, expectedJoins: 2)
+        XCTAssertEqual(leaderUpper.wireCalls, 1)
+        XCTAssertEqual(leaderUpper.wireTenants, [lower.lowercased()])
+        // The client's default tenant, spelled lower, upper and not at all, concurrently.
+        let burst = try await heldRefreshBurst(
+            [("rt", lower), ("rt", upper), ("rt", nil)], clientTenant: lower,
+            expectedWire: 1, expectedJoins: 2)
+        XCTAssertEqual(burst.wireCalls, 1, "same token, same effective tenant: one flight")
+        XCTAssertEqual(burst.wireTenants, [lower], "the canonical lower-case value goes on the wire")
+        XCTAssertEqual(burst.results, ["at-rt", "at-rt", "at-rt"])
+        XCTAssertEqual(burst.slotsAfter, 0, "the slot is removed once vacated")
+
+        // The default itself configured in upper case, the others lower case and omitted.
+        let mixed = try await heldRefreshBurst(
+            [("rt", nil), ("rt", lower), ("rt", upper)], clientTenant: upper,
+            expectedWire: 1, expectedJoins: 2)
+        XCTAssertEqual(mixed.wireCalls, 1)
+        XCTAssertEqual(mixed.wireTenants, [lower])
+        XCTAssertEqual(mixed.slotsAfter, 0)
+    }
+
+    func testRefreshDifferentTenantSeparateFlights() async throws {
+        let burst = try await heldRefreshBurst(
+            [("rt", Self.hexTenant), ("rt", Self.otherTenant)], clientTenant: Self.hexTenant,
+            expectedWire: 2, expectedJoins: 0)
+        XCTAssertEqual(burst.wireCalls, 2, "same token, different tenant: separate flights")
+        XCTAssertEqual(Set(burst.wireTenants), [Self.hexTenant, Self.otherTenant],
+                       "each wire call carries its own tenant_id")
+        XCTAssertEqual(burst.results, ["at-rt", "at-rt"])
+        XCTAssertEqual(burst.slotsAfter, 0)
+
+        // The other tenant spelled in upper case is still the other tenant: separate flights.
+        let upper = try await heldRefreshBurst(
+            [("rt", nil), ("rt", Self.otherTenant.uppercased())], clientTenant: Self.hexTenant,
+            expectedWire: 2, expectedJoins: 0)
+        XCTAssertEqual(upper.wireCalls, 2)
+        XCTAssertEqual(upper.slotsAfter, 0)
+    }
+
+    func testRefreshDifferentTokenSeparateFlights() async throws {
+        let burst = try await heldRefreshBurst(
+            [("rt-a", nil), ("rt-a", nil), ("rt-b", nil)], expectedWire: 2, expectedJoins: 1)
+        XCTAssertEqual(burst.wireCalls, 2, "different token, same tenant: separate flights")
+        XCTAssertEqual(
+            burst.results, ["at-rt-a", "at-rt-a", "at-rt-b"],
+            "a second caller of A shares A's call; B gets its own outcome")
+        XCTAssertEqual(burst.slotsAfter, 0)
+    }
+
+    /// Contract 1.69, the publish-before-vacate window. Owner A's outcome is settled but its slot
+    /// is not yet vacated (the `.ownerPublished` hook parks it there). A different token B makes
+    /// its own wire call and gets its own result; the same token A, arriving in that window,
+    /// joins A's outcome without a new wire call.
+    func testRefreshDifferentTokenInPublishBeforeVacateWindowGetsItsOwnCall() async throws {
+        let transport = Contract165Transport { spec in
+            let token = Contract165NativeSignInTests.refreshToken(in: spec)
+            return Contract165Transport.json(
+                200, ["access_token": "at-\(token)", "token_type": "Bearer", "expires_in": 900])
+        }
+        let client = try makeClient(transport: transport)
+        // Captured explicitly below: Swift 6.2's region-based isolation checker cannot check an
+        // unstructured Task that reaches `Self.configuration` (it implicitly captures `self`).
+        let configuration = Self.configuration
+        let parked = ProbeCounter()
+        let open = ProbeLatch()
+        let once = ProbeLatch()
+        let joined = ProbeCounter()
+        await client._setOidcRefreshTestHook { phase in
+            switch phase {
+            case .ownerPublished:
+                if once.claimOnce() {  // only A's owner parks; B's vacate passes straight through
+                    parked.increment()
+                    await open.wait()
+                }
+            case .waiterJoining:
+                joined.increment()
+            }
+        }
+        let a = Task { [client, configuration] in
+            try await client.oidcRefresh(
+                refreshToken: Sensitive("rt-a"), configuration: configuration)
+        }
+        // A's wire call is done and its outcome settled; the slot is not vacated.
+        let isParked = await parked.wait(atLeast: 1)
+        XCTAssertTrue(isParked, "owner A reached the publish-before-vacate window")
+        XCTAssertEqual(transport.tokenRequests.count, 1)
+
+        let b = try await client.oidcRefresh(
+            refreshToken: Sensitive("rt-b"), configuration: configuration)
+        XCTAssertEqual(b.accessToken.wrapped, "at-rt-b", "B's own result")
+        XCTAssertEqual(transport.tokenRequests.count, 2, "B made its own wire call")
+
+        let aAgain = Task { [client, configuration] in
+            try await client.oidcRefresh(
+                refreshToken: Sensitive("rt-a"), configuration: configuration)
+        }
+        // The same token commits to the settled flight in the window (bounded: a regression that
+        // starts a second flight fails here instead of hanging).
+        let didJoin = await joined.wait(atLeast: 1)
+        XCTAssertTrue(didJoin, "the same token joined the settled flight")
+        open.signal()
+        let first = try await a.value
+        let second = try await aAgain.value
+        XCTAssertEqual(first.accessToken.wrapped, "at-rt-a")
+        XCTAssertEqual(second.accessToken.wrapped, "at-rt-a", "the same token joined A's outcome")
+        XCTAssertEqual(transport.tokenRequests.count, 2, "no wire call for the joiner")
+        let slots = await client._oidcRefreshFlightCount()
+        XCTAssertEqual(slots, 0)
+        await client._setOidcRefreshTestHook(nil)
+    }
+
+    func testRefreshFlightKeyNormalisesTenantAndIsAHexDigest() {
+        let token = "rt-secret"
+        let lower = AxiamClient.oidcRefreshFlightKey(tenant: Self.hexTenant, refreshToken: token)
+        XCTAssertEqual(
+            lower,
+            AxiamClient.oidcRefreshFlightKey(tenant: Self.hexTenant.uppercased(), refreshToken: token))
+        XCTAssertNotEqual(
+            lower, AxiamClient.oidcRefreshFlightKey(tenant: Self.otherTenant, refreshToken: token))
+        XCTAssertEqual(lower.count, 64, "a SHA-256 hex digest, never the token")
+        XCTAssertTrue(lower.allSatisfy { $0.isHexDigit && !$0.isUppercase })
+    }
+
+    /// An invalid tenant is refused before keying and before any request, with or without a
+    /// supplied discovery document: zero requests of any kind.
+    func testRefreshInvalidTenantIsRefusedWithNoRequestAtAll() async throws {
+        for bad in ["not-a-uuid", Self.tenant + "\nx", ""] {
+            let transport = okTransport()
+            let client = try makeClient(transport: transport)
+            let configurations: [OidcConfiguration?] = [Self.configuration, nil]
+            for configuration in configurations {
+                do {
+                    _ = try await client.oidcRefresh(
+                        refreshToken: Sensitive("rt"), tenantID: bad, configuration: configuration)
+                    XCTFail("an invalid tenant must be refused: \(bad.debugDescription)")
+                } catch {
+                    XCTAssertNotNil(Self.oauthError(error), "\(error)")
+                }
+            }
+            XCTAssertEqual(transport.requests.count, 0, "no request of any kind: \(bad.debugDescription)")
+            let slots = await client._oidcRefreshFlightCount()
+            XCTAssertEqual(slots, 0)
+        }
+    }
+
     // MARK: - §26.6 par_idp_hint_from_begin_url_pushed / par_idp_hint_argument_wins (D-N36)
 
     private func parTransport() -> Contract165Transport {
@@ -891,3 +1121,4 @@ final class Contract165NativeSignInTests: XCTestCase {
         try? await client.shutdown()
     }
 }
+

@@ -136,15 +136,15 @@ final class ProbeLatch: @unchecked Sendable {
     private let lock = NSLock()
     private var signalled = false
     private var claimed = false
-    private var waiter: CheckedContinuation<Void, Never>?
+    private var waiters: [CheckedContinuation<Void, Never>] = []
 
     func signal() {
         lock.lock()
         signalled = true
-        let continuation = waiter
-        waiter = nil
+        let continuations = waiters
+        waiters = []
         lock.unlock()
-        continuation?.resume()
+        for continuation in continuations { continuation.resume() }
     }
 
     func wait() async {
@@ -155,7 +155,7 @@ final class ProbeLatch: @unchecked Sendable {
                 continuation.resume()
                 return
             }
-            waiter = continuation
+            waiters.append(continuation)
             lock.unlock()
         }
     }
@@ -165,6 +165,27 @@ final class ProbeLatch: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         if claimed { return false }
         claimed = true
+        return true
+    }
+}
+
+
+/// A thread-safe counter a test can wait on, by bounded polling (no continuation, so no hang if
+/// the count is never reached). `wait` returns whether the target was reached.
+final class ProbeCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    func increment() { lock.lock(); count += 1; lock.unlock() }
+
+    private var current: Int { lock.lock(); defer { lock.unlock() }; return count }
+
+    func wait(atLeast target: Int, seconds: Double = 5) async -> Bool {
+        let deadline = Date().addingTimeInterval(seconds)
+        while current < target {
+            if Date() > deadline { return false }
+            try? await Task.sleep(nanoseconds: 2_000_000)
+        }
         return true
     }
 }
